@@ -77,9 +77,9 @@ def seed_brayan():
         print(f"User {first_name} {last_name} already exists with ID: {user_id}")
     else:
         cursor.execute("""
-            INSERT INTO users (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability))
+            INSERT INTO users (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule, nickname, password)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability, "brayan.guerrero", "123456"))
         user_id = cursor.lastrowid
         print(f"Inserted User {first_name} {last_name} with ID: {user_id}")
         

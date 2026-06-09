@@ -29,9 +29,9 @@ def seed_details():
         print(f"Maria already exists with ID: {maria_id}")
     else:
         cursor.execute("""
-            INSERT INTO users (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability))
+            INSERT INTO users (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule, nickname, password)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability, "maria.perez", "123456"))
         maria_id = cursor.lastrowid
         print(f"Inserted User Maria Perez with ID: {maria_id}")
         

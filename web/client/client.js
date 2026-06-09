@@ -23,7 +23,7 @@ let mannequinData = {
 // Hydration State
 let currentWaterIntakeMl = 0;
 
-document.addEventListener("DOMContentLoaded", () => {
+function initClientDashboard() {
     // Parse userId from query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const idParam = urlParams.get('userId');
@@ -33,7 +33,13 @@ document.addEventListener("DOMContentLoaded", () => {
     
     loadClientData();
     startMannequinRotation();
-});
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initClientDashboard);
+} else {
+    initClientDashboard();
+}
 
 async function loadClientData() {
     try {
@@ -65,12 +71,14 @@ function populateKPIs() {
     // 1. Weight KPI
     if (assessments.length > 0) {
         const latest = assessments[assessments.length - 1];
-        document.getElementById("clientKpiWeight").innerText = `${latest.weight_kg} kg`;
+        document.getElementById("clientKpiWeight").innerText = `${latest.weight_kg || 0} kg`;
         document.getElementById("clientKpiWeightDesc").innerText = `Registrado el: ${latest.date}`;
         
         // 2. Fat KPI
-        document.getElementById("clientKpiFat").innerText = `${latest.body_fat_percentage.toFixed(1)}%`;
-        document.getElementById("clientKpiFatDesc").innerText = `Masa magra: ${latest.lean_mass_kg.toFixed(1)} kg`;
+        const fatPct = latest.body_fat_percentage !== null && latest.body_fat_percentage !== undefined ? latest.body_fat_percentage : 0.0;
+        const leanMass = latest.lean_mass_kg !== null && latest.lean_mass_kg !== undefined ? latest.lean_mass_kg : ((latest.weight_kg || 0) - ((latest.weight_kg || 0) * (fatPct / 100.0)));
+        document.getElementById("clientKpiFat").innerText = `${fatPct.toFixed(1)}%`;
+        document.getElementById("clientKpiFatDesc").innerText = `Masa magra: ${leanMass.toFixed(1)} kg`;
     } else {
         document.getElementById("clientKpiWeight").innerText = "-";
         document.getElementById("clientKpiFat").innerText = "-";
@@ -78,8 +86,8 @@ function populateKPIs() {
     
     // 3. Nutrition KPI
     if (diet) {
-        document.getElementById("clientKpiCalories").innerText = `${diet.target_calories} Kcal`;
-        document.getElementById("clientKpiMacrosDesc").innerText = `P: ${diet.target_protein}g | C: ${diet.target_carbs}g | G: ${diet.target_fat}g`;
+        document.getElementById("clientKpiCalories").innerText = `${diet.target_calories || 0} Kcal`;
+        document.getElementById("clientKpiMacrosDesc").innerText = `P: ${diet.target_protein || 0}g | C: ${diet.target_carbs || 0}g | G: ${diet.target_fat || 0}g`;
     } else {
         document.getElementById("clientKpiCalories").innerText = "-";
     }
@@ -179,7 +187,7 @@ function renderWorkoutPlans() {
     container.innerHTML = "";
     
     const workouts = clientFullData.workout_plan;
-    if (!workouts || workouts.days.length === 0) {
+    if (!workouts || !workouts.days || workouts.days.length === 0) {
         container.innerHTML = `
             <h3>Mi Entrenamiento Asignado</h3>
             <div style="padding: 20px; text-align: center; color: var(--color-text-secondary);">
@@ -272,7 +280,7 @@ function renderNutritionPlans() {
     container.innerHTML = "";
     
     const diet = clientFullData.nutrition_plan;
-    if (!diet || diet.meals.length === 0) {
+    if (!diet || !diet.meals || diet.meals.length === 0) {
         container.innerHTML = `
             <h3>Mi Plan de Alimentación</h3>
             <div style="padding: 20px; text-align: center; color: var(--color-text-secondary);">
@@ -392,12 +400,12 @@ function setupMannequinDimensions() {
     const assessments = clientFullData.assessments || [];
     if (assessments.length > 0) {
         const latest = assessments[assessments.length - 1];
-        mannequinData.height = latest.height_cm;
+        mannequinData.height = latest.height_cm || 170;
         mannequinData.chest = latest.chest || 95;
         mannequinData.waist = latest.abdomen || 80;
         mannequinData.hips = latest.trochanter || 95;
         mannequinData.bicep = latest.right_bicep || 30;
-        mannequinData.fat = latest.body_fat_percentage || 12;
+        mannequinData.fat = latest.body_fat_percentage !== null && latest.body_fat_percentage !== undefined ? latest.body_fat_percentage : 12;
         
         document.getElementById("mannequinStatsChest").innerText = mannequinData.chest;
         document.getElementById("mannequinStatsAbdomen").innerText = mannequinData.waist;

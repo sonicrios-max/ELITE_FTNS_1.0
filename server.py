@@ -15,6 +15,56 @@ PERSISTENT_DIR = os.environ.get("PERSISTENT_DIR", os.path.join(BASE_DIR, "databa
 os.makedirs(PERSISTENT_DIR, exist_ok=True)
 DB_PATH = os.path.join(PERSISTENT_DIR, "fitness.db")
 
+def check_and_migrate_db():
+    print(f"Checking database migration at: {DB_PATH}")
+    if not os.path.exists(DB_PATH):
+        print("Database file does not exist yet. It will be initialized by seeding scripts.")
+        return
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # Check columns of users table
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        migrated = False
+        if "nickname" not in columns:
+            print("Migration: Adding column 'nickname' to 'users' table...")
+            cursor.execute("ALTER TABLE users ADD COLUMN nickname TEXT")
+            migrated = True
+        if "password" not in columns:
+            print("Migration: Adding column 'password' to 'users' table...")
+            cursor.execute("ALTER TABLE users ADD COLUMN password TEXT")
+            migrated = True
+            
+        if migrated:
+            conn.commit()
+            print("Migration successful. Seeding default credentials...")
+            
+            # Seed default credentials for users if null
+            cursor.execute("SELECT id, email, nickname FROM users")
+            users = cursor.fetchall()
+            for u_id, email, nick in users:
+                # Set default nickname as part of email before @
+                new_nick = email.split('@')[0].lower()
+                new_pass = "123456"
+                
+                # Check if nickname already exists in database (to be safe)
+                cursor.execute("SELECT id FROM users WHERE nickname = ? AND id != ?", (new_nick, u_id))
+                if cursor.fetchone():
+                    new_nick = f"{new_nick}_{u_id}"
+                
+                cursor.execute("UPDATE users SET nickname = ?, password = ? WHERE id = ?", (new_nick, new_pass, u_id))
+                print(f"  -> User ID {u_id} updated: nickname='{new_nick}', password='{new_pass}'")
+            conn.commit()
+            print("Default credentials seeded.")
+    except Exception as e:
+        print("Error during migration:", e)
+    finally:
+        conn.close()
+
+
 
 class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     
@@ -48,7 +98,9 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error_response(400, "Invalid Client ID format.")
         
         # Route Web Dashboards
-        elif path == "/" or path == "/trainer" or path == "/trainer/":
+        elif path == "/" or path == "/index.html":
+            self.serve_local_file(os.path.join(BASE_DIR, "web", "index.html"), "text/html")
+        elif path == "/trainer" or path == "/trainer/":
             self.serve_local_file(os.path.join(BASE_DIR, "web", "trainer", "index.html"), "text/html")
         elif path == "/client" or path == "/client/":
             self.serve_local_file(os.path.join(BASE_DIR, "web", "client", "client.html"), "text/html")
@@ -74,7 +126,9 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error_response(400, "Malformed JSON payload.")
             return
 
-        if path == "/api/clients":
+        if path == "/api/auth":
+            self.handle_auth(data)
+        elif path == "/api/clients":
             self.handle_create_client(data)
         elif path == "/api/assessments":
             self.handle_create_assessment(data)
@@ -85,6 +139,50 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     # --- API Handlers ---
     
+    def handle_auth(self, data):
+        auth_type = data.get("type") # "trainer" or "client"
+        nickname = data.get("nickname", "").strip().lower()
+        password = data.get("password", "").strip()
+        
+        if auth_type == "trainer":
+            if nickname == "admin" and password == "admin":
+                self.send_json_response(200, {
+                    "success": True, 
+                    "type": "trainer"
+                })
+            else:
+                self.send_json_response(200, {
+                    "success": False, 
+                    "error": "Nombre de usuario o contraseña incorrectos para el Entrenador."
+                })
+        elif auth_type == "client":
+            if not nickname or not password:
+                self.send_json_response(200, {
+                    "success": False,
+                    "error": "Por favor ingresa usuario y contraseña."
+                })
+                return
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, first_name, last_name FROM users WHERE LOWER(nickname) = ? AND password = ?", (nickname, password))
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                self.send_json_response(200, {
+                    "success": True, 
+                    "type": "client",
+                    "userId": row[0],
+                    "name": f"{row[1]} {row[2]}"
+                })
+            else:
+                self.send_json_response(200, {
+                    "success": False, 
+                    "error": "Nombre de usuario o contraseña incorrectos."
+                })
+        else:
+            self.send_error_response(400, "Invalid auth type. Must be 'trainer' or 'client'.")
+
     def handle_get_clients(self):
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -189,18 +287,34 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         allergies = data.get("allergies", "Ninguna")
         medications = data.get("medications", "Ninguno")
         availability_schedule = data.get("availability_schedule", "{}")
+        nickname = data.get("nickname", "").strip()
+        password = data.get("password", "").strip()
         
         if not first_name or not last_name or not email:
             self.send_error_response(400, "Missing required fields (first_name, last_name, email).")
             return
             
+        # Fallback values
+        if not nickname:
+            nickname = email.split('@')[0].lower()
+        if not password:
+            password = "123456"
+            
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+        
+        # Check nickname uniqueness
+        cursor.execute("SELECT id FROM users WHERE LOWER(nickname) = ?", (nickname.lower(),))
+        if cursor.fetchone():
+            self.send_json_response(200, {"success": False, "error": f"El nombre de usuario (nickname) '{nickname}' ya está registrado."})
+            conn.close()
+            return
+            
         try:
             cursor.execute("""
-                INSERT INTO users (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule))
+                INSERT INTO users (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule, nickname, password)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule, nickname, password))
             client_id = cursor.lastrowid
             
             # Seed default workout & nutrition plan skeleton for new client
@@ -419,10 +533,14 @@ def run_server():
         except Exception as e:
             print("Error during database auto-seeding:", e)
 
+    # Call migration check to ensure columns and default credentials exist
+    check_and_migrate_db()
+
     # Make sure we can bind to port 8080. If already in use, run simple output
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), FitnessHTTPRequestHandler) as httpd:
         print(f"Elite Fitness Local Server running on: http://localhost:{PORT}/")
+        print("Master Page & Router: http://localhost:8080/")
         print("Trainer Dashboard: http://localhost:8080/trainer/")
         print("Client Dashboard (Brayan): http://localhost:8080/client/?userId=1")
         print("Client Dashboard (Maria): http://localhost:8080/client/?userId=2")

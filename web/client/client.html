@@ -2,15 +2,52 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const div = document.createElement('div');
+            div.style.position = 'fixed';
+            div.style.top = '0';
+            div.style.left = '0';
+            div.style.width = '100%';
+            div.style.background = '#ef4444';
+            div.style.color = '#ffffff';
+            div.style.padding = '15px';
+            div.style.zIndex = '9999';
+            div.style.fontFamily = 'monospace';
+            div.style.fontSize = '14px';
+            div.style.whiteSpace = 'pre-wrap';
+            div.style.boxShadow = '0 5px 15px rgba(0,0,0,0.5)';
+            div.innerHTML = `<strong>Error de JS detectado:</strong><br>${message}<br>en ${source}:${lineno}:${colno}`;
+            document.body.appendChild(div);
+            return false;
+        };
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Progreso - Elite Fitness Client</title>
-    <link rel="stylesheet" href="../shared/style.css">
+    <link rel="stylesheet" href="/shared/style.css?v=1.0.2">
     <!-- Chart.js for progress graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+    <script>
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userId = urlParams.get('userId') || '1';
+            if (sessionStorage.getItem('clientAuth_' + userId) !== 'true' && sessionStorage.getItem('trainerAuth') !== 'true') {
+                document.body.innerHTML = `
+                    <div style="background:#121212; color:#ffffff; font-family:'Inter', sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding: 20px;">
+                        <i class="fa-solid fa-user-lock" style="font-size: 50px; color:#f3ca4c; margin-bottom: 20px; text-shadow: 0 0 15px rgba(243,202,76,0.3);"></i>
+                        <h1 style="color:#f3ca4c; font-family:'Anton', sans-serif; font-size:32px; margin-bottom:10px; text-transform:uppercase;">ACCESO DENEGADO</h1>
+                        <p style="color:#bbbbbb; font-size: 16px;">No tienes permiso para acceder a este Portal de Cliente.</p>
+                        <p style="color:#777777; font-size: 13px; margin-top:10px;">Serás redirigido al panel maestro de inicio...</p>
+                    </div>`;
+                setTimeout(() => { window.location.href = "/"; }, 2000);
+                window.stop();
+            }
+        })();
+    </script>
 
     <header>
         <div class="logo">
@@ -19,6 +56,7 @@
         </div>
         <div class="nav-links">
             <span class="btn-nav active" style="cursor:default;"><i class="fa-solid fa-house-user"></i> Panel de Control</span>
+            <a href="/" onclick="sessionStorage.removeItem('clientAuth_' + (new URLSearchParams(window.location.search).get('userId') || '1'))" class="btn-nav"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
         </div>
         <div style="display: flex; align-items: center; gap: 15px;">
             <span id="clientNameHeader" style="font-weight:700; font-size:14px; color:var(--accent-cyan);">Cargando...</span>
@@ -190,6 +228,6 @@
         </div>
     </div>
 
-    <script src="client.js"></script>
+    <script src="/client/client.js?v=1.0.2"></script>
 </body>
 </html>

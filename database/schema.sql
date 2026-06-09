@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
     allergies TEXT,
     medications TEXT,
     availability_schedule TEXT, -- JSON representation of days/hours
+    nickname TEXT UNIQUE,
+    password TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

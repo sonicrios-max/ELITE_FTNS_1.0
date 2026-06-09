@@ -2,15 +2,48 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const div = document.createElement('div');
+            div.style.position = 'fixed';
+            div.style.top = '0';
+            div.style.left = '0';
+            div.style.width = '100%';
+            div.style.background = '#ef4444';
+            div.style.color = '#ffffff';
+            div.style.padding = '15px';
+            div.style.zIndex = '9999';
+            div.style.fontFamily = 'monospace';
+            div.style.fontSize = '14px';
+            div.style.whiteSpace = 'pre-wrap';
+            div.style.boxShadow = '0 5px 15px rgba(0,0,0,0.5)';
+            div.innerHTML = `<strong>Error de JS detectado:</strong><br>${message}<br>en ${source}:${lineno}:${colno}`;
+            document.body.appendChild(div);
+            return false;
+        };
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal del Entrenador - Elite Fitness</title>
-    <link rel="stylesheet" href="../shared/style.css">
+    <link rel="stylesheet" href="/shared/style.css?v=1.0.2">
     <!-- Chart.js for beautiful interactive analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for clean premium icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+    <script>
+        if (sessionStorage.getItem('trainerAuth') !== 'true') {
+            document.body.innerHTML = `
+                <div style="background:#121212; color:#ffffff; font-family:'Inter', sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding: 20px;">
+                    <i class="fa-solid fa-lock" style="font-size: 50px; color:#f3ca4c; margin-bottom: 20px; text-shadow: 0 0 15px rgba(243,202,76,0.3);"></i>
+                    <h1 style="color:#f3ca4c; font-family:'Anton', sans-serif; font-size:32px; margin-bottom:10px; text-transform:uppercase;">ACCESO DENEGADO</h1>
+                    <p style="color:#bbbbbb; font-size: 16px;">No tienes permiso para acceder al Portal del Entrenador.</p>
+                    <p style="color:#777777; font-size: 13px; margin-top:10px;">Serás redirigido al panel maestro de inicio...</p>
+                </div>`;
+            setTimeout(() => { window.location.href = "/"; }, 2000);
+            window.stop();
+        }
+    </script>
 
     <header>
         <div class="logo">
@@ -19,8 +52,7 @@
         </div>
         <div class="nav-links">
             <a href="/trainer/" class="btn-nav active"><i class="fa-solid fa-users"></i> Clientes</a>
-            <a href="/client/?userId=1" class="btn-nav" target="_blank"><i class="fa-solid fa-user-check"></i> Vista Cliente (Brayan)</a>
-            <a href="/client/?userId=2" class="btn-nav" target="_blank"><i class="fa-solid fa-user-check"></i> Vista Cliente (Maria)</a>
+            <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" class="btn-nav"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
         </div>
         <div>
             <button class="btn-primary" onclick="openAddClientModal()"><i class="fa-solid fa-user-plus"></i> Nuevo Cliente</button>
@@ -329,6 +361,14 @@
                             <label>Disponibilidad</label>
                             <input type="text" id="newClientSchedule" required placeholder="Ej. Lunes a Viernes (Noche)" value="Lunes a Viernes (Noche)">
                         </div>
+                        <div class="form-group">
+                            <label>Nombre de Usuario (Nickname)</label>
+                            <input type="text" id="newClientNickname" required placeholder="Ej. carlos.g">
+                        </div>
+                        <div class="form-group">
+                            <label>Clave de Acceso (Contraseña)</label>
+                            <input type="password" id="newClientPassword" required placeholder="Ej. 123456" value="123456">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Alergias / Limitaciones</label>
@@ -349,6 +389,6 @@
     </div>
 
 
-    <script src="trainer.js"></script>
+    <script src="/trainer/trainer.js?v=1.0.2"></script>
 </body>
 </html>

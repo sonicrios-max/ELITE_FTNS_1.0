@@ -23,11 +23,16 @@ let mannequinData = {
     fat: 10
 };
 
-// Initialize Dashboard
-document.addEventListener("DOMContentLoaded", () => {
+function initTrainerDashboard() {
     loadClientsList();
     startMannequinRotation();
-});
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initTrainerDashboard);
+} else {
+    initTrainerDashboard();
+}
 
 // Load client names into sidebar
 async function loadClientsList() {
@@ -853,6 +858,8 @@ async function submitNewClient(event) {
     const height = parseFloat(document.getElementById("newClientHeight").value);
     const bloodType = document.getElementById("newClientBloodType").value;
     const schedule = document.getElementById("newClientSchedule").value;
+    const nickname = document.getElementById("newClientNickname").value;
+    const password = document.getElementById("newClientPassword").value;
     const allergies = document.getElementById("newClientAllergies").value;
     const medications = document.getElementById("newClientMedications").value;
     
@@ -865,6 +872,8 @@ async function submitNewClient(event) {
         height_cm: height,
         blood_type: bloodType,
         availability_schedule: schedule,
+        nickname: nickname,
+        password: password,
         allergies: allergies,
         medications: medications
     };
