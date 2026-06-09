@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Progreso - Elite Fitness Client</title>
+    <link rel="stylesheet" href="../shared/style.css">
+    <!-- Chart.js for progress graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-dumbbell logo-icon"></i>
+            <span>ELITE PORTAL CLiENTE</span>
+        </div>
+        <div class="nav-links">
+            <span class="btn-nav active" style="cursor:default;"><i class="fa-solid fa-house-user"></i> Panel de Control</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span id="clientNameHeader" style="font-weight:700; font-size:14px; color:var(--accent-cyan);">Cargando...</span>
+            <button class="btn-primary" onclick="exportToPDF()" style="background: linear-gradient(135deg, var(--accent-orange), var(--accent-red)); box-shadow: 0 0 10px rgba(245, 158, 11, 0.3); padding: 6px 12px; font-size: 12px;"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="grid-dashboard">
+            <!-- Sidebar: Log Daily Metrics Form -->
+            <div class="sidebar-list glass-card">
+                <div class="list-title" style="color:var(--accent-cyan);">
+                    <span><i class="fa-solid fa-pen-to-square"></i> Registrar Hoy</span>
+                </div>
+                
+                <form id="dailyLogForm" onsubmit="submitDailyLog(event)">
+                    <div class="form-group">
+                        <label>Peso de Hoy (kg)</label>
+                        <input type="number" step="0.1" id="logWeight" placeholder="Ej. 73.0">
+                    </div>
+                    <div class="form-group">
+                        <label>Pasos Caminados</label>
+                        <input type="number" id="logSteps" placeholder="Ej. 10450">
+                    </div>
+                    <div class="form-group">
+                        <label>Horas de Sueño</label>
+                        <input type="number" step="0.1" id="logSleep" placeholder="Ej. 7.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Calidad de Sueño (1-10)</label>
+                        <input type="range" id="logSleepQuality" min="1" max="10" value="8" style="padding:0;">
+                    </div>
+                    <div class="form-group">
+                        <label>Adherencia Dieta (1-10)</label>
+                        <input type="range" id="logDietAdherence" min="1" max="10" value="9" style="padding:0;">
+                    </div>
+                    <div class="form-group">
+                        <label>Nivel de Energía (1-5)</label>
+                        <select id="logEnergy">
+                            <option value="5">5 - Excelente</option>
+                            <option value="4" selected>4 - Muy Buena</option>
+                            <option value="3">3 - Normal</option>
+                            <option value="2">2 - Cansado</option>
+                            <option value="1">1 - Agotado</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Salud Digestiva (1-5)</label>
+                        <select id="logDigestion">
+                            <option value="5" selected>5 - Excelente (Sin pesadez)</option>
+                            <option value="4">4 - Buena</option>
+                            <option value="3">3 - Regular</option>
+                            <option value="2">2 - Inflamado</option>
+                            <option value="1">1 - Mala digestión</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Frecuencia Cardíaca Reposo (si aplica)</label>
+                        <input type="number" id="logRhr" placeholder="Ej. 62">
+                    </div>
+                    <div class="form-group">
+                        <label>Notas / Sensaciones</label>
+                        <textarea id="logNotes" rows="2" placeholder="¿Cómo te sentiste hoy?"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Registro Diario
+                    </button>
+                </form>
+            </div>
+
+            <!-- Main Panel: Client metrics, Diet, Training -->
+            <div class="main-content">
+                
+                <!-- Quick Metric Banner -->
+                <div class="glass-card water-tracker-widget" style="padding: 20px;">
+                    <div>
+                        <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary); display: block; margin-bottom: 2px;">Rastreador de Hidratación</span>
+                        <span class="water-progress-text" id="waterProgressLabel">0 ml / 2500 ml</span>
+                    </div>
+                    <div class="water-btns">
+                        <button class="btn-water-add" onclick="addWater(250)">+250 ml <i class="fa-solid fa-glass-water"></i></button>
+                        <button class="btn-water-add" onclick="addWater(500)">+500 ml <i class="fa-solid fa-bottle-water"></i></button>
+                    </div>
+                </div>
+
+                <!-- KPIs -->
+                <div class="kpis-grid">
+                    <div class="glass-card kpi-card">
+                        <span class="kpi-title">Mi Peso Actual</span>
+                        <span class="kpi-value cyan" id="clientKpiWeight">- kg</span>
+                        <span class="kpi-desc" id="clientKpiWeightDesc">Último peso registrado</span>
+                    </div>
+                    <div class="glass-card kpi-card">
+                        <span class="kpi-title">Mi Porcentaje Grasa</span>
+                        <span class="kpi-value purple" id="clientKpiFat">- %</span>
+                        <span class="kpi-desc" id="clientKpiFatDesc">Adipometría Faulkner</span>
+                    </div>
+                    <div class="glass-card kpi-card">
+                        <span class="kpi-title">Meta Calórica Diaria</span>
+                        <span class="kpi-value green" id="clientKpiCalories">- Kcal</span>
+                        <span class="kpi-desc" id="clientKpiMacrosDesc">Proteína / Carbos / Grasa</span>
+                    </div>
+                </div>
+
+                <!-- Tabs Card -->
+                <div class="glass-card">
+                    <div class="tabs-container">
+                        <button class="tab-btn active" onclick="switchTab('tabRutinas')"><i class="fa-solid fa-dumbbell"></i> Mi Rutina Activa</button>
+                        <button class="tab-btn" onclick="switchTab('tabNutricion')"><i class="fa-solid fa-carrot"></i> Mi Plan de Nutrición</button>
+                        <button class="tab-btn" onclick="switchTab('tabEstadisticas')"><i class="fa-solid fa-chart-line"></i> Gráficos de Progreso</button>
+                    </div>
+
+                    <!-- TAB 1: ACTIVE ROUTINE -->
+                    <div class="tab-panel active" id="tabRutinas">
+                        <div id="workoutPlanContainer">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: ACTIVE NUTRITION -->
+                    <div class="tab-panel" id="tabNutricion">
+                        <div id="nutritionPlanContainer">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: STATISTICS & CHARTS -->
+                    <div class="tab-panel" id="tabEstadisticas">
+                        <h3>Mi Evolución Histórica</h3>
+                        <p style="color:var(--color-text-secondary); margin-bottom: 20px;">Monitorea tus cambios corporales y tus registros de actividad.</p>
+                        
+                        <div class="charts-grid">
+                            <div class="glass-card chart-card">
+                                <h3>Mi Historial de Peso</h3>
+                                <canvas id="chartClientWeight"></canvas>
+                            </div>
+                            <div class="glass-card chart-card">
+                                <h3>Mis Pasos Diarios</h3>
+                                <canvas id="chartClientSteps"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D Progress Model -->
+                <div class="glass-card">
+                    <h3>Mi Visualización Corporal 3D</h3>
+                    <p style="color:var(--color-text-secondary); margin-bottom: 15px;">Rotación dinámica tridimensional de tu fisionomía calculada a partir de tu última evaluación antropométrica.</p>
+                    
+                    <div class="canvas-container-3d">
+                        <div class="canvas-placeholder-text" id="mannequinLoading">
+                            <i class="fa-solid fa-rotate fa-spin" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
+                            Iniciando Render 3D...
+                        </div>
+                        <canvas id="mannequinCanvas" width="400" height="350"></canvas>
+                        
+                        <div class="overlay-stats-3d">
+                            <strong>Mis Medidas 3D Actuales:</strong><br>
+                            - Pecho: <span id="mannequinStatsChest">-</span> cm<br>
+                            - Abdomen: <span id="mannequinStatsAbdomen">-</span> cm<br>
+                            - Caderas: <span id="mannequinStatsHip">-</span> cm<br>
+                            - % Grasa: <span id="mannequinStatsFat">-</span>%
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="client.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Python cache files
+__pycache__/
+*.pyc
+
+# Local SQLite databases
+database/fitness.db
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Environment and IDE files
+.env
+.vscode/
+.gemini/
