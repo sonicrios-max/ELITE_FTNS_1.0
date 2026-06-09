@@ -404,6 +404,21 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json_response(status_code, {"success": False, "error": message})
 
 def run_server():
+    # Auto-initialize and seed the database if it doesn't exist or is empty
+    if not os.path.exists(DB_PATH) or os.path.getsize(DB_PATH) == 0:
+        print("Database not found or empty. Auto-initializing and seeding database...")
+        try:
+            from scripts.init_db import init_db
+            from scripts.parse_and_seed import seed_brayan
+            from scripts.seed_details import seed_details
+            
+            init_db()
+            seed_brayan()
+            seed_details()
+            print("Database initialized and auto-seeded successfully!")
+        except Exception as e:
+            print("Error during database auto-seeding:", e)
+
     # Make sure we can bind to port 8080. If already in use, run simple output
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), FitnessHTTPRequestHandler) as httpd:
