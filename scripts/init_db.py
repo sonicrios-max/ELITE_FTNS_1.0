@@ -3,12 +3,12 @@ import os
 
 def init_db():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    db_dir = os.path.join(base_dir, "database")
-    if not os.path.exists(db_dir):
-        os.makedirs(db_dir)
+    persistent_dir = os.environ.get("PERSISTENT_DIR", os.path.join(base_dir, "database"))
+    if not os.path.exists(persistent_dir):
+        os.makedirs(persistent_dir)
         
-    db_path = os.path.join(db_dir, "fitness.db")
-    schema_path = os.path.join(db_dir, "schema.sql")
+    db_path = os.path.join(persistent_dir, "fitness.db")
+    schema_path = os.path.join(base_dir, "database", "schema.sql")
     
     print(f"Initializing database at: {db_path}")
     print(f"Reading schema from: {schema_path}")

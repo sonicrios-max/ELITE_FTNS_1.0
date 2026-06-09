@@ -37,7 +37,8 @@ def parse_fat_pct(val):
 
 def seed_brayan():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    db_path = os.path.join(base_dir, "database", "fitness.db")
+    persistent_dir = os.environ.get("PERSISTENT_DIR", os.path.join(base_dir, "database"))
+    db_path = os.path.join(persistent_dir, "fitness.db")
     xlsx_path = os.path.join(base_dir, "Brayan Guerrero (1).xlsx")
     
     if not os.path.exists(xlsx_path):

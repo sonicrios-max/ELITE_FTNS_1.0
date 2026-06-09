@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 
 def seed_details():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    db_path = os.path.join(base_dir, "database", "fitness.db")
+    persistent_dir = os.environ.get("PERSISTENT_DIR", os.path.join(base_dir, "database"))
+    db_path = os.path.join(persistent_dir, "fitness.db")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     

@@ -8,7 +8,13 @@ from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("PORT", 8080))
-DB_PATH = os.path.join(BASE_DIR, "database", "fitness.db")
+
+# For production/PaaS hosting with persistent volumes (like Render or Railway),
+# we can define a PERSISTENT_DIR env var pointing to the mounted disk directory.
+PERSISTENT_DIR = os.environ.get("PERSISTENT_DIR", os.path.join(BASE_DIR, "database"))
+os.makedirs(PERSISTENT_DIR, exist_ok=True)
+DB_PATH = os.path.join(PERSISTENT_DIR, "fitness.db")
+
 
 class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     

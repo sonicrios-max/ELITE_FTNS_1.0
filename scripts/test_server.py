@@ -7,7 +7,8 @@ import time
 import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "database", "fitness.db")
+PERSISTENT_DIR = os.environ.get("PERSISTENT_DIR", os.path.join(BASE_DIR, "database"))
+DB_PATH = os.path.join(PERSISTENT_DIR, "fitness.db")
 
 def run_database_integrity_checks():
     print("=== RUNNING DB INTEGRITY CHECKS ===")
