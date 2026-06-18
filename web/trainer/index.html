@@ -29,6 +29,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for clean premium icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA Setup -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#d4af37">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
 </head>
 <body>
     <script>
@@ -51,7 +56,9 @@
             <span>ELITE COACH</span>
         </div>
         <div class="nav-links">
-            <a href="/trainer/" class="btn-nav active"><i class="fa-solid fa-users"></i> Clientes</a>
+            <a href="#" onclick="showGlobalView('clients')" class="btn-nav active" id="navClients"><i class="fa-solid fa-users"></i> Clientes</a>
+            <a href="#" onclick="showGlobalView('training')" class="btn-nav" id="navTraining"><i class="fa-solid fa-dumbbell"></i> Entrenamiento</a>
+            <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Nutrición</a>
             <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" class="btn-nav"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
         </div>
         <div>
@@ -59,7 +66,8 @@
         </div>
     </header>
 
-    <div class="container">
+    <!-- VISTA 1: CLIENTES -->
+    <div class="container" id="clientsView">
         <div class="grid-dashboard">
             <!-- Sidebar: Client Selector -->
             <div class="sidebar-list glass-card">
@@ -241,6 +249,23 @@
                     <div class="tab-panel" id="tabSeguimiento">
                         <h3>Trazabilidad Diaria del Cliente</h3>
                         <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Datos sincronizados desde el podómetro, sueño y sensores del smartphone.</p>
+                        <div class="calendar-dashboard glass-card" style="margin-bottom: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4><i class="fa-regular fa-calendar"></i> Calendario de Registros Diarios</h4>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <button class="btn-nav" onclick="changeCalendarMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                                    <span id="calendarMonthLabel" style="font-weight: bold; min-width: 120px; text-align: center; color: var(--accent-cyan);">Mayo 2026</span>
+                                    <button class="btn-nav" onclick="changeCalendarMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+                            <!-- Days of week header -->
+                            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; margin-bottom: 5px; font-weight: bold; color: var(--color-text-secondary); font-size: 12px;">
+                                <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+                            </div>
+                            <div id="calendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center;">
+                                <!-- Llenado dinámicamente -->
+                            </div>
+                        </div>
                         
                         <div class="charts-grid">
                             <!-- Weight Trend -->
@@ -310,6 +335,64 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- VISTA 2: LIBRERÍA DE ENTRENAMIENTO -->
+    <div class="container" id="trainingLibView" style="display: none;">
+        <div class="glass-card" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fa-solid fa-dumbbell" style="color: var(--accent-cyan);"></i> Librería Global de Ejercicios</h2>
+                <button class="btn-primary" onclick="openExerciseModal()"><i class="fa-solid fa-plus"></i> Nuevo Ejercicio</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="exercise-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre del Ejercicio</th>
+                            <th>Músculo Principal</th>
+                            <th>Músculos Secundarios</th>
+                            <th>Equipo</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="globalExercisesList">
+                        <!-- Llenado dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="glass-card" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fa-solid fa-layer-group" style="color: var(--accent-cyan);"></i> Bloques / Grupos Musculares</h2>
+                <button class="btn-primary" onclick="openBlockModal()"><i class="fa-solid fa-plus"></i> Nuevo Bloque</button>
+            </div>
+            <div id="globalBlocksList">
+                <!-- Llenado dinámico -->
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fa-solid fa-calendar-days" style="color: var(--accent-orange);"></i> Plantillas de Rutinas (Globales)</h2>
+                <button class="btn-primary" onclick="openRoutineModal()"><i class="fa-solid fa-plus"></i> Nueva Plantilla de Rutina</button>
+            </div>
+            <div id="globalRoutinesList">
+                <!-- Llenado dinámico -->
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 3: LIBRERÍA DE NUTRICIÓN -->
+    <div class="container" id="nutritionLibView" style="display: none;">
+        <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fa-solid fa-apple-whole" style="color: var(--accent-green);"></i> Plantillas de Nutrición (Globales)</h2>
+                <button class="btn-primary"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
+            </div>
+            <p style="color: var(--color-text-secondary);">En construcción... (Fase posterior)</p>
         </div>
     </div>
 
@@ -389,6 +472,154 @@
     </div>
 
 
+    <!-- Add Exercise Modal -->
+    <div id="addExerciseModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 500px; max-width: 95%;">
+            <h3 style="color: var(--accent-cyan); margin-bottom: 15px;"><i class="fa-solid fa-plus"></i> Nuevo Ejercicio Global</h3>
+            <form onsubmit="submitNewExercise(event)">
+                <div class="form-group">
+                    <label>Nombre del Ejercicio</label>
+                    <input type="text" id="newExName" required>
+                </div>
+                <div class="form-group">
+                    <label>Clase de Rutina</label>
+                    <select id="newExClass">
+                        <option value="Fuerza">Fuerza</option>
+                        <option value="Empuje" selected>Empuje</option>
+                        <option value="Tracción">Tracción</option>
+                        <option value="Pierna">Pierna</option>
+                        <option value="Core">Core</option>
+                        <option value="Fullbody">Fullbody</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Músculo Principal</label>
+                    <input type="text" id="newExPrimary" required placeholder="Ej. Pectorales">
+                </div>
+                <div class="form-group">
+                    <label>Músculos Secundarios</label>
+                    <input type="text" id="newExSecondary" placeholder="Ej. Tríceps, Hombro">
+                </div>
+                <div class="form-group">
+                    <label>Equipamiento</label>
+                    <input type="text" id="newExEquipment" placeholder="Ej. Mancuernas">
+                </div>
+                <div class="form-group">
+                    <label>URL Video / Animación</label>
+                    <input type="text" id="newExVideo" placeholder="https://...">
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <button type="button" class="btn-nav" onclick="closeExerciseModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Ejercicio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Block Modal -->
+    <div id="addBlockModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 550px; max-width: 95%; max-height: 90vh; overflow-y: auto;">
+            <h3 style="color: var(--accent-cyan); margin-bottom: 15px;"><i class="fa-solid fa-layer-group"></i> Nuevo Bloque Muscular</h3>
+            <form onsubmit="submitNewBlock(event)">
+                <div class="form-group">
+                    <label>Nombre del Bloque</label>
+                    <input type="text" id="newBlockName" required placeholder="Ej. Empuje Pesado">
+                </div>
+                <div class="form-group">
+                    <label>Clase de Rutina</label>
+                    <select id="newBlockClass" onchange="filterBlockExercises()">
+                        <option value="Fuerza">Fuerza</option>
+                        <option value="Empuje" selected>Empuje</option>
+                        <option value="Tracción">Tracción</option>
+                        <option value="Pierna">Pierna</option>
+                        <option value="Core">Core</option>
+                        <option value="Fullbody">Fullbody</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <input type="text" id="newBlockDesc">
+                </div>
+                
+                <div id="blockExercisesBuilder" style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4>Ejercicios en el Bloque</h4>
+                        <button type="button" class="btn-nav" onclick="addExerciseToBlockBuilder()"><i class="fa-solid fa-plus"></i> Ejercicio</button>
+                    </div>
+                    <div id="blockExercisesContainer">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <button type="button" class="btn-nav" onclick="closeBlockModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Bloque</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Routine Modal -->
+    <div id="addRoutineModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 600px; max-width: 95%; max-height: 90vh; overflow-y: auto;">
+            <h3 style="color: var(--accent-orange); margin-bottom: 15px;"><i class="fa-solid fa-calendar-plus"></i> Nueva Plantilla de Rutina</h3>
+            <form onsubmit="submitNewRoutine(event)">
+                <div class="form-group">
+                    <label>Título de la Rutina</label>
+                    <input type="text" id="newRoutineTitle" required placeholder="Ej. Hipertrofia 3 Días">
+                </div>
+                <div class="form-group">
+                    <label>Descripción General</label>
+                    <input type="text" id="newRoutineDesc">
+                </div>
+                
+                <!-- Dynamic Day Builder -->
+                <div id="routineDaysBuilder" style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4>Días de Entrenamiento</h4>
+                        <button type="button" class="btn-nav" onclick="addRoutineDay()"><i class="fa-solid fa-plus"></i> Agregar Día</button>
+                    </div>
+                    <div id="daysContainer">
+                        <!-- Llenado por JS -->
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-nav" onclick="closeRoutineModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Plantilla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Calendar Day Details Modal -->
+    <div id="dayDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 400px; max-width: 95%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="color: var(--accent-cyan);"><i class="fa-regular fa-clipboard"></i> Resumen del Día</h3>
+                <span id="dayDetailDate" style="color: var(--color-text-secondary); font-size: 14px;"></span>
+            </div>
+            
+            <div class="profile-grid-summary" id="dayDetailContent" style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 15px;">
+                <!-- Llenado por JS -->
+            </div>
+            
+            <div style="margin-top: 15px; text-align: right;">
+                <button type="button" class="btn-primary" onclick="document.getElementById('dayDetailModal').style.display='none'">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/trainer/trainer.js?v=1.0.2"></script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('Service Worker registrado: ', reg.scope))
+            .catch(err => console.error('Error Service Worker: ', err));
+        });
+      }
+    </script>
 </body>
 </html>

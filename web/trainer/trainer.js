@@ -64,17 +64,30 @@ function renderClientList() {
         card.className = `client-card-item ${isActive ? 'active' : ''}`;
         card.onclick = () => selectClient(user.id);
         
-        // Mock compliance based on data availability
-        const isCompliant = user.id === 1; // Brayan active, Maria is mock compliant too
-        const badgeClass = isCompliant ? 'compliance-badge' : 'compliance-badge warning';
-        const badgeText = isCompliant ? 'Alta Adherencia' : 'Media Adherencia';
+        // Calculate compliance based on real adherence score
+        const score = parseFloat(user.adherence_score) || 0;
+        let badgeClass = 'compliance-badge warning';
+        let badgeText = 'Baja Adherencia';
+        let customStyle = '';
+        
+        if (score >= 8.5) {
+            badgeClass = 'compliance-badge';
+            badgeText = 'Alta Adherencia';
+        } else if (score >= 6.0) {
+            badgeClass = 'compliance-badge warning';
+            badgeText = 'Media Adherencia';
+        } else {
+            badgeClass = 'compliance-badge';
+            badgeText = 'Baja Adherencia';
+            customStyle = 'background: rgba(220, 38, 38, 0.2); color: var(--accent-red);';
+        }
         
         card.innerHTML = `
             <div class="client-info">
                 <h4>${user.first_name} ${user.last_name}</h4>
                 <p><i class="fa-solid fa-envelope"></i> ${user.email}</p>
             </div>
-            <span class="${badgeClass}">${badgeText}</span>
+            <span class="${badgeClass}" style="${customStyle}">${badgeText} (${score.toFixed(1)})</span>
         `;
         listContainer.appendChild(card);
     });
@@ -257,50 +270,60 @@ function renderWorkoutPlans() {
     workouts.days.forEach(day => {
         const dayCard = document.createElement("div");
         dayCard.className = "workout-day-card";
-        
-        let exercisesHtml = "";
-        day.exercises.forEach(ex => {
-            exercisesHtml += `
-                <tr>
-                    <td class="exercise-name">${ex.exercise_name}</td>
-                    <td><span class="compliance-badge">${ex.sets_count} Series</span></td>
-                    <td><strong>${ex.reps_range}</strong></td>
-                    <td>RPE ${ex.rpe_target || 'N/A'}</td>
-                    <td>${ex.rest_seconds ? ex.rest_seconds + 's' : '-'}</td>
-                    <td>
-                        ${ex.video_url ? `<a href="#" class="exercise-video-link" onclick="playVideo(event, '${ex.video_url}', this)"><i class="fa-solid fa-circle-play"></i> Ver Técnica</a>` : '-'}
-                    </td>
-                </tr>
-                <tr id="video-row-${ex.id}" style="display:none;">
-                    <td colspan="6">
-                        <div class="media-preview-container" id="video-container-${ex.id}">
-                            <video controls preload="none" loop muted>
-                                <source src="${ex.video_url}" type="video/mp4">
-                                Tu navegador no soporta video.
-                            </video>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        });
+        let blocksHtml = "";
+        if (day.blocks) {
+            day.blocks.forEach(block => {
+                let exercisesHtml = "";
+                block.exercises.forEach(ex => {
+                    exercisesHtml += `
+                        <tr>
+                            <td class="exercise-name">${ex.exercise_name}</td>
+                            <td><span class="compliance-badge">${ex.sets_count} Series</span></td>
+                            <td><strong>${ex.reps_range}</strong></td>
+                            <td>RPE ${ex.rpe_target || 'N/A'}</td>
+                            <td>${ex.rest_seconds ? ex.rest_seconds + 's' : '-'}</td>
+                            <td>
+                                ${ex.video_url ? `<a href="#" class="exercise-video-link" onclick="playVideo(event, '${ex.video_url}', this)"><i class="fa-solid fa-circle-play"></i> Ver Técnica</a>` : '-'}
+                            </td>
+                        </tr>
+                        <tr id="video-row-${ex.id}" style="display:none;">
+                            <td colspan="6">
+                                <div class="media-preview-container" id="video-container-${ex.id}">
+                                    <video controls preload="none" loop muted>
+                                        <source src="${ex.video_url}" type="video/mp4">
+                                        Tu navegador no soporta video.
+                                    </video>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                blocksHtml += `
+                    <div style="margin-bottom: 20px; border-left: 3px solid var(--accent-cyan); padding-left: 12px; background: rgba(0,0,0,0.1); padding-top: 10px; padding-bottom: 10px; border-radius: 0 8px 8px 0;">
+                        <h5 style="color: var(--accent-cyan); margin-bottom: 10px; font-size: 14px;">Bloque: ${block.name} <span style="color:var(--color-text-secondary); font-size:11px; font-weight:normal;">[${block.routine_class}]</span></h5>
+                        <table class="exercise-table">
+                            <thead>
+                                <tr>
+                                    <th>Ejercicio</th>
+                                    <th>Series</th>
+                                    <th>Rango Reps</th>
+                                    <th>Esfuerzo (RPE)</th>
+                                    <th>Descanso</th>
+                                    <th>Multimedia Propia</th>
+                                </tr>
+                            </thead>
+                            <tbody>${exercisesHtml}</tbody>
+                        </table>
+                    </div>
+                `;
+            });
+        }
         
         dayCard.innerHTML = `
             <h4>${day.day_name}</h4>
-            <table class="exercise-table">
-                <thead>
-                    <tr>
-                        <th>Ejercicio</th>
-                        <th>Series</th>
-                        <th>Rango Reps</th>
-                        <th>Esfuerzo (RPE)</th>
-                        <th>Descanso</th>
-                        <th>Multimedia Propia</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${exercisesHtml}
-                </tbody>
-            </table>
+            <div style="margin-top: 15px;">
+                ${blocksHtml}
+            </div>
         `;
         container.appendChild(dayCard);
     });
@@ -905,3 +928,748 @@ function exportToPDF() {
     window.print();
 }
 
+// ==========================================
+// NEW: Global Views Management (Librerías)
+// ==========================================
+function showGlobalView(viewName) {
+    // Hide all containers
+    document.getElementById('clientsView').style.display = 'none';
+    document.getElementById('trainingLibView').style.display = 'none';
+    document.getElementById('nutritionLibView').style.display = 'none';
+    
+    // Deactivate nav links
+    document.getElementById('navClients').classList.remove('active');
+    document.getElementById('navTraining').classList.remove('active');
+    document.getElementById('navNutrition').classList.remove('active');
+    
+    if (viewName === 'clients') {
+        document.getElementById('clientsView').style.display = 'block';
+        document.getElementById('navClients').classList.add('active');
+    } else if (viewName === 'training') {
+        document.getElementById('trainingLibView').style.display = 'block';
+        document.getElementById('navTraining').classList.add('active');
+        fetchGlobalExercises();
+        fetchGlobalBlocks();
+        fetchGlobalRoutines();
+    } else if (viewName === 'nutrition') {
+        document.getElementById('nutritionLibView').style.display = 'block';
+        document.getElementById('navNutrition').classList.add('active');
+    }
+}
+
+// --- Exercises ---
+async function fetchGlobalExercises() {
+    try {
+        const res = await fetch('/api/exercises');
+        const exercises = await res.json();
+        const tbody = document.getElementById('globalExercisesList');
+        tbody.innerHTML = '';
+        
+        exercises.forEach(ex => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${ex.id}</td>
+                    <td style="font-weight: bold; color: var(--accent-cyan);">${ex.name}</td>
+                    <td>${ex.primary_muscle}</td>
+                    <td>${ex.secondary_muscles || '-'}</td>
+                    <td>${ex.equipment || 'Peso corporal'}</td>
+                    <td style="display: flex; gap: 5px;">
+                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="editExercise(${ex.id})"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteExercise(${ex.id})"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openExerciseModal() { document.getElementById('addExerciseModal').style.display = 'flex'; }
+function closeExerciseModal() { document.getElementById('addExerciseModal').style.display = 'none'; }
+
+async function submitNewExercise(e) {
+    e.preventDefault();
+    const payload = {
+        name: document.getElementById('newExName').value,
+        primary_muscle: document.getElementById('newExPrimary').value,
+        secondary_muscles: document.getElementById('newExSecondary').value,
+        equipment: document.getElementById('newExEquipment').value,
+        video_url: document.getElementById('newExVideo').value
+    };
+    
+    const res = await fetch('/api/exercises', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+        closeExerciseModal();
+        e.target.reset();
+        fetchGlobalExercises();
+    } else {
+        alert("Error: " + result.error);
+    }
+}
+
+// --- Blocks ---
+let globalBlocksCache = [];
+async function fetchGlobalBlocks() {
+    try {
+        const res = await fetch('/api/workout_blocks');
+        globalBlocksCache = await res.json();
+        const container = document.getElementById('globalBlocksList');
+        container.innerHTML = '';
+        
+        globalBlocksCache.forEach(b => {
+            let exHtml = b.exercises.map(ex => `<span class="compliance-badge" style="background: rgba(14, 165, 233, 0.2); color: var(--accent-cyan);">${ex.exercise_name} (${ex.sets_count}x${ex.reps_range})</span>`).join(' ');
+            container.innerHTML += `
+                <div class="workout-day-card" style="margin-bottom: 10px; padding: 12px; background: rgba(0,0,0,0.15);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 8px;">
+                        <h4 style="color: var(--accent-cyan);">${b.name} <span style="font-size: 12px; color: var(--color-text-secondary); font-weight: normal;">[${b.routine_class}]</span></h4>
+                        <div>
+                            <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="editBlock(${b.id})"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteBlock(${b.id})"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 10px;">${b.description || ''}</p>
+                    <div>${exHtml}</div>
+                </div>
+            `;
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openBlockModal() { 
+    document.getElementById('addBlockModal').style.display = 'flex'; 
+    document.getElementById('blockExercisesContainer').innerHTML = '';
+    addExerciseToBlockBuilder();
+}
+function closeBlockModal() { document.getElementById('addBlockModal').style.display = 'none'; }
+
+function filterBlockExercises() {
+    const selectedClass = document.getElementById('newBlockClass').value;
+    const selects = document.querySelectorAll('.block-ex-id');
+    
+    // Update all existing dropdowns
+    selects.forEach(select => {
+        const currentValue = select.value;
+        const filteredEx = selectedClass === "Fullbody" 
+            ? globalExercisesCache 
+            : globalExercisesCache.filter(ex => ex.routine_class === selectedClass || ex.routine_class === "Fullbody");
+            
+        select.innerHTML = filteredEx.map(ex => `<option value="${ex.id}">${ex.name} (${ex.primary_muscle})</option>`).join('');
+        // Try to keep the old value if it still exists
+        if (filteredEx.find(e => e.id == currentValue)) {
+            select.value = currentValue;
+        }
+    });
+}
+
+function addExerciseToBlockBuilder() {
+    const container = document.getElementById('blockExercisesContainer');
+    const exDiv = document.createElement('div');
+    exDiv.style.display = 'flex';
+    exDiv.style.gap = '5px';
+    exDiv.style.marginBottom = '5px';
+    exDiv.className = 'block-exercise-row';
+    
+    const selectedClass = document.getElementById('newBlockClass').value;
+    const filteredEx = selectedClass === "Fullbody" 
+            ? globalExercisesCache 
+            : globalExercisesCache.filter(ex => ex.routine_class === selectedClass || ex.routine_class === "Fullbody");
+            
+    let optionsHTML = filteredEx.map(ex => `<option value="${ex.id}">${ex.name} (${ex.primary_muscle})</option>`).join('');
+    
+    exDiv.innerHTML = `
+        <select class="block-ex-id" style="flex:2;" required>${optionsHTML}</select>
+        <input type="number" class="ex-sets" placeholder="Series" value="3" style="flex:1;" required>
+        <input type="text" class="ex-reps" placeholder="Reps" value="10-12" style="flex:1;" required>
+        <input type="number" class="ex-rpe" placeholder="RPE" value="8" style="flex:1;">
+        <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    container.appendChild(exDiv);
+}
+
+async function submitNewBlock(e) {
+    e.preventDefault();
+    
+    const exercises = [];
+    const exRows = document.querySelectorAll('.block-exercise-row');
+    exRows.forEach((row, exIdx) => {
+        exercises.push({
+            exercise_id: parseInt(row.querySelector('.block-ex-id').value),
+            sets_count: parseInt(row.querySelector('.ex-sets').value),
+            reps_range: row.querySelector('.ex-reps').value,
+            rpe_target: parseInt(row.querySelector('.ex-rpe').value) || 0,
+            order_index: exIdx + 1
+        });
+    });
+
+    const payload = {
+        name: document.getElementById('newBlockName').value,
+        routine_class: document.getElementById('newBlockClass').value,
+        description: document.getElementById('newBlockDesc').value,
+        exercises: exercises
+    };
+    
+    const res = await fetch('/api/workout_blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+        closeBlockModal();
+        e.target.reset();
+        fetchGlobalBlocks();
+    } else {
+        alert("Error: " + result.error);
+    }
+}
+
+// --- Routines ---
+let globalExercisesCache = [];
+async function fetchGlobalRoutines() {
+    try {
+        // Cache exercises for dropdowns
+        const exRes = await fetch('/api/exercises');
+        globalExercisesCache = await exRes.json();
+        
+        const res = await fetch('/api/routines');
+        const routines = await res.json();
+        const container = document.getElementById('globalRoutinesList');
+        container.innerHTML = '';
+        
+        routines.forEach(r => {
+            let daysHtml = r.days.map(d => `<span class="compliance-badge" style="background: rgba(245, 158, 11, 0.2); color: var(--accent-orange);">${d.day_name} (${d.blocks.length} blq - ${d.total_exercises} ej)</span>`).join(' ');
+            container.innerHTML += `
+                <div class="workout-day-card" style="margin-bottom: 10px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <h4>${r.title}</h4>
+                        <div style="display:flex; gap: 5px;">
+                            <button class="btn-primary" style="padding: 4px 10px; font-size: 12px;" onclick="assignRoutinePrompt(${r.id}, '${r.title}')"><i class="fa-solid fa-user-plus"></i> Asignar</button>
+                            <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="editRoutine(${r.id})"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteRoutine(${r.id})"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 10px;">${r.description || ''}</p>
+                    <div>${daysHtml}</div>
+                </div>
+            `;
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+let dayCounter = 0;
+function openRoutineModal() { 
+    document.getElementById('addRoutineModal').style.display = 'flex'; 
+    document.getElementById('daysContainer').innerHTML = '';
+    dayCounter = 0;
+    addRoutineDay(); // Add day 1 by default
+}
+function closeRoutineModal() { document.getElementById('addRoutineModal').style.display = 'none'; }
+
+function addRoutineDay() {
+    dayCounter++;
+    const div = document.createElement('div');
+    div.className = 'glass-card routine-day-builder';
+    div.style.marginBottom = '10px';
+    div.style.padding = '10px';
+    div.style.background = 'rgba(0,0,0,0.2)';
+    
+    div.innerHTML = `
+        <div style="display:flex; gap: 10px; margin-bottom: 10px;">
+            <input type="text" class="day-name-input" placeholder="Nombre del Día (Ej. Torso)" value="Día ${dayCounter}" required style="flex: 1;">
+            <button type="button" class="btn-nav" onclick="this.parentElement.parentElement.remove()" style="color: var(--accent-red);"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="day-blocks-container"></div>
+        <button type="button" class="btn-nav" style="font-size: 12px; padding: 4px 8px;" onclick="addBlockToDayBuilder(this)"><i class="fa-solid fa-plus"></i> Añadir Bloque</button>
+    `;
+    document.getElementById('daysContainer').appendChild(div);
+}
+
+function addBlockToDayBuilder(btn) {
+    const container = btn.previousElementSibling;
+    const blockDiv = document.createElement('div');
+    blockDiv.style.display = 'flex';
+    blockDiv.style.gap = '5px';
+    blockDiv.style.marginBottom = '5px';
+    blockDiv.className = 'day-block-row';
+    
+    let optionsHTML = globalBlocksCache.map(b => `<option value="${b.id}">${b.name} (${b.routine_class})</option>`).join('');
+    
+    blockDiv.innerHTML = `
+        <select class="block-id" style="flex:1;" required>${optionsHTML}</select>
+        <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    container.appendChild(blockDiv);
+}
+
+async function submitNewRoutine(e) {
+    e.preventDefault();
+    
+    const days = [];
+    const dayElements = document.querySelectorAll('.routine-day-builder');
+    dayElements.forEach((dayEl, index) => {
+        const dayName = dayEl.querySelector('.day-name-input').value;
+        const blocks = [];
+        const blockRows = dayEl.querySelectorAll('.day-block-row');
+        blockRows.forEach((row, bIdx) => {
+            blocks.push({
+                block_id: parseInt(row.querySelector('.block-id').value),
+                order_index: bIdx + 1
+            });
+        });
+        days.push({
+            day_name: dayName,
+            order_index: index + 1,
+            blocks: blocks
+        });
+    });
+
+    const payload = {
+        title: document.getElementById('newRoutineTitle').value,
+        description: document.getElementById('newRoutineDesc').value,
+        days: days
+    };
+    
+    const res = await fetch('/api/routines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+        closeRoutineModal();
+        fetchGlobalRoutines();
+    } else {
+        alert("Error: " + result.error);
+    }
+}
+
+// ==========================================
+// NEW: Interactive Calendar for Trazabilidad
+// ==========================================
+let currentCalendarDate = new Date();
+
+function changeCalendarMonth(offset) {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + offset);
+    renderDailyCalendar();
+}
+
+async function renderDailyCalendar() {
+    if (!activeUserId) return;
+    
+    const month = currentCalendarDate.getMonth();
+    const year = currentCalendarDate.getFullYear();
+    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    
+    document.getElementById('calendarMonthLabel').innerText = `${monthNames[month]} ${year}`;
+    
+    // Fetch logs for this month
+    const res = await fetch(`/api/daily_logs/calendar?user_id=${activeUserId}&month=${month + 1}&year=${year}`);
+    const logs = await res.json();
+    
+    const logsMap = {};
+    logs.forEach(l => { logsMap[l.date] = l; });
+    
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+    
+    // Days logic
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Empty slots for first week
+    for (let i = 0; i < firstDay; i++) {
+        grid.innerHTML += `<div style="padding: 10px;"></div>`;
+    }
+    
+    // Days
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const log = logsMap[dateStr];
+        
+        const isToday = (new Date().toISOString().split('T')[0] === dateStr);
+        let borderStyle = isToday ? 'border: 1px solid var(--accent-cyan);' : 'border: 1px solid transparent;';
+        
+        if (log) {
+            // Day has data
+            grid.innerHTML += `
+                <div style="background: rgba(14, 165, 233, 0.2); ${borderStyle} border-radius: 8px; padding: 10px; cursor: pointer; transition: 0.2s;" 
+                     onmouseover="this.style.background='rgba(14, 165, 233, 0.4)'" 
+                     onmouseout="this.style.background='rgba(14, 165, 233, 0.2)'"
+                     onclick='showDayDetails(${JSON.stringify(log)})'>
+                    <div style="font-weight:bold; color: white;">${d}</div>
+                    <div style="font-size: 10px; color: var(--accent-cyan);"><i class="fa-solid fa-check"></i> Listo</div>
+                </div>
+            `;
+        } else {
+            // Empty day
+            grid.innerHTML += `
+                <div style="background: rgba(255, 255, 255, 0.05); ${borderStyle} border-radius: 8px; padding: 10px; opacity: 0.5;">
+                    <div style="font-weight:bold;">${d}</div>
+                </div>
+            `;
+        }
+    }
+}
+
+function showDayDetails(log) {
+    document.getElementById('dayDetailDate').innerText = log.date;
+    
+    const content = document.getElementById('dayDetailContent');
+    content.innerHTML = `
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Peso</span>
+            <strong>${log.weight_kg ? log.weight_kg + ' kg' : '-'}</strong>
+        </div>
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Actividad</span>
+            <strong>${log.steps_count ? log.steps_count + ' pasos' : '-'}</strong>
+        </div>
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Descanso</span>
+            <strong>${log.sleep_hours ? log.sleep_hours + ' hrs (Calidad: ' + log.sleep_quality + '/10)' : '-'}</strong>
+        </div>
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Hidratación</span>
+            <strong>${log.water_intake_ml ? log.water_intake_ml + ' ml' : '-'}</strong>
+        </div>
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Adherencia Dieta</span>
+            <strong>${log.diet_adherence ? log.diet_adherence + ' / 10' : '-'}</strong>
+        </div>
+        ${log.notes ? `<div style="width: 100%; margin-top: 5px; color: var(--color-text-secondary); font-size: 13px;"><em>"${log.notes}"</em></div>` : ''}
+    `;
+    
+    document.getElementById('dayDetailModal').style.display = 'flex';
+}
+
+// Hook calendar rendering into client selection
+const originalSelectClient = selectClient;
+selectClient = async function(userId) {
+    await originalSelectClient(userId);
+    renderDailyCalendar();
+};
+
+
+// --- Assign Routine to Client Modal ---
+function assignRoutinePrompt(planId, title) {
+    if (!usersData || usersData.length === 0) {
+        alert("No hay clientes disponibles para asignar.");
+        return;
+    }
+    
+    let optionsHtml = usersData.map(u => `<option value="${u.id}">${u.first_name} ${u.last_name}</option>`).join('');
+    
+    const dialogHtml = `
+        <div id="assignRoutineModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; justify-content: center; align-items: center;">
+            <div class="glass-card" style="width: 400px; padding: 25px; border-radius: 12px; background: #1a1a1a; color: white;">
+                <h3 style="margin-bottom: 15px; color: var(--accent-cyan);">Asignar Plantilla</h3>
+                <p style="margin-bottom: 20px; font-size: 14px; color: #ccc;">Selecciona el cliente al que deseas asignarle la plantilla <strong>"${title}"</strong>. Esto reemplazará su rutina activa actual.</p>
+                
+                <select id="assignClientSelect" class="form-input" style="width: 100%; margin-bottom: 20px; padding: 10px; border-radius: 6px; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1);">
+                    ${optionsHtml}
+                </select>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn-secondary" onclick="document.getElementById('assignRoutineModal').remove()">Cancelar</button>
+                    <button class="btn-primary" onclick="confirmAssignRoutine(${planId})">Confirmar Asignación</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', dialogHtml);
+}
+
+async function confirmAssignRoutine(planId) {
+    const select = document.getElementById("assignClientSelect");
+    const clientId = select.value;
+    
+    try {
+        const response = await fetch('/api/routines/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_id: clientId, plan_id: planId })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            alert("Rutina clonada y asignada correctamente.");
+            document.getElementById('assignRoutineModal').remove();
+            
+            // Si el cliente modificado es el que estamos viendo actualmente en la ficha principal, recargamos la pantalla
+            if (parseInt(clientId) === activeUserId) {
+                selectClient(activeUserId);
+            }
+        } else {
+            alert("Error al asignar: " + result.error);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error de conexión al asignar rutina.");
+    }
+}
+
+
+// --- Delete Functions ---
+async function deleteItem(endpoint, id, refreshFunction) {
+    if(!confirm("¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer y borrará el elemento de todas las rutinas en las que esté asignado.")) return;
+    
+    try {
+        const response = await fetch(endpoint, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        });
+        const result = await response.json();
+        if (result.success) {
+            refreshFunction();
+        } else {
+            alert("Error al eliminar: " + result.error);
+        }
+    } catch (e) {
+        alert("Error de red: " + e);
+    }
+}
+
+function deleteExercise(id) { deleteItem('/api/exercises', id, fetchGlobalExercises); }
+function deleteBlock(id) { deleteItem('/api/workout_blocks', id, fetchGlobalBlocks); }
+function deleteRoutine(id) { deleteItem('/api/routines', id, fetchGlobalRoutines); }
+
+// --- Edit Modes ---
+let editingExerciseId = null;
+let editingBlockId = null;
+let editingRoutineId = null;
+
+// Override original submit for Exercises to handle PUT
+const originalSubmitEx = submitNewExercise;
+submitNewExercise = async function(e) {
+    if(!editingExerciseId) return originalSubmitEx(e);
+    
+    e.preventDefault();
+    const payload = {
+        id: editingExerciseId,
+        name: document.getElementById('newExName').value,
+        primary_muscle: document.getElementById('newExPrimary').value,
+        secondary_muscles: document.getElementById('newExSecondary').value,
+        equipment: document.getElementById('newExEquipment').value,
+        video_url: document.getElementById('newExVideo').value
+    };
+    const res = await fetch('/api/exercises', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+        closeExerciseModal();
+        e.target.reset();
+        fetchGlobalExercises();
+    } else alert("Error: " + result.error);
+}
+
+function editExercise(id) {
+    // We fetch current globally cached exercises
+    // We don't have a direct global variable for exercises cache, so we fetch it again
+    fetch('/api/exercises').then(r=>r.json()).then(exs => {
+        const ex = exs.find(e => e.id === id);
+        if(!ex) return;
+        editingExerciseId = id;
+        document.getElementById('newExName').value = ex.name;
+        document.getElementById('newExPrimary').value = ex.primary_muscle;
+        document.getElementById('newExSecondary').value = ex.secondary_muscles || '';
+        document.getElementById('newExEquipment').value = ex.equipment || '';
+        document.getElementById('newExVideo').value = ex.video_url || '';
+        
+        // Modificar título del modal
+        const formTitle = document.querySelector('#addExerciseModal h3');
+        if(formTitle) formTitle.textContent = "Editar Ejercicio";
+        
+        openExerciseModal();
+    });
+}
+
+// Override original open/close to reset state
+const originalCloseEx = closeExerciseModal;
+closeExerciseModal = function() {
+    editingExerciseId = null;
+    const formTitle = document.querySelector('#addExerciseModal h3');
+    if(formTitle) formTitle.textContent = "Nuevo Ejercicio";
+    originalCloseEx();
+}
+
+// Block Edit
+const originalSubmitBlock = submitNewBlock;
+submitNewBlock = async function(e) {
+    if(!editingBlockId) return originalSubmitBlock(e);
+    
+    e.preventDefault();
+    const exercises = [];
+    document.querySelectorAll('.block-exercise-row').forEach((row, exIdx) => {
+        exercises.push({
+            exercise_id: parseInt(row.querySelector('.block-ex-id').value),
+            sets_count: parseInt(row.querySelector('.ex-sets').value),
+            reps_range: row.querySelector('.ex-reps').value,
+            rpe_target: parseInt(row.querySelector('.ex-rpe').value) || 0,
+            order_index: exIdx + 1
+        });
+    });
+    const payload = {
+        id: editingBlockId,
+        name: document.getElementById('newBlockName').value,
+        routine_class: document.getElementById('newBlockClass').value,
+        description: document.getElementById('newBlockDesc').value,
+        exercises: exercises
+    };
+    const res = await fetch('/api/workout_blocks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+        closeBlockModal();
+        e.target.reset();
+        fetchGlobalBlocks();
+    } else alert("Error: " + result.error);
+}
+
+function editBlock(id) {
+    const block = globalBlocksCache.find(b => b.id === id);
+    if(!block) return;
+    editingBlockId = id;
+    
+    document.getElementById('newBlockName').value = block.name;
+    document.getElementById('newBlockClass').value = block.routine_class;
+    document.getElementById('newBlockDesc').value = block.description || '';
+    
+    const formTitle = document.querySelector('#addBlockModal h3');
+    if(formTitle) formTitle.textContent = "Editar Bloque de Grupo Muscular";
+    
+    document.getElementById('addBlockModal').style.display = 'flex'; 
+    document.getElementById('blockExercisesContainer').innerHTML = '';
+    
+    // Add existing exercises
+    block.exercises.forEach(ex => {
+        const container = document.getElementById('blockExercisesContainer');
+        const exDiv = document.createElement('div');
+        exDiv.style.display = 'flex'; exDiv.style.gap = '5px'; exDiv.style.marginBottom = '5px';
+        exDiv.className = 'block-exercise-row';
+        
+        const selectedClass = block.routine_class;
+        const filteredEx = selectedClass === "Fullbody" ? globalExercisesCache : globalExercisesCache.filter(e => e.routine_class === selectedClass || e.routine_class === "Fullbody");
+        let optionsHTML = filteredEx.map(e => `<option value="${e.id}" ${e.id == ex.exercise_id ? 'selected' : ''}>${e.name} (${e.primary_muscle})</option>`).join('');
+        
+        exDiv.innerHTML = `
+            <select class="block-ex-id" style="flex:2;" required>${optionsHTML}</select>
+            <input type="number" class="ex-sets" placeholder="Series" value="${ex.sets_count}" style="flex:1;" required>
+            <input type="text" class="ex-reps" placeholder="Reps" value="${ex.reps_range}" style="flex:1;" required>
+            <input type="number" class="ex-rpe" placeholder="RPE" value="${ex.rpe_target || 8}" style="flex:1;">
+            <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+        `;
+        container.appendChild(exDiv);
+    });
+}
+
+const originalCloseBlock = closeBlockModal;
+closeBlockModal = function() {
+    editingBlockId = null;
+    const formTitle = document.querySelector('#addBlockModal h3');
+    if(formTitle) formTitle.textContent = "Nuevo Bloque de Grupo Muscular";
+    originalCloseBlock();
+}
+
+// Routine Edit
+const originalSubmitRoutine = submitNewRoutine;
+submitNewRoutine = async function(e) {
+    if(!editingRoutineId) return originalSubmitRoutine(e);
+    
+    e.preventDefault();
+    const days = [];
+    document.querySelectorAll('.day-builder-card').forEach((card, idx) => {
+        const dayName = card.querySelector('.day-name').value;
+        const blockIds = Array.from(card.querySelectorAll('.day-block-id')).map(sel => parseInt(sel.value));
+        days.push({ day_name: dayName, order_index: idx + 1, block_ids: blockIds });
+    });
+    const payload = {
+        id: editingRoutineId,
+        title: document.getElementById('newRoutineTitle').value,
+        description: document.getElementById('newRoutineDesc').value,
+        days: days
+    };
+    const res = await fetch('/api/routines', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+        closeRoutineModal();
+        e.target.reset();
+        fetchGlobalRoutines();
+    } else alert("Error: " + result.error);
+}
+
+function editRoutine(id) {
+    fetch('/api/routines').then(r=>r.json()).then(routines => {
+        const routine = routines.find(r => r.id === id);
+        if(!routine) return;
+        editingRoutineId = id;
+        
+        document.getElementById('newRoutineTitle').value = routine.title;
+        document.getElementById('newRoutineDesc').value = routine.description || '';
+        
+        const formTitle = document.querySelector('#addRoutineModal h3');
+        if(formTitle) formTitle.textContent = "Editar Plantilla de Rutina";
+        
+        document.getElementById('addRoutineModal').style.display = 'flex'; 
+        document.getElementById('daysContainer').innerHTML = '';
+        dayCounter = 0;
+        
+        routine.days.forEach(day => {
+            dayCounter++;
+            const d = dayCounter;
+            const card = document.createElement('div');
+            card.className = 'day-builder-card';
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <input type="text" class="day-name form-input" value="${day.day_name}" required style="width:200px;">
+                    <button type="button" class="btn-nav" onclick="this.parentElement.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
+                </div>
+                <div class="day-blocks" id="dayBlocks_${d}"></div>
+                <button type="button" class="btn-secondary" style="font-size:12px; margin-top:10px;" onclick="addBlockToDayBuilder(this)"><i class="fa-solid fa-plus"></i> Añadir Bloque</button>
+            `;
+            document.getElementById('daysContainer').appendChild(card);
+            
+            day.blocks.forEach(blk => {
+                const bContainer = document.getElementById(`dayBlocks_${d}`);
+                const div = document.createElement('div');
+                div.style.display = 'flex'; div.style.gap = '5px'; div.style.marginBottom = '5px';
+                
+                let optionsHtml = globalBlocksCache.map(b => `<option value="${b.id}" ${b.id == blk.id ? 'selected' : ''}>${b.name} (${b.routine_class})</option>`).join('');
+                div.innerHTML = `
+                    <select class="day-block-id" style="flex:1;" required>${optionsHtml}</select>
+                    <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+                `;
+                bContainer.appendChild(div);
+            });
+        });
+    });
+}
+
+const originalCloseRoutine = closeRoutineModal;
+closeRoutineModal = function() {
+    editingRoutineId = null;
+    const formTitle = document.querySelector('#addRoutineModal h3');
+    if(formTitle) formTitle.textContent = "Nueva Plantilla";
+    originalCloseRoutine();
+}

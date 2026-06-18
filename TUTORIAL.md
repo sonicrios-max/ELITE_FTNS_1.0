@@ -75,7 +75,16 @@ El servidor se iniciará en el puerto `8080`. Mantén esta consola abierta mient
 
 ---
 
-## 5. Cómo Navegar e Interactuar con la Plataforma
+## 5. Credenciales de Acceso
+
+Los usuarios generados en la base de datos para pruebas son los siguientes (todos comparten la misma contraseña por defecto):
+- **Brayan Guerrero**: Nickname `brayan.guerrero` / Contraseña `123456`
+- **Maria Perez**: Nickname `maria.perez` / Contraseña `123456`
+- **Carlos Gomez**: Nickname `carlos.gomez` / Contraseña `123456`
+
+---
+
+## 6. Cómo Navegar e Interactuar con la Plataforma
 
 Abre tu navegador de internet favorito e introduce las siguientes URLs:
 
@@ -92,10 +101,61 @@ Abre tu navegador de internet favorito e introduce las siguientes URLs:
 
 ---
 
-## 6. Pruebas de Funcionamiento Automatizadas
+## 7. Pruebas de Funcionamiento Automatizadas
 
 Para validar que el backend procesa correctamente las operaciones aritméticas y que los endpoints REST de lectura/escritura responden a la perfección, ejecuta la suite de prueba:
 ```bash
 python scripts/test_server.py
 ```
 *Este comando levantará temporalmente el servidor, registrará un nuevo cliente de prueba (Carlos Gomez), le insertará una valoración antropométrica, validará que el porcentaje de grasa por Faulkner coincida matemáticamente con las fórmulas teóricas, insertará un log diario y apagará el servidor de forma segura.*
+
+---
+
+## 8. Cómo Probar la Aplicación en tu Teléfono Android
+
+Existen dos opciones para probar la aplicación en tu celular:
+
+### Opción A: Probar la versión PWA (Instalación instantánea sin código)
+Esta es la opción recomendada para entrenadores y clientes debido a que no requiere configurar entornos de compilación y se instala directamente desde el navegador de tu celular en segundos.
+
+1. **Asegura la Conexión de Red**:
+   - Tu teléfono celular y tu computadora **deben estar conectados a la misma red Wi-Fi**.
+
+2. **Inicia el Servidor en tu PC**:
+   - Asegúrate de que el servidor está corriendo en tu computadora ejecutando:
+     ```bash
+     python server.py
+     ```
+
+3. **Obtén la IP Local de tu Computadora**:
+   - Tu dirección IPv4 local actual es: **`192.168.1.23`**
+   - *(En el futuro, si tu red cambia, puedes consultar esta IP ejecutando `ipconfig` en la terminal de Windows).*
+
+4. **Accede desde el Celular**:
+   - Abre **Google Chrome** en tu celular Android.
+   - Navega a la dirección del Portal del Cliente (Brayan) o el Panel Maestro:
+     - **Panel Maestro de Acceso**: `http://192.168.1.23:8080/`
+     - **Acceso Directo Cliente (Brayan)**: `http://192.168.1.23:8080/client/?userId=1`
+
+5. **Instala la PWA en tu Teléfono**:
+   - Cuando cargue la página, presiona el botón de **los tres puntos verticales** arriba a la derecha de Google Chrome.
+   - Selecciona la opción **"Instalar aplicación"** o **"Agregar a la pantalla de inicio"**.
+   - ¡Listo! Ahora aparecerá el icono premium de **Elite Coaching** en la pantalla de inicio de tu celular, y al abrirlo se ejecutará a pantalla completa como una aplicación móvil real.
+
+---
+
+### Opción B: Probar el Prototipo Nativo (Android Studio / Jetpack Compose)
+Si deseas ejecutar la app móvil nativa en Kotlin/Jetpack Compose, sigue estos pasos:
+
+1. **Abre el Proyecto**:
+   - Inicia **Android Studio** en tu PC.
+   - Selecciona **Open** y abre la carpeta `android/` del proyecto.
+
+2. **Conecta tu Dispositivo**:
+   - **Teléfono Físico**: Activa las *Opciones de Desarrollador* en los ajustes de tu teléfono, activa *Depuración USB* y conéctalo por cable a tu PC.
+   - **Emulador**: Si no tienes un teléfono físico a la mano, puedes crear un dispositivo virtual en Android Studio a través del *Device Manager*.
+
+3. **Compilar y Correr**:
+   - Haz clic en el botón verde **Run (Reproducir)** en la barra superior de Android Studio.
+   - Selecciona tu dispositivo de la lista. La aplicación se compilará y se instalará automáticamente en tu celular.
+

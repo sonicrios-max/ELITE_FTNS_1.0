@@ -100,11 +100,22 @@ CREATE TABLE IF NOT EXISTS exercises (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
+    routine_class TEXT DEFAULT 'Fullbody', -- e.g., Fuerza, Empuje, Tracción, Pierna, Core, Fullbody
     primary_muscle TEXT NOT NULL,
     secondary_muscles TEXT, -- comma-separated
     equipment TEXT,
     video_url TEXT, -- URL to custom media asset
     image_url TEXT
+);
+
+-- 5.1 Workout Blocks (Rutinas de Grupo Muscular)
+CREATE TABLE IF NOT EXISTS workout_blocks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL, -- ID 0 para Plantillas Globales
+    name TEXT NOT NULL,
+    routine_class TEXT NOT NULL, -- Clasificación principal del bloque
+    description TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- 6. Workout Routine Plans
@@ -127,10 +138,20 @@ CREATE TABLE IF NOT EXISTS workout_days (
     FOREIGN KEY (plan_id) REFERENCES workout_plans(id) ON DELETE CASCADE
 );
 
--- 8. Exercises in a Workout Day
-CREATE TABLE IF NOT EXISTS workout_exercises (
+-- 7.1 Blocks inside a Training Day
+CREATE TABLE IF NOT EXISTS workout_day_blocks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workout_day_id INTEGER NOT NULL,
+    workout_block_id INTEGER NOT NULL,
+    order_index INTEGER NOT NULL,
+    FOREIGN KEY (workout_day_id) REFERENCES workout_days(id) ON DELETE CASCADE,
+    FOREIGN KEY (workout_block_id) REFERENCES workout_blocks(id) ON DELETE CASCADE
+);
+
+-- 8. Exercises in a Workout Block
+CREATE TABLE IF NOT EXISTS workout_exercises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workout_block_id INTEGER NOT NULL,
     exercise_id INTEGER NOT NULL,
     sets_count INTEGER NOT NULL,
     reps_range TEXT NOT NULL, -- e.g., "8-12"
@@ -138,7 +159,7 @@ CREATE TABLE IF NOT EXISTS workout_exercises (
     rest_seconds INTEGER, -- e.g., 90
     notes TEXT,
     order_index INTEGER NOT NULL,
-    FOREIGN KEY (workout_day_id) REFERENCES workout_days(id) ON DELETE CASCADE,
+    FOREIGN KEY (workout_block_id) REFERENCES workout_blocks(id) ON DELETE CASCADE,
     FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
 );
 

@@ -7,6 +7,11 @@
     <link rel="stylesheet" href="/shared/style.css">
     <!-- FontAwesome for premium fitness icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA Setup -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#d4af37">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
     <style>
         /* Specific adjustments for Master Page */
         .master-grid {
@@ -313,6 +318,17 @@
                 error.style.display = "block";
             }
         }
+    </script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('Service Worker registrado: ', reg.scope))
+            .catch(err => console.error('Error Service Worker: ', err));
+        });
+      }
     </script>
 </body>
 </html>

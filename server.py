@@ -59,6 +59,17 @@ def check_and_migrate_db():
                 print(f"  -> User ID {u_id} updated: nickname='{new_nick}', password='{new_pass}'")
             conn.commit()
             print("Default credentials seeded.")
+            
+        # Ensure System User (ID 0) exists for Global Templates
+        cursor.execute("SELECT id FROM users WHERE id = 0")
+        if not cursor.fetchone():
+            print("Migration: Creating System User (ID 0) for Global Templates...")
+            cursor.execute("""
+                INSERT INTO users (id, first_name, last_name, email, height_cm, nickname, password)
+                VALUES (0, 'Sistema', 'Plantillas', 'sistema@elitecoach.local', 0, 'sistema', '123456')
+            """)
+            conn.commit()
+            
     except Exception as e:
         print("Error during migration:", e)
     finally:
@@ -96,6 +107,14 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.handle_get_client_detail(user_id)
             except ValueError:
                 self.send_error_response(400, "Invalid Client ID format.")
+        elif path == "/api/exercises":
+            self.handle_get_exercises()
+        elif path == "/api/workout_blocks":
+            self.handle_get_workout_blocks()
+        elif path == "/api/routines":
+            self.handle_get_routines()
+        elif path == "/api/daily_logs/calendar":
+            self.handle_get_daily_calendar(parsed_url.query)
         
         # Route Web Dashboards
         elif path == "/" or path == "/index.html":
@@ -110,6 +129,13 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.serve_local_file(os.path.join(BASE_DIR, "web", "trainer", "trainer.js"), "application/javascript")
         elif path == "/client/client.js":
             self.serve_local_file(os.path.join(BASE_DIR, "web", "client", "client.js"), "application/javascript")
+        elif path == "/manifest.json":
+            self.serve_local_file(os.path.join(BASE_DIR, "web", "manifest.json"), "application/json")
+        elif path == "/service-worker.js":
+            self.serve_local_file(os.path.join(BASE_DIR, "web", "service-worker.js"), "application/javascript")
+        elif path.startswith("/icons/"):
+            filename = path.split("/")[-1]
+            self.serve_local_file(os.path.join(BASE_DIR, "web", "icons", filename), "image/png")
         else:
             # Try serving normal static files
             super().do_GET()
@@ -130,10 +156,58 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_auth(data)
         elif path == "/api/clients":
             self.handle_create_client(data)
-        elif path == "/api/assessments":
-            self.handle_create_assessment(data)
+        elif path == "/api/auth/login":
+            self.handle_login(data)
         elif path == "/api/daily_logs":
             self.handle_create_daily_log(data)
+        elif path == "/api/exercises":
+            self.handle_create_exercise(data)
+        elif path == "/api/workout_blocks":
+            self.handle_create_workout_block(data)
+        elif path == "/api/routines":
+            self.handle_create_routine(data)
+        elif path == "/api/routines/assign":
+            self.handle_assign_routine(data)
+        else:
+            self.send_error_response(404, "Endpoint not found.")
+
+    def do_PUT(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+        try:
+            data = json.loads(post_data.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.send_error_response(400, "Malformed JSON payload.")
+            return
+
+        if path == "/api/exercises":
+            self.handle_update_exercise(data)
+        elif path == "/api/workout_blocks":
+            self.handle_update_block(data)
+        elif path == "/api/routines":
+            self.handle_update_routine(data)
+        else:
+            self.send_error_response(404, "Endpoint not found.")
+
+    def do_DELETE(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+        try:
+            data = json.loads(post_data.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.send_error_response(400, "Malformed JSON payload.")
+            return
+
+        if path == "/api/exercises":
+            self.handle_delete_exercise(data)
+        elif path == "/api/workout_blocks":
+            self.handle_delete_block(data)
+        elif path == "/api/routines":
+            self.handle_delete_routine(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
@@ -187,11 +261,24 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT id, first_name, last_name, email, phone FROM users ORDER BY id ASC")
+        cursor.execute("SELECT id, first_name, last_name, email, phone FROM users WHERE id != 0 ORDER BY id ASC")
         rows = cursor.fetchall()
-        clients = [dict(row) for row in rows]
-        conn.close()
         
+        clients = []
+        for row in rows:
+            client = dict(row)
+            # Calculate adherence KPI (last 30 days)
+            cursor.execute("""
+                SELECT AVG(diet_adherence) as avg_adherence 
+                FROM daily_logs 
+                WHERE user_id = ? AND date >= date('now', '-30 days')
+                AND diet_adherence IS NOT NULL
+            """, (client['id'],))
+            res = cursor.fetchone()
+            client['adherence_score'] = res['avg_adherence'] if res and res['avg_adherence'] else 0
+            clients.append(client)
+            
+        conn.close()
         self.send_json_response(200, clients)
 
     def handle_get_client_detail(self, user_id):
@@ -236,15 +323,28 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             days = []
             for day_row in cursor.fetchall():
                 day = dict(day_row)
-                # Fetch exercises on this day
+                # Fetch blocks for this day
                 cursor.execute("""
-                    SELECT we.*, e.name as exercise_name, e.video_url, e.description
-                    FROM workout_exercises we
-                    JOIN exercises e ON we.exercise_id = e.id
-                    WHERE we.workout_day_id = ?
-                    ORDER BY we.order_index ASC
+                    SELECT wb.id, wb.name, wb.routine_class, wb.description, wdb.order_index
+                    FROM workout_day_blocks wdb
+                    JOIN workout_blocks wb ON wdb.workout_block_id = wb.id
+                    WHERE wdb.workout_day_id = ?
+                    ORDER BY wdb.order_index ASC
                 """, (day['id'],))
-                day['exercises'] = [dict(ex) for ex in cursor.fetchall()]
+                blocks = []
+                for block_row in cursor.fetchall():
+                    block = dict(block_row)
+                    # Fetch exercises for this block
+                    cursor.execute("""
+                        SELECT we.*, e.name as exercise_name, e.video_url, e.description
+                        FROM workout_exercises we
+                        JOIN exercises e ON we.exercise_id = e.id
+                        WHERE we.workout_block_id = ?
+                        ORDER BY we.order_index ASC
+                    """, (block['id'],))
+                    block['exercises'] = [dict(ex) for ex in cursor.fetchall()]
+                    blocks.append(block)
+                day['blocks'] = blocks
                 days.append(day)
             workout_plan['days'] = days
             
@@ -353,6 +453,72 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response(200, {"success": True, "client_id": client_id})
         except sqlite3.IntegrityError:
             self.send_json_response(200, {"success": False, "error": "El correo ya está registrado."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_assign_routine(self, data):
+        client_id = data.get('client_id')
+        plan_id = data.get('plan_id') # ID de la plantilla
+        
+        if not client_id or not plan_id:
+            self.send_error_response(400, "Missing client_id or plan_id")
+            return
+            
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        try:
+            # Verificar existencia de la plantilla
+            cursor.execute("SELECT * FROM workout_plans WHERE id = ?", (plan_id,))
+            template = cursor.fetchone()
+            if not template:
+                self.send_json_response(404, {"success": False, "error": "Template not found"})
+                conn.close()
+                return
+            
+            template_dict = dict(zip([col[0] for col in cursor.description], template))
+            
+            # Limpiar rutina anterior del cliente
+            cursor.execute("SELECT id FROM workout_plans WHERE user_id = ?", (client_id,))
+            old_plans = cursor.fetchall()
+            for (op_id,) in old_plans:
+                cursor.execute("SELECT id FROM workout_days WHERE plan_id = ?", (op_id,))
+                for (od_id,) in cursor.fetchall():
+                    cursor.execute("DELETE FROM workout_day_blocks WHERE workout_day_id = ?", (od_id,))
+                cursor.execute("DELETE FROM workout_days WHERE plan_id = ?", (op_id,))
+                cursor.execute("DELETE FROM workout_plans WHERE id = ?", (op_id,))
+            
+            # Crear nueva rutina para el cliente
+            cursor.execute("""
+                INSERT INTO workout_plans (user_id, title, description, start_date, end_date)
+                VALUES (?, ?, ?, date('now'), date('now', '+3 months'))
+            """, (client_id, template_dict['title'], template_dict['description']))
+            new_plan_id = cursor.lastrowid
+            
+            # Clonar los días y asociar los bloques
+            cursor.execute("SELECT * FROM workout_days WHERE plan_id = ?", (plan_id,))
+            t_days = [dict(zip([col[0] for col in cursor.description], row)) for row in cursor.fetchall()]
+            
+            for t_day in t_days:
+                cursor.execute("""
+                    INSERT INTO workout_days (plan_id, day_name, order_index)
+                    VALUES (?, ?, ?)
+                """, (new_plan_id, t_day['day_name'], t_day['order_index']))
+                new_day_id = cursor.lastrowid
+                
+                # Clonar enlace a los bloques de ese día
+                cursor.execute("SELECT * FROM workout_day_blocks WHERE workout_day_id = ?", (t_day['id'],))
+                t_dbs = cursor.fetchall()
+                for t_db in t_dbs:
+                    cursor.execute("""
+                        INSERT INTO workout_day_blocks (workout_day_id, workout_block_id, order_index)
+                        VALUES (?, ?, ?)
+                    """, (new_day_id, t_db[2], t_db[3]))
+                    
+            conn.commit()
+            self.send_json_response(200, {"success": True, "message": "Rutina asignada correctamente"})
         except Exception as e:
             self.send_json_response(500, {"success": False, "error": str(e)})
         finally:
@@ -489,6 +655,205 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         finally:
             conn.close()
 
+    def handle_get_exercises(self):
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM exercises ORDER BY id ASC")
+        rows = cursor.fetchall()
+        exercises = [dict(row) for row in rows]
+        conn.close()
+        self.send_json_response(200, exercises)
+
+    def handle_create_exercise(self, data):
+        name = data.get("name")
+        primary_muscle = data.get("primary_muscle")
+        
+        if not name or not primary_muscle:
+            self.send_error_response(400, "Nombre y músculo primario son requeridos.")
+            return
+            
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO exercises (name, description, primary_muscle, secondary_muscles, equipment, video_url, image_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                name, data.get("description", ""), primary_muscle, 
+                data.get("secondary_muscles", ""), data.get("equipment", ""), 
+                data.get("video_url", ""), data.get("image_url", "")
+            ))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "exercise_id": cursor.lastrowid})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_get_workout_blocks(self):
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Get blocks that are either global (0) or belong to the active user context (simplified for now)
+        cursor.execute("SELECT * FROM workout_blocks WHERE user_id = 0 ORDER BY id ASC")
+        blocks = [dict(row) for row in cursor.fetchall()]
+        
+        for block in blocks:
+            cursor.execute("""
+                SELECT we.*, e.name as exercise_name, e.routine_class
+                FROM workout_exercises we
+                JOIN exercises e ON we.exercise_id = e.id
+                WHERE we.workout_block_id = ?
+                ORDER BY we.order_index ASC
+            """, (block['id'],))
+            block['exercises'] = [dict(ex) for ex in cursor.fetchall()]
+            
+        conn.close()
+        self.send_json_response(200, blocks)
+        
+    def handle_create_workout_block(self, data):
+        name = data.get("name")
+        routine_class = data.get("routine_class", "Fullbody")
+        
+        if not name:
+            self.send_error_response(400, "El nombre del bloque es requerido.")
+            return
+            
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO workout_blocks (user_id, name, routine_class, description)
+                VALUES (0, ?, ?, ?)
+            """, (name, routine_class, data.get("description", "")))
+            block_id = cursor.lastrowid
+            
+            exercises = data.get("exercises", [])
+            for ex in exercises:
+                cursor.execute("""
+                    INSERT INTO workout_exercises (workout_block_id, exercise_id, sets_count, reps_range, rpe_target, rest_seconds, notes, order_index)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    block_id, ex.get("exercise_id"), ex.get("sets_count", 3), ex.get("reps_range", "10"),
+                    ex.get("rpe_target", 7), ex.get("rest_seconds", 90), ex.get("notes", ""), ex.get("order_index", 1)
+                ))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "block_id": block_id})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_get_routines(self):
+        # Fetch global routines (user_id = 0)
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM workout_plans WHERE user_id = 0")
+        plans = [dict(row) for row in cursor.fetchall()]
+        
+        for plan in plans:
+            cursor.execute("SELECT * FROM workout_days WHERE plan_id = ? ORDER BY order_index ASC", (plan['id'],))
+            days = []
+            for day_row in cursor.fetchall():
+                day = dict(day_row)
+                cursor.execute("""
+                    SELECT wb.* 
+                    FROM workout_blocks wb
+                    JOIN workout_day_blocks wdb ON wb.id = wdb.workout_block_id
+                    WHERE wdb.workout_day_id = ?
+                    ORDER BY wdb.order_index ASC
+                """, (day['id'],))
+                blocks = [dict(b) for b in cursor.fetchall()]
+                
+                # Para mostrar la cantidad de ejercicios en la vista rápida
+                total_ex = 0
+                for block in blocks:
+                    cursor.execute("""
+                        SELECT we.*, e.name as exercise_name 
+                        FROM workout_exercises we
+                        JOIN exercises e ON we.exercise_id = e.id
+                        WHERE we.workout_block_id = ?
+                    """, (block['id'],))
+                    block_exercises = [dict(ex) for ex in cursor.fetchall()]
+                    block['exercises'] = block_exercises
+                    total_ex += len(block_exercises)
+                    
+                day['blocks'] = blocks
+                day['total_exercises'] = total_ex
+                days.append(day)
+            plan['days'] = days
+            
+        conn.close()
+        self.send_json_response(200, plans)
+        
+    def handle_create_routine(self, data):
+        title = data.get("title")
+        if not title:
+            self.send_error_response(400, "El título es requerido.")
+            return
+            
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Create the global plan (user_id = 0)
+            cursor.execute("""
+                INSERT INTO workout_plans (user_id, title, description, start_date, end_date)
+                VALUES (0, ?, ?, NULL, NULL)
+            """, (title, data.get("description", "")))
+            plan_id = cursor.lastrowid
+            
+            # Create days and link blocks
+            days = data.get("days", [])
+            for day in days:
+                cursor.execute("INSERT INTO workout_days (plan_id, day_name, order_index) VALUES (?, ?, ?)", 
+                    (plan_id, day.get("day_name", "Día"), day.get("order_index", 1)))
+                day_id = cursor.lastrowid
+                
+                blocks = day.get("blocks", [])
+                for block in blocks:
+                    cursor.execute("""
+                        INSERT INTO workout_day_blocks (workout_day_id, workout_block_id, order_index)
+                        VALUES (?, ?, ?)
+                    """, (day_id, block.get("block_id"), block.get("order_index", 1)))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "plan_id": plan_id})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_get_daily_calendar(self, query_string):
+        query_params = urllib.parse.parse_qs(query_string)
+        user_id = query_params.get("user_id", [None])[0]
+        month = query_params.get("month", [None])[0]
+        year = query_params.get("year", [None])[0]
+        
+        if not user_id or not month or not year:
+            self.send_error_response(400, "user_id, month and year are required.")
+            return
+            
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Format month for sqlite LIKE query
+        month_padded = str(month).zfill(2)
+        date_pattern = f"{year}-{month_padded}-%"
+        
+        cursor.execute("""
+            SELECT * FROM daily_logs 
+            WHERE user_id = ? AND date LIKE ?
+        """, (user_id, date_pattern))
+        
+        logs = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        self.send_json_response(200, logs)
+
     # --- Helper Methods ---
 
     def serve_local_file(self, full_path, content_type):
@@ -517,21 +882,151 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def send_error_response(self, status_code, message):
         self.send_json_response(status_code, {"success": False, "error": message})
 
+
+    def handle_update_exercise(self, data):
+        ex_id = data.get('id')
+        name = data.get('name')
+        if not ex_id or not name:
+            self.send_error_response(400, "Missing id or name")
+            return
+        import sqlite3
+        from constants import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                UPDATE exercises SET name=?, primary_muscle=?, secondary_muscles=?, equipment=?, video_url=?
+                WHERE id=?
+            ''', (name, data.get('primary_muscle'), data.get('secondary_muscles'), data.get('equipment'), data.get('video_url'), ex_id))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_error_response(500, str(e))
+        finally:
+            conn.close()
+
+    def handle_delete_exercise(self, data):
+        ex_id = data.get('id')
+        import sqlite3
+        from constants import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.execute("DELETE FROM exercises WHERE id=?", (ex_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_error_response(500, str(e))
+        finally:
+            conn.close()
+
+    def handle_update_block(self, data):
+        block_id = data.get('id')
+        name = data.get('name')
+        exercises = data.get('exercises', [])
+        if not block_id or not name:
+            self.send_error_response(400, "Missing id or name")
+            return
+        import sqlite3
+        from constants import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("UPDATE workout_blocks SET name=?, routine_class=?, description=? WHERE id=?", 
+                          (name, data.get('routine_class'), data.get('description'), block_id))
+            cursor.execute("DELETE FROM workout_exercises WHERE workout_block_id=?", (block_id,))
+            for ex in exercises:
+                cursor.execute('''
+                    INSERT INTO workout_exercises (workout_block_id, exercise_id, sets_count, reps_range, rpe_target, order_index)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (block_id, ex.get('exercise_id'), ex.get('sets_count'), ex.get('reps_range'), ex.get('rpe_target'), ex.get('order_index')))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_error_response(500, str(e))
+        finally:
+            conn.close()
+
+    def handle_delete_block(self, data):
+        block_id = data.get('id')
+        import sqlite3
+        from constants import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.execute("DELETE FROM workout_blocks WHERE id=?", (block_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_error_response(500, str(e))
+        finally:
+            conn.close()
+
+    def handle_update_routine(self, data):
+        plan_id = data.get('id')
+        title = data.get('title')
+        days = data.get('days', [])
+        if not plan_id or not title:
+            self.send_error_response(400, "Missing id or title")
+            return
+        import sqlite3
+        from constants import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("UPDATE workout_plans SET title=?, description=? WHERE id=?", 
+                          (title, data.get('description'), plan_id))
+            cursor.execute("SELECT id FROM workout_days WHERE plan_id=?", (plan_id,))
+            for (od_id,) in cursor.fetchall():
+                cursor.execute("DELETE FROM workout_day_blocks WHERE workout_day_id=?", (od_id,))
+            cursor.execute("DELETE FROM workout_days WHERE plan_id=?", (plan_id,))
+            for day in days:
+                cursor.execute("INSERT INTO workout_days (plan_id, day_name, order_index) VALUES (?, ?, ?)", 
+                              (plan_id, day.get('day_name'), day.get('order_index')))
+                day_id = cursor.lastrowid
+                for b_idx, block_id in enumerate(day.get('block_ids', [])):
+                    cursor.execute("INSERT INTO workout_day_blocks (workout_day_id, workout_block_id, order_index) VALUES (?, ?, ?)", 
+                                  (day_id, block_id, b_idx+1))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_error_response(500, str(e))
+        finally:
+            conn.close()
+
+    def handle_delete_routine(self, data):
+        plan_id = data.get('id')
+        import sqlite3
+        from constants import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.execute("DELETE FROM workout_plans WHERE id=?", (plan_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_error_response(500, str(e))
+        finally:
+            conn.close()
+
 def run_server():
+
     # Auto-initialize and seed the database if it doesn't exist or is empty
     if not os.path.exists(DB_PATH) or os.path.getsize(DB_PATH) == 0:
         print("Database not found or empty. Auto-initializing and seeding database...")
         try:
             from scripts.init_db import init_db
-            from scripts.parse_and_seed import seed_brayan
-            from scripts.seed_details import seed_details
             
             init_db()
-            seed_brayan()
-            seed_details()
-            print("Database initialized and auto-seeded successfully!")
+            # Se excluye la generación automática de datos simulados para trabajar con el estado actual
+            # from scripts.seed_consistent_data import seed_consistent_data
+            # seed_consistent_data()
+            print("Database initialized successfully!")
         except Exception as e:
-            print("Error during database auto-seeding:", e)
+            print("Error during database initialization:", e)
 
     # Call migration check to ensure columns and default credentials exist
     check_and_migrate_db()

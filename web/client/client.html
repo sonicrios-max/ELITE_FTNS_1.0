@@ -29,6 +29,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA Setup -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#d4af37">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
 </head>
 <body>
     <script>
@@ -58,7 +63,8 @@
             <span class="btn-nav active" style="cursor:default;"><i class="fa-solid fa-house-user"></i> Panel de Control</span>
             <a href="/" onclick="sessionStorage.removeItem('clientAuth_' + (new URLSearchParams(window.location.search).get('userId') || '1'))" class="btn-nav"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
         </div>
-        <div style="display: flex; align-items: center; gap: 15px;">
+        <div class="header-right-group" style="display: flex; align-items: center; gap: 15px;">
+            <button class="btn-primary" onclick="toggleSensorDemo()" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 0 10px rgba(124, 58, 237, 0.3); padding: 6px 12px; font-size: 12px;"><i class="fa-solid fa-satellite-dish"></i> Sensor Live (Demo)</button>
             <span id="clientNameHeader" style="font-weight:700; font-size:14px; color:var(--accent-cyan);">Cargando...</span>
             <button class="btn-primary" onclick="exportToPDF()" style="background: linear-gradient(135deg, var(--accent-orange), var(--accent-red)); box-shadow: 0 0 10px rgba(245, 158, 11, 0.3); padding: 6px 12px; font-size: 12px;"><i class="fa-solid fa-file-pdf"></i> PDF</button>
         </div>
@@ -229,5 +235,72 @@
     </div>
 
     <script src="/client/client.js?v=1.0.2"></script>
+    
+    <!-- PWA Service Worker Registration & Sensor Demo Logic -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('Service Worker registrado: ', reg.scope))
+            .catch(err => console.error('Error Service Worker: ', err));
+        });
+      }
+
+      // --- Live Sensor Demo Logic ---
+      let sensorActive = false;
+      function toggleSensorDemo() {
+          if (!sensorActive) {
+              if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                  // iOS 13+ requires explicit permission
+                  DeviceMotionEvent.requestPermission()
+                      .then(permissionState => {
+                          if (permissionState === 'granted') {
+                              startSensor();
+                          } else {
+                              alert("Permiso denegado para acceder al acelerómetro.");
+                          }
+                      })
+                      .catch(console.error);
+              } else {
+                  // Non-iOS 13+ devices
+                  startSensor();
+              }
+          } else {
+              stopSensor();
+          }
+      }
+
+      function handleMotion(event) {
+          const acc = event.accelerationIncludingGravity;
+          if(!acc) return;
+          const motionVal = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
+          
+          // Efecto WOW visual: Cambiar el box-shadow de la página según el movimiento
+          const intensity = Math.min(motionVal * 2, 50);
+          document.body.style.boxShadow = `inset 0 0 ${intensity}px rgba(212, 175, 55, 0.5)`;
+          
+          // Actualizar la interfaz si hay algún elemento
+          const btn = document.querySelector('button[onclick="toggleSensorDemo()"]');
+          if(btn) btn.innerHTML = '<i class="fa-solid fa-satellite-dish fa-spin"></i> Actividad: ' + motionVal.toFixed(1);
+      }
+
+      function startSensor() {
+          sensorActive = true;
+          window.addEventListener('devicemotion', handleMotion);
+          const btn = document.querySelector('button[onclick="toggleSensorDemo()"]');
+          if(btn) btn.style.background = "linear-gradient(135deg, #10b981, #059669)";
+      }
+
+      function stopSensor() {
+          sensorActive = false;
+          window.removeEventListener('devicemotion', handleMotion);
+          document.body.style.boxShadow = "none";
+          const btn = document.querySelector('button[onclick="toggleSensorDemo()"]');
+          if(btn) {
+              btn.innerHTML = '<i class="fa-solid fa-satellite-dish"></i> Sensor Live (Demo)';
+              btn.style.background = "linear-gradient(135deg, #4f46e5, #7c3aed)";
+          }
+      }
+    </script>
 </body>
 </html>

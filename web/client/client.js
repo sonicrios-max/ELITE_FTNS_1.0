@@ -205,51 +205,65 @@ function renderWorkoutPlans() {
         const dayCard = document.createElement("div");
         dayCard.className = "workout-day-card";
         
-        let exercisesHtml = "";
-        day.exercises.forEach(ex => {
-            exercisesHtml += `
-                <tr>
-                    <td>
-                        <input type="checkbox" id="check-${ex.id}" style="width: 18px; height: 18px; cursor: pointer;">
-                    </td>
-                    <td class="exercise-name">${ex.exercise_name}</td>
-                    <td><span class="compliance-badge">${ex.sets_count} Series</span></td>
-                    <td><strong>${ex.reps_range}</strong></td>
-                    <td>RPE ${ex.rpe_target || 'N/A'}</td>
-                    <td>
-                        ${ex.video_url ? `<a href="#" class="exercise-video-link" onclick="playVideo(event, '${ex.video_url}', this)"><i class="fa-solid fa-circle-play"></i> Técnica</a>` : '-'}
-                    </td>
-                </tr>
-                <tr id="video-row-${ex.id}" style="display:none;">
-                    <td colspan="6">
-                        <div class="media-preview-container" id="video-container-${ex.id}">
-                            <video controls preload="none" loop muted>
-                                <source src="${ex.video_url}" type="video/mp4">
-                                Tu navegador no soporta video.
-                            </video>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        });
+        let blocksHtml = "";
+        if (day.blocks) {
+            day.blocks.forEach(block => {
+                let exercisesHtml = "";
+                block.exercises.forEach(ex => {
+                    exercisesHtml += `
+                        <tr>
+                            <td>
+                                <input type="checkbox" id="check-${ex.id}" style="width: 18px; height: 18px; cursor: pointer;">
+                            </td>
+                            <td class="exercise-name">${ex.exercise_name}</td>
+                            <td><span class="compliance-badge">${ex.sets_count} Series</span></td>
+                            <td><strong>${ex.reps_range}</strong></td>
+                            <td>RPE ${ex.rpe_target || 'N/A'}</td>
+                            <td>
+                                ${ex.video_url ? `<a href="#" class="exercise-video-link" onclick="playVideo(event, '${ex.video_url}', this)"><i class="fa-solid fa-circle-play"></i> Técnica</a>` : '-'}
+                            </td>
+                        </tr>
+                        <tr id="video-row-${ex.id}" style="display:none;">
+                            <td colspan="6">
+                                <div class="media-preview-container" id="video-container-${ex.id}">
+                                    <video controls preload="none" loop muted>
+                                        <source src="${ex.video_url}" type="video/mp4">
+                                        Tu navegador no soporta video.
+                                    </video>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                blocksHtml += `
+                    <div style="margin-bottom: 20px; border-left: 3px solid var(--accent-cyan); padding-left: 12px; background: rgba(0,0,0,0.1); padding-top: 10px; padding-bottom: 10px; border-radius: 0 8px 8px 0;">
+                        <h5 style="color: var(--accent-cyan); margin-bottom: 10px; font-size: 14px;">Bloque: ${block.name} <span style="color:var(--color-text-secondary); font-size:11px; font-weight:normal;">[${block.routine_class}]</span></h5>
+                        <table class="exercise-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">Hecho</th>
+                                    <th>Ejercicio</th>
+                                    <th>Series</th>
+                                    <th>Reps</th>
+                                    <th>RPE</th>
+                                    <th>Multimedia</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${exercisesHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+        }
         
         dayCard.innerHTML = `
             <h4>${day.day_name}</h4>
-            <table class="exercise-table">
-                <thead>
-                    <tr>
-                        <th style="width: 40px;">Hecho</th>
-                        <th>Ejercicio</th>
-                        <th>Series</th>
-                        <th>Reps</th>
-                        <th>RPE</th>
-                        <th>Multimedia</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${exercisesHtml}
-                </tbody>
-            </table>
+            <div style="margin-top: 15px;">
+                ${blocksHtml}
+            </div>
         `;
         container.appendChild(dayCard);
     });
