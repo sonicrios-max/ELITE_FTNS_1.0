@@ -20,14 +20,22 @@ os.makedirs(TENANTS_DIR, exist_ok=True)
 # ----- AUTO-SEED LOGIC -----
 import shutil
 SEED_DIR = os.path.join(BASE_DIR, "seed_data")
-if os.path.exists(SEED_DIR) and not os.path.exists(MASTER_DB_PATH):
-    print("Found seed_data but no master.db in PERSISTENT_DIR. Copying initial databases...")
+SEEDED_FLAG = os.path.join(PERSISTENT_DIR, ".seeded")
+
+if os.path.exists(SEED_DIR) and not os.path.exists(SEEDED_FLAG):
+    print("Found seed_data. Forcing overwrite of PERSISTENT_DIR to import local data...")
     try:
         if os.path.exists(os.path.join(SEED_DIR, "master.db")):
             shutil.copy(os.path.join(SEED_DIR, "master.db"), MASTER_DB_PATH)
         if os.path.exists(os.path.join(SEED_DIR, "tenants")):
+            # copytree with dirs_exist_ok=True will overwrite existing files
             shutil.copytree(os.path.join(SEED_DIR, "tenants"), TENANTS_DIR, dirs_exist_ok=True)
-        print("Initial database seed completed successfully.")
+        
+        # Create a flag file so it doesn't run again on next restart
+        with open(SEEDED_FLAG, "w") as f:
+            f.write("seeded")
+            
+        print("Database FORCE SEED completed successfully.")
     except Exception as e:
         print(f"Error seeding database: {e}")
 # ---------------------------
