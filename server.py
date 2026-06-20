@@ -17,6 +17,21 @@ MASTER_DB_PATH = os.path.join(PERSISTENT_DIR, "master.db")
 TENANTS_DIR = os.path.join(PERSISTENT_DIR, "tenants")
 os.makedirs(TENANTS_DIR, exist_ok=True)
 
+# ----- AUTO-SEED LOGIC -----
+import shutil
+SEED_DIR = os.path.join(BASE_DIR, "seed_data")
+if os.path.exists(SEED_DIR) and not os.path.exists(MASTER_DB_PATH):
+    print("Found seed_data but no master.db in PERSISTENT_DIR. Copying initial databases...")
+    try:
+        if os.path.exists(os.path.join(SEED_DIR, "master.db")):
+            shutil.copy(os.path.join(SEED_DIR, "master.db"), MASTER_DB_PATH)
+        if os.path.exists(os.path.join(SEED_DIR, "tenants")):
+            shutil.copytree(os.path.join(SEED_DIR, "tenants"), TENANTS_DIR, dirs_exist_ok=True)
+        print("Initial database seed completed successfully.")
+    except Exception as e:
+        print(f"Error seeding database: {e}")
+# ---------------------------
+
 def init_master_db():
     print(f"Initializing master database at: {MASTER_DB_PATH}")
     conn = sqlite3.connect(MASTER_DB_PATH)
