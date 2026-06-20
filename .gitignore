@@ -3,7 +3,9 @@ __pycache__/
 *.pyc
 
 # Local SQLite databases
-database/fitness.db
+*.db
+database/*.db
+database/tenants/*.db
 
 # OS files
 Thumbs.db

@@ -13,18 +13,102 @@ PORT = int(os.environ.get("PORT", 8080))
 # we can define a PERSISTENT_DIR env var pointing to the mounted disk directory.
 PERSISTENT_DIR = os.environ.get("PERSISTENT_DIR", os.path.join(BASE_DIR, "database"))
 os.makedirs(PERSISTENT_DIR, exist_ok=True)
-DB_PATH = os.path.join(PERSISTENT_DIR, "fitness.db")
+MASTER_DB_PATH = os.path.join(PERSISTENT_DIR, "master.db")
+TENANTS_DIR = os.path.join(PERSISTENT_DIR, "tenants")
+os.makedirs(TENANTS_DIR, exist_ok=True)
 
-def check_and_migrate_db():
-    print(f"Checking database migration at: {DB_PATH}")
-    if not os.path.exists(DB_PATH):
-        print("Database file does not exist yet. It will be initialized by seeding scripts.")
-        return
+def init_master_db():
+    print(f"Initializing master database at: {MASTER_DB_PATH}")
+    conn = sqlite3.connect(MASTER_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS trainers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            nickname TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            theme_color TEXT DEFAULT '#f3ca4c',
+            logo_url TEXT,
+            subscription_status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    # Seed default trainer
+    cursor.execute("SELECT id FROM trainers WHERE nickname = 'admin'")
+    if not cursor.fetchone():
+        cursor.execute("""
+            INSERT INTO trainers (name, nickname, email, password, theme_color)
+            VALUES ('Elite Coach Admin', 'admin', 'admin@elitecoach.local', 'admin', '#f3ca4c')
+        """)
+        print("Master DB: Seeded default trainer 'admin' / 'admin'.")
+    conn.commit()
+    conn.close()
+
+def initialize_tenant_db(trainer_nickname):
+    tenant_db_path = os.path.join(TENANTS_DIR, f"trainer_{trainer_nickname}.db")
+    schema_path = os.path.join(BASE_DIR, "database", "schema.sql")
+    print(f"Initializing tenant database for '{trainer_nickname}' at: {tenant_db_path}")
+    
+    with open(schema_path, 'r', encoding='utf-8') as f:
+        schema_sql = f.read()
         
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(tenant_db_path)
     cursor = conn.cursor()
     try:
-        # Check columns of users table
+        cursor.executescript(schema_sql)
+        conn.commit()
+        
+        # System User (ID 0) for templates
+        cursor.execute("SELECT id FROM users WHERE id = 0")
+        if not cursor.fetchone():
+            cursor.execute("""
+                INSERT INTO users (id, first_name, last_name, email, height_cm, nickname, password)
+                VALUES (0, 'Sistema', 'Plantillas', 'sistema@elitecoach.local', 0, 'sistema', '123456')
+            """)
+            conn.commit()
+            
+        # Seed default exercises
+        cursor.execute("SELECT id FROM exercises")
+        if not cursor.fetchone():
+            cursor.execute("""
+                INSERT INTO exercises (id, name, description, routine_class, primary_muscle, equipment)
+                VALUES 
+                (1, 'Flexiones de Pecho (Pushups)', 'Ejercicio de empuje básico para pectoral y tríceps.', 'Fullbody', 'Pectoral', 'Ninguno'),
+                (2, 'Sentadillas Libres (Squats)', 'Ejercicio básico de empuje de pierna enfocado en cuádriceps.', 'Fullbody', 'Cuádriceps', 'Ninguno')
+            """)
+            conn.commit()
+            
+        print(f"Tenant database '{trainer_nickname}' initialized successfully.")
+    except Exception as e:
+        print(f"Error initializing tenant database for '{trainer_nickname}': {e}")
+    finally:
+        conn.close()
+
+def get_tenant_db_path(trainer_nickname):
+    if not trainer_nickname:
+        trainer_nickname = "admin"
+        
+    # Clean nickname
+    clean_nick = "".join(c for c in trainer_nickname if c.isalnum() or c in ("_", "-")).lower()
+    if not clean_nick:
+        clean_nick = "admin"
+        
+    tenant_db_path = os.path.join(TENANTS_DIR, f"trainer_{clean_nick}.db")
+    if not os.path.exists(tenant_db_path):
+        initialize_tenant_db(clean_nick)
+        
+    return tenant_db_path
+
+def check_and_migrate_db(db_path):
+    print(f"Checking database migration at: {db_path}")
+    if not os.path.exists(db_path):
+        print("Database file does not exist yet.")
+        return
+        
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    try:
         cursor.execute("PRAGMA table_info(users)")
         columns = [row[1] for row in cursor.fetchall()]
         
@@ -42,15 +126,12 @@ def check_and_migrate_db():
             conn.commit()
             print("Migration successful. Seeding default credentials...")
             
-            # Seed default credentials for users if null
             cursor.execute("SELECT id, email, nickname FROM users")
             users = cursor.fetchall()
             for u_id, email, nick in users:
-                # Set default nickname as part of email before @
                 new_nick = email.split('@')[0].lower()
                 new_pass = "123456"
                 
-                # Check if nickname already exists in database (to be safe)
                 cursor.execute("SELECT id FROM users WHERE nickname = ? AND id != ?", (new_nick, u_id))
                 if cursor.fetchone():
                     new_nick = f"{new_nick}_{u_id}"
@@ -60,7 +141,6 @@ def check_and_migrate_db():
             conn.commit()
             print("Default credentials seeded.")
             
-        # Ensure System User (ID 0) exists for Global Templates
         cursor.execute("SELECT id FROM users WHERE id = 0")
         if not cursor.fetchone():
             print("Migration: Creating System User (ID 0) for Global Templates...")
@@ -75,6 +155,25 @@ def check_and_migrate_db():
     finally:
         conn.close()
 
+def migrate_existing_db_to_admin_tenant():
+    admin_tenant_path = os.path.join(TENANTS_DIR, "trainer_admin.db")
+    if not os.path.exists(admin_tenant_path):
+        old_db_path = os.path.join(PERSISTENT_DIR, "fitness.db")
+        if os.path.exists(old_db_path) and os.path.getsize(old_db_path) > 0:
+            import shutil
+            try:
+                shutil.copy(old_db_path, admin_tenant_path)
+                print(f"Migration: Copied existing fitness.db to admin tenant database at {admin_tenant_path}")
+            except Exception as e:
+                print(f"Migration error: {e}")
+        else:
+            initialize_tenant_db("admin")
+            
+    check_and_migrate_db(admin_tenant_path)
+    for file in os.listdir(TENANTS_DIR):
+        if file.startswith("trainer_") and file.endswith(".db"):
+            check_and_migrate_db(os.path.join(TENANTS_DIR, file))
+
 
 
 class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -82,6 +181,26 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         # Override to suppress default console spam
         pass
+
+    def get_request_trainer(self):
+        # 1. Check custom header X-Trainer-Id
+        trainer_id = self.headers.get('X-Trainer-Id')
+        if trainer_id:
+            return trainer_id.strip().lower()
+            
+        # 2. Check query parameter 'trainer'
+        parsed_url = urllib.parse.urlparse(self.path)
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        trainer_param = query_params.get("trainer")
+        if trainer_param:
+            return trainer_param[0].strip().lower()
+            
+        return "admin"
+
+    def get_db_connection(self):
+        trainer = self.get_request_trainer()
+        db_path = get_tenant_db_path(trainer)
+        return sqlite3.connect(db_path)
 
     def end_headers(self):
         # Allow cross-origin requests for testing
@@ -115,10 +234,16 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_get_routines()
         elif path == "/api/daily_logs/calendar":
             self.handle_get_daily_calendar(parsed_url.query)
+        elif path == "/api/trainer/config":
+            self.handle_get_trainer_config()
+        elif path == "/api/admin/trainers":
+            self.handle_admin_get_trainers()
         
         # Route Web Dashboards
         elif path == "/" or path == "/index.html":
             self.serve_local_file(os.path.join(BASE_DIR, "web", "index.html"), "text/html")
+        elif path == "/admin" or path == "/admin/":
+            self.serve_local_file(os.path.join(BASE_DIR, "web", "admin", "index.html"), "text/html")
         elif path == "/trainer" or path == "/trainer/":
             self.serve_local_file(os.path.join(BASE_DIR, "web", "trainer", "index.html"), "text/html")
         elif path == "/client" or path == "/client/":
@@ -154,6 +279,12 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         if path == "/api/auth":
             self.handle_auth(data)
+        elif path == "/api/auth/register":
+            self.handle_register_trainer(data)
+        elif path == "/api/admin/verify":
+            self.handle_admin_verify(data)
+        elif path == "/api/admin/trainers":
+            self.handle_admin_create_trainer(data)
         elif path == "/api/clients":
             self.handle_create_client(data)
         elif path == "/api/auth/login":
@@ -188,6 +319,10 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_update_block(data)
         elif path == "/api/routines":
             self.handle_update_routine(data)
+        elif path == "/api/clients":
+            self.handle_update_client(data)
+        elif path == "/api/admin/trainers":
+            self.handle_admin_update_trainer(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
@@ -208,6 +343,10 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_delete_block(data)
         elif path == "/api/routines":
             self.handle_delete_routine(data)
+        elif path == "/api/clients":
+            self.handle_delete_client(data)
+        elif path == "/api/admin/trainers":
+            self.handle_admin_delete_trainer(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
@@ -219,10 +358,19 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         password = data.get("password", "").strip()
         
         if auth_type == "trainer":
-            if nickname == "admin" and password == "admin":
+            conn = sqlite3.connect(MASTER_DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, name, theme_color FROM trainers WHERE LOWER(nickname) = ? AND password = ?", (nickname, password))
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
                 self.send_json_response(200, {
                     "success": True, 
-                    "type": "trainer"
+                    "type": "trainer",
+                    "nickname": nickname,
+                    "name": row[1],
+                    "themeColor": row[2]
                 })
             else:
                 self.send_json_response(200, {
@@ -236,7 +384,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "error": "Por favor ingresa usuario y contraseña."
                 })
                 return
-            conn = sqlite3.connect(DB_PATH)
+            conn = self.get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT id, first_name, last_name FROM users WHERE LOWER(nickname) = ? AND password = ?", (nickname, password))
             row = cursor.fetchone()
@@ -257,8 +405,72 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_error_response(400, "Invalid auth type. Must be 'trainer' or 'client'.")
 
+    def handle_register_trainer(self, data):
+        name = data.get("name", "").strip()
+        nickname = data.get("nickname", "").strip().lower()
+        email = data.get("email", "").strip().lower()
+        password = data.get("password", "").strip()
+        theme_color = data.get("theme_color", "#f3ca4c").strip()
+        
+        if not name or not nickname or not email or not password:
+            self.send_error_response(400, "Todos los campos son requeridos.")
+            return
+            
+        conn = sqlite3.connect(MASTER_DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO trainers (name, nickname, email, password, theme_color)
+                VALUES (?, ?, ?, ?, ?)
+            """, (name, nickname, email, password, theme_color))
+            conn.commit()
+            
+            # Dynamically initialize their isolated SQLite DB!
+            initialize_tenant_db(nickname)
+            
+            self.send_json_response(200, {
+                "success": True,
+                "message": "Entrenador registrado exitosamente.",
+                "nickname": nickname,
+                "name": name,
+                "themeColor": theme_color
+            })
+        except sqlite3.IntegrityError:
+            self.send_json_response(200, {
+                "success": False,
+                "error": "El nombre de usuario o correo electrónico ya está registrado."
+            })
+        except Exception as e:
+            self.send_json_response(500, {
+                "success": False,
+                "error": str(e)
+            })
+        finally:
+            conn.close()
+
+    def handle_get_trainer_config(self):
+        trainer_nickname = self.get_request_trainer()
+        conn = sqlite3.connect(MASTER_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, theme_color, logo_url FROM trainers WHERE LOWER(nickname) = ?", (trainer_nickname,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            self.send_json_response(200, {
+                "success": True,
+                "name": row[0],
+                "theme_color": row[1],
+                "logo_url": row[2]
+            })
+        else:
+            self.send_json_response(200, {
+                "success": False,
+                "error": f"Trainer '{trainer_nickname}' not found."
+            })
+
     def handle_get_clients(self):
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT id, first_name, last_name, email, phone FROM users WHERE id != 0 ORDER BY id ASC")
@@ -282,7 +494,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json_response(200, clients)
 
     def handle_get_client_detail(self, user_id):
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -400,7 +612,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not password:
             password = "123456"
             
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         
         # Check nickname uniqueness
@@ -426,15 +638,29 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             
             cursor.execute("INSERT INTO workout_days (plan_id, day_name, order_index) VALUES (?, ?, ?)", (plan_id, "Día A: Cuerpo Completo", 1))
             day_id = cursor.lastrowid
-            # Link pushups and squats by default (IDs 1 and 2 from seeded exercises)
+            
+            # Create a default workout block for the client
             cursor.execute("""
-                INSERT INTO workout_exercises (workout_day_id, exercise_id, sets_count, reps_range, rpe_target, rest_seconds, notes, order_index)
+                INSERT INTO workout_blocks (user_id, name, routine_class, description)
+                VALUES (?, 'Cuerpo Completo', 'Fullbody', 'Bloque inicial para adaptación.')
+            """, (client_id,))
+            block_id = cursor.lastrowid
+            
+            # Link block to day
+            cursor.execute("""
+                INSERT INTO workout_day_blocks (workout_day_id, workout_block_id, order_index)
+                VALUES (?, ?, 1)
+            """, (day_id, block_id))
+            
+            # Link pushups and squats by default (IDs 1 and 2 from seeded exercises) to the block
+            cursor.execute("""
+                INSERT INTO workout_exercises (workout_block_id, exercise_id, sets_count, reps_range, rpe_target, rest_seconds, notes, order_index)
                 VALUES (?, 1, 3, "10-12", 7, 90, "Foco en rango de movimiento completo.", 1)
-            """, (day_id,))
+            """, (block_id,))
             cursor.execute("""
-                INSERT INTO workout_exercises (workout_day_id, exercise_id, sets_count, reps_range, rpe_target, rest_seconds, notes, order_index)
+                INSERT INTO workout_exercises (workout_block_id, exercise_id, sets_count, reps_range, rpe_target, rest_seconds, notes, order_index)
                 VALUES (?, 2, 3, "12-15", 7, 90, "Bajar controlado.", 2)
-            """, (day_id,))
+            """, (block_id,))
             
             # Nutrition Plan default
             cursor.execute("""
@@ -466,7 +692,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error_response(400, "Missing client_id or plan_id")
             return
             
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         
         try:
@@ -552,7 +778,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         bmi = weight / ((height/100.0) * (height/100.0))
         sum_folds = triceps + scapular + iliac + abdominal
         
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             # Delete if duplicate date/user to avoid unique constraint error
@@ -599,7 +825,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error_response(400, "Missing user_id or date.")
             return
             
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         
         # Read existing log to preserve variables not sent in partial updates
@@ -656,7 +882,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             conn.close()
 
     def handle_get_exercises(self):
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM exercises ORDER BY id ASC")
@@ -673,7 +899,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error_response(400, "Nombre y músculo primario son requeridos.")
             return
             
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("""
@@ -692,7 +918,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             conn.close()
 
     def handle_get_workout_blocks(self):
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -702,7 +928,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         
         for block in blocks:
             cursor.execute("""
-                SELECT we.*, e.name as exercise_name, e.routine_class
+                SELECT we.*, e.name as exercise_name, e.primary_muscle as exercise_primary_muscle
                 FROM workout_exercises we
                 JOIN exercises e ON we.exercise_id = e.id
                 WHERE we.workout_block_id = ?
@@ -721,7 +947,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error_response(400, "El nombre del bloque es requerido.")
             return
             
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("""
@@ -748,7 +974,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_get_routines(self):
         # Fetch global routines (user_id = 0)
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -796,7 +1022,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error_response(400, "El título es requerido.")
             return
             
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             # Create the global plan (user_id = 0)
@@ -836,7 +1062,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error_response(400, "user_id, month and year are required.")
             return
             
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -882,16 +1108,13 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def send_error_response(self, status_code, message):
         self.send_json_response(status_code, {"success": False, "error": message})
 
-
     def handle_update_exercise(self, data):
         ex_id = data.get('id')
         name = data.get('name')
         if not ex_id or not name:
             self.send_error_response(400, "Missing id or name")
             return
-        import sqlite3
-        from constants import DB_PATH
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute('''
@@ -907,9 +1130,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_delete_exercise(self, data):
         ex_id = data.get('id')
-        import sqlite3
-        from constants import DB_PATH
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys = ON;")
@@ -922,25 +1143,24 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             conn.close()
 
     def handle_update_block(self, data):
+        print("DEBUG: handle_update_block received data:", data)
         block_id = data.get('id')
         name = data.get('name')
         exercises = data.get('exercises', [])
         if not block_id or not name:
             self.send_error_response(400, "Missing id or name")
             return
-        import sqlite3
-        from constants import DB_PATH
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute("UPDATE workout_blocks SET name=?, routine_class=?, description=? WHERE id=?", 
-                          (name, data.get('routine_class'), data.get('description'), block_id))
+            cursor.execute("UPDATE workout_blocks SET name=?, description=? WHERE id=?", 
+                          (name, data.get('description', ''), block_id))
             cursor.execute("DELETE FROM workout_exercises WHERE workout_block_id=?", (block_id,))
             for ex in exercises:
                 cursor.execute('''
-                    INSERT INTO workout_exercises (workout_block_id, exercise_id, sets_count, reps_range, rpe_target, order_index)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (block_id, ex.get('exercise_id'), ex.get('sets_count'), ex.get('reps_range'), ex.get('rpe_target'), ex.get('order_index')))
+                    INSERT INTO workout_exercises (workout_block_id, exercise_id, sets_count, reps_range, rpe_target, rest_seconds, notes, order_index)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (block_id, ex.get('exercise_id'), ex.get('sets_count'), ex.get('reps_range'), ex.get('rpe_target'), ex.get('rest_seconds', 90), ex.get('notes', ''), ex.get('order_index')))
             conn.commit()
             self.send_json_response(200, {"success": True})
         except Exception as e:
@@ -950,9 +1170,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_delete_block(self, data):
         block_id = data.get('id')
-        import sqlite3
-        from constants import DB_PATH
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys = ON;")
@@ -971,9 +1189,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not plan_id or not title:
             self.send_error_response(400, "Missing id or title")
             return
-        import sqlite3
-        from constants import DB_PATH
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("UPDATE workout_plans SET title=?, description=? WHERE id=?", 
@@ -984,7 +1200,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             cursor.execute("DELETE FROM workout_days WHERE plan_id=?", (plan_id,))
             for day in days:
                 cursor.execute("INSERT INTO workout_days (plan_id, day_name, order_index) VALUES (?, ?, ?)", 
-                              (plan_id, day.get('day_name'), day.get('order_index')))
+                               (plan_id, day.get('day_name'), day.get('order_index')))
                 day_id = cursor.lastrowid
                 for b_idx, block_id in enumerate(day.get('block_ids', [])):
                     cursor.execute("INSERT INTO workout_day_blocks (workout_day_id, workout_block_id, order_index) VALUES (?, ?, ?)", 
@@ -998,9 +1214,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_delete_routine(self, data):
         plan_id = data.get('id')
-        import sqlite3
-        from constants import DB_PATH
-        conn = sqlite3.connect(DB_PATH)
+        conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys = ON;")
@@ -1012,28 +1226,206 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         finally:
             conn.close()
 
-def run_server():
+    def check_admin_auth(self):
+        passcode = self.headers.get("X-Admin-Passcode")
+        return passcode == "dev123"
 
-    # Auto-initialize and seed the database if it doesn't exist or is empty
-    if not os.path.exists(DB_PATH) or os.path.getsize(DB_PATH) == 0:
-        print("Database not found or empty. Auto-initializing and seeding database...")
+    def handle_admin_verify(self, data):
+        passcode = data.get("passcode")
+        if passcode == "dev123":
+            self.send_json_response(200, {"success": True})
+        else:
+            self.send_json_response(200, {"success": False, "error": "Código de acceso incorrecto."})
+
+    def handle_admin_get_trainers(self):
+        if not self.check_admin_auth():
+            self.send_json_response(401, {"success": False, "error": "No autorizado. Código de acceso inválido."})
+            return
+        conn = sqlite3.connect(MASTER_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, nickname, email, password, theme_color, logo_url, subscription_status, created_at FROM trainers ORDER BY id ASC")
+        rows = cursor.fetchall()
+        trainers = [dict(row) for row in rows]
+        conn.close()
+        self.send_json_response(200, trainers)
+
+    def handle_admin_create_trainer(self, data):
+        if not self.check_admin_auth():
+            self.send_json_response(401, {"success": False, "error": "No autorizado. Código de acceso inválido."})
+            return
+        self.handle_register_trainer(data)
+
+    def handle_admin_update_trainer(self, data):
+        if not self.check_admin_auth():
+            self.send_json_response(401, {"success": False, "error": "No autorizado. Código de acceso inválido."})
+            return
+        trainer_id = data.get("id")
+        name = data.get("name", "").strip()
+        nickname = data.get("nickname", "").strip().lower()
+        email = data.get("email", "").strip().lower()
+        password = data.get("password", "").strip()
+        theme_color = data.get("theme_color", "#f3ca4c").strip()
+
+        if not trainer_id or not name or not nickname or not email or not password:
+            self.send_error_response(400, "Todos los campos son requeridos.")
+            return
+
+        conn = sqlite3.connect(MASTER_DB_PATH)
+        cursor = conn.cursor()
         try:
-            from scripts.init_db import init_db
-            
-            init_db()
-            # Se excluye la generación automática de datos simulados para trabajar con el estado actual
-            # from scripts.seed_consistent_data import seed_consistent_data
-            # seed_consistent_data()
-            print("Database initialized successfully!")
+            cursor.execute("SELECT id FROM trainers WHERE (LOWER(nickname) = ? OR LOWER(email) = ?) AND id != ?", (nickname, email, trainer_id))
+            if cursor.fetchone():
+                self.send_json_response(200, {"success": False, "error": "El nombre de usuario o correo ya está registrado por otro entrenador."})
+                return
+
+            cursor.execute("SELECT nickname FROM trainers WHERE id = ?", (trainer_id,))
+            row = cursor.fetchone()
+            if not row:
+                self.send_json_response(200, {"success": False, "error": "Entrenador no encontrado."})
+                return
+            old_nickname = row[0]
+
+            cursor.execute("""
+                UPDATE trainers SET
+                    name = ?, nickname = ?, email = ?, password = ?, theme_color = ?
+                WHERE id = ?
+            """, (name, nickname, email, password, theme_color, trainer_id))
+            conn.commit()
+
+            if old_nickname != nickname:
+                old_db = os.path.join(TENANTS_DIR, f"trainer_{old_nickname}.db")
+                new_db = os.path.join(TENANTS_DIR, f"trainer_{nickname}.db")
+                if os.path.exists(old_db):
+                    try:
+                        os.rename(old_db, new_db)
+                        print(f"Renamed tenant DB from {old_db} to {new_db}")
+                    except Exception as e:
+                        print(f"Error renaming DB: {e}")
+
+            self.send_json_response(200, {"success": True, "message": "Entrenador actualizado correctamente."})
         except Exception as e:
-            print("Error during database initialization:", e)
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
 
-    # Call migration check to ensure columns and default credentials exist
-    check_and_migrate_db()
+    def handle_admin_delete_trainer(self, data):
+        if not self.check_admin_auth():
+            self.send_json_response(401, {"success": False, "error": "No autorizado. Código de acceso inválido."})
+            return
+        trainer_id = data.get("id")
+        if not trainer_id:
+            self.send_error_response(400, "ID del entrenador es requerido.")
+            return
 
-    # Make sure we can bind to port 8080. If already in use, run simple output
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), FitnessHTTPRequestHandler) as httpd:
+        conn = sqlite3.connect(MASTER_DB_PATH)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT nickname FROM trainers WHERE id = ?", (trainer_id,))
+            row = cursor.fetchone()
+            if not row:
+                self.send_json_response(200, {"success": False, "error": "Entrenador no encontrado."})
+                return
+            nickname = row[0]
+
+            if nickname == "admin":
+                self.send_json_response(200, {"success": False, "error": "No se puede eliminar el entrenador administrador principal."})
+                return
+
+            cursor.execute("DELETE FROM trainers WHERE id = ?", (trainer_id,))
+            conn.commit()
+
+            db_path = os.path.join(TENANTS_DIR, f"trainer_{nickname}.db")
+            if os.path.exists(db_path):
+                try:
+                    os.remove(db_path)
+                    print(f"Deleted physical DB file for trainer '{nickname}': {db_path}")
+                except Exception as e:
+                    print(f"Error deleting physical DB file: {e}")
+
+            self.send_json_response(200, {"success": True, "message": "Entrenador eliminado correctamente."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_update_client(self, data):
+        client_id = data.get("id")
+        first_name = data.get("first_name")
+        last_name = data.get("last_name")
+        email = data.get("email")
+        phone = data.get("phone")
+        birthdate = data.get("birthdate")
+        height_cm = data.get("height_cm", 170.0)
+        blood_type = data.get("blood_type", "O+")
+        allergies = data.get("allergies", "Ninguna")
+        medications = data.get("medications", "Ninguno")
+        nickname = data.get("nickname")
+        password = data.get("password")
+
+        if not client_id or not first_name or not last_name or not email:
+            self.send_error_response(400, "ID, nombre, apellido y correo son requeridos.")
+            return
+
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            if nickname:
+                cursor.execute("SELECT id FROM users WHERE LOWER(nickname) = ? AND id != ?", (nickname.lower(), client_id))
+                if cursor.fetchone():
+                    self.send_json_response(200, {"success": False, "error": f"El nombre de usuario '{nickname}' ya está registrado."})
+                    return
+            
+            cursor.execute("""
+                UPDATE users SET
+                    first_name = ?, last_name = ?, email = ?, phone = ?, birthdate = ?,
+                    height_cm = ?, blood_type = ?, allergies = ?, medications = ?,
+                    nickname = ?, password = ?
+                WHERE id = ?
+            """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, nickname, password, client_id))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "message": "Cliente actualizado correctamente."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_delete_client(self, data):
+        client_id = data.get("id")
+        if not client_id:
+            self.send_error_response(400, "ID del cliente es requerido.")
+            return
+
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.execute("DELETE FROM users WHERE id = ?", (client_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "message": "Cliente eliminado correctamente."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+class ThreadingFitnessServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        import sys
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        if exc_type in (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) or (exc_type is OSError and exc_value.errno == 10053):
+            # Suppress normal disconnect tracebacks to keep console logs clean
+            pass
+        else:
+            super().handle_error(request, client_address)
+
+def run_server():
+    init_master_db()
+    migrate_existing_db_to_admin_tenant()
+
+    with ThreadingFitnessServer(("", PORT), FitnessHTTPRequestHandler) as httpd:
         print(f"Elite Fitness Local Server running on: http://localhost:{PORT}/")
         print("Master Page & Router: http://localhost:8080/")
         print("Trainer Dashboard: http://localhost:8080/trainer/")
@@ -1043,3 +1435,4 @@ def run_server():
 
 if __name__ == "__main__":
     run_server()
+

@@ -1,4 +1,41 @@
 // Client Dashboard JavaScript Logic
+(function() {
+    const originalFetch = window.fetch;
+    const urlParams = new URLSearchParams(window.location.search);
+    const trainerId = urlParams.get('trainer') || sessionStorage.getItem('trainerId') || 'admin';
+    if (trainerId) {
+        sessionStorage.setItem('trainerId', trainerId);
+    }
+    
+    window.fetch = function(url, options = {}) {
+        if (typeof url === 'string' && url.includes('/api/')) {
+            options.headers = options.headers || {};
+            options.headers['X-Trainer-Id'] = trainerId;
+        }
+        return originalFetch(url, options);
+    };
+    
+    // Apply theme color on DOMContentLoaded
+    document.addEventListener("DOMContentLoaded", async () => {
+        try {
+            const response = await originalFetch(`/api/trainer/config?trainer=${trainerId}`);
+            const config = await response.json();
+            if (config.success) {
+                if (config.theme_color) {
+                    document.documentElement.style.setProperty('--accent-gold', config.theme_color);
+                    document.documentElement.style.setProperty('--accent-cyan', config.theme_color);
+                    document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
+                }
+                const logoSpan = document.querySelector('.logo span');
+                if (logoSpan) {
+                    logoSpan.innerText = config.name.toUpperCase();
+                }
+            }
+        } catch (e) {
+            console.error("Error loading theme config:", e);
+        }
+    });
+})();
 
 let userId = 1;
 let activeTab = 'tabRutinas';
@@ -219,12 +256,13 @@ function renderWorkoutPlans() {
                             <td><span class="compliance-badge">${ex.sets_count} Series</span></td>
                             <td><strong>${ex.reps_range}</strong></td>
                             <td>RPE ${ex.rpe_target || 'N/A'}</td>
+                            <td>${ex.rest_seconds ? `${ex.rest_seconds}s` : '-'}</td>
                             <td>
                                 ${ex.video_url ? `<a href="#" class="exercise-video-link" onclick="playVideo(event, '${ex.video_url}', this)"><i class="fa-solid fa-circle-play"></i> Técnica</a>` : '-'}
                             </td>
                         </tr>
                         <tr id="video-row-${ex.id}" style="display:none;">
-                            <td colspan="6">
+                            <td colspan="7">
                                 <div class="media-preview-container" id="video-container-${ex.id}">
                                     <video controls preload="none" loop muted>
                                         <source src="${ex.video_url}" type="video/mp4">
@@ -247,6 +285,7 @@ function renderWorkoutPlans() {
                                     <th>Series</th>
                                     <th>Reps</th>
                                     <th>RPE</th>
+                                    <th>Descanso</th>
                                     <th>Multimedia</th>
                                 </tr>
                             </thead>

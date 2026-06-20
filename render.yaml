@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: elite-fitness-coaching
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: PERSISTENT_DIR
+        value: /data
+      - key: PORT
+        value: 8080
+    disk:
+      name: fitness-data
+      mountPath: /data
+      sizeGB: 1

@@ -1,4 +1,41 @@
 // Trainer Dashboard JavaScript Logic
+(function() {
+    const originalFetch = window.fetch;
+    const urlParams = new URLSearchParams(window.location.search);
+    const trainerId = urlParams.get('trainer') || sessionStorage.getItem('trainerId') || 'admin';
+    if (trainerId) {
+        sessionStorage.setItem('trainerId', trainerId);
+    }
+    
+    window.fetch = function(url, options = {}) {
+        if (typeof url === 'string' && url.includes('/api/')) {
+            options.headers = options.headers || {};
+            options.headers['X-Trainer-Id'] = trainerId;
+        }
+        return originalFetch(url, options);
+    };
+    
+    // Apply theme color on DOMContentLoaded
+    document.addEventListener("DOMContentLoaded", async () => {
+        try {
+            const response = await originalFetch(`/api/trainer/config?trainer=${trainerId}`);
+            const config = await response.json();
+            if (config.success) {
+                if (config.theme_color) {
+                    document.documentElement.style.setProperty('--accent-gold', config.theme_color);
+                    document.documentElement.style.setProperty('--accent-cyan', config.theme_color);
+                    document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
+                }
+                const logoSpan = document.querySelector('.logo span');
+                if (logoSpan) {
+                    logoSpan.innerText = config.name.toUpperCase();
+                }
+            }
+        } catch (e) {
+            console.error("Error loading theme config:", e);
+        }
+    });
+})();
 
 let activeUserId = 1;
 let activeTab = 'tabFicha';
@@ -961,7 +998,8 @@ function showGlobalView(viewName) {
 async function fetchGlobalExercises() {
     try {
         const res = await fetch('/api/exercises');
-        const exercises = await res.json();
+        globalExercisesCache = await res.json();
+        const exercises = globalExercisesCache;
         const tbody = document.getElementById('globalExercisesList');
         tbody.innerHTML = '';
         
@@ -1014,6 +1052,7 @@ async function submitNewExercise(e) {
 }
 
 // --- Blocks ---
+let globalExercisesCache = [];
 let globalBlocksCache = [];
 async function fetchGlobalBlocks() {
     try {
@@ -1023,11 +1062,13 @@ async function fetchGlobalBlocks() {
         container.innerHTML = '';
         
         globalBlocksCache.forEach(b => {
+            const muscles = [...new Set(b.exercises.map(ex => ex.exercise_primary_muscle).filter(Boolean))];
+            const muscleLabel = muscles.length ? muscles.slice(0, 4).join(' · ') : '';
             let exHtml = b.exercises.map(ex => `<span class="compliance-badge" style="background: rgba(14, 165, 233, 0.2); color: var(--accent-cyan);">${ex.exercise_name} (${ex.sets_count}x${ex.reps_range})</span>`).join(' ');
             container.innerHTML += `
                 <div class="workout-day-card" style="margin-bottom: 10px; padding: 12px; background: rgba(0,0,0,0.15);">
                     <div style="display:flex; justify-content:space-between; margin-bottom: 8px;">
-                        <h4 style="color: var(--accent-cyan);">${b.name} <span style="font-size: 12px; color: var(--color-text-secondary); font-weight: normal;">[${b.routine_class}]</span></h4>
+                        <h4 style="color: var(--accent-cyan);">${b.name} <span style="font-size: 11px; color: var(--color-text-secondary); font-weight: normal;">${muscleLabel ? '· ' + muscleLabel : ''}</span></h4>
                         <div>
                             <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="editBlock(${b.id})"><i class="fa-solid fa-pen"></i></button>
                             <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteBlock(${b.id})"><i class="fa-solid fa-trash"></i></button>
@@ -1046,49 +1087,77 @@ async function fetchGlobalBlocks() {
 function openBlockModal() { 
     document.getElementById('addBlockModal').style.display = 'flex'; 
     document.getElementById('blockExercisesContainer').innerHTML = '';
+    populateMuscleFilter();
+    document.getElementById('exerciseMuscleFilter').value = '';
     addExerciseToBlockBuilder();
 }
 function closeBlockModal() { document.getElementById('addBlockModal').style.display = 'none'; }
 
-function filterBlockExercises() {
-    const selectedClass = document.getElementById('newBlockClass').value;
+// Pobla el filtro de músculo con todos los músculos únicos (principal + secundarios)
+function populateMuscleFilter() {
+    const filter = document.getElementById('exerciseMuscleFilter');
+    if (!filter) return;
+    const primaryMuscles = globalExercisesCache.map(ex => ex.primary_muscle).filter(Boolean);
+    const secondaryMuscles = globalExercisesCache
+        .flatMap(ex => ex.secondary_muscles
+            ? ex.secondary_muscles.split(',').map(s => s.trim()).filter(Boolean)
+            : []);
+    const allMuscles = [...new Set([...primaryMuscles, ...secondaryMuscles])].sort();
+    filter.innerHTML = '<option value="">Todos los músculos</option>';
+    allMuscles.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        filter.appendChild(opt);
+    });
+}
+
+// Filtra los selects de ejercicio según el músculo elegido (principal O secundario)
+function filterExercisesByMuscle() {
+    const muscle = document.getElementById('exerciseMuscleFilter')?.value || '';
     const selects = document.querySelectorAll('.block-ex-id');
-    
-    // Update all existing dropdowns
-    selects.forEach(select => {
-        const currentValue = select.value;
-        const filteredEx = selectedClass === "Fullbody" 
-            ? globalExercisesCache 
-            : globalExercisesCache.filter(ex => ex.routine_class === selectedClass || ex.routine_class === "Fullbody");
-            
-        select.innerHTML = filteredEx.map(ex => `<option value="${ex.id}">${ex.name} (${ex.primary_muscle})</option>`).join('');
-        // Try to keep the old value if it still exists
-        if (filteredEx.find(e => e.id == currentValue)) {
-            select.value = currentValue;
-        }
+    const filtered = muscle
+        ? globalExercisesCache.filter(ex => {
+            const isPrimary = ex.primary_muscle === muscle;
+            const isSecondary = ex.secondary_muscles &&
+                ex.secondary_muscles.split(',').map(s => s.trim()).includes(muscle);
+            return isPrimary || isSecondary;
+          })
+        : globalExercisesCache;
+    selects.forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = filtered.map(ex =>
+            `<option value="${ex.id}">${ex.name} (${ex.primary_muscle})</option>`
+        ).join('');
+        if (filtered.find(e => e.id == cur)) sel.value = cur;
     });
 }
 
 function addExerciseToBlockBuilder() {
     const container = document.getElementById('blockExercisesContainer');
     const exDiv = document.createElement('div');
-    exDiv.style.display = 'flex';
-    exDiv.style.gap = '5px';
-    exDiv.style.marginBottom = '5px';
     exDiv.className = 'block-exercise-row';
     
-    const selectedClass = document.getElementById('newBlockClass').value;
-    const filteredEx = selectedClass === "Fullbody" 
-            ? globalExercisesCache 
-            : globalExercisesCache.filter(ex => ex.routine_class === selectedClass || ex.routine_class === "Fullbody");
-            
-    let optionsHTML = filteredEx.map(ex => `<option value="${ex.id}">${ex.name} (${ex.primary_muscle})</option>`).join('');
+    const muscle = document.getElementById('exerciseMuscleFilter')?.value || '';
+    const filtered = muscle
+        ? globalExercisesCache.filter(ex => {
+            const isPrimary = ex.primary_muscle === muscle;
+            const isSecondary = ex.secondary_muscles &&
+                ex.secondary_muscles.split(',').map(s => s.trim()).includes(muscle);
+            return isPrimary || isSecondary;
+          })
+        : globalExercisesCache;
+
+    let optionsHTML = filtered.map(ex =>
+        `<option value="${ex.id}">${ex.name} (${ex.primary_muscle})</option>`
+    ).join('');
     
     exDiv.innerHTML = `
-        <select class="block-ex-id" style="flex:2;" required>${optionsHTML}</select>
-        <input type="number" class="ex-sets" placeholder="Series" value="3" style="flex:1;" required>
-        <input type="text" class="ex-reps" placeholder="Reps" value="10-12" style="flex:1;" required>
-        <input type="number" class="ex-rpe" placeholder="RPE" value="8" style="flex:1;">
+        <select class="block-ex-id" required>${optionsHTML}</select>
+        <input type="number" class="ex-sets" placeholder="Series" value="3" required>
+        <input type="text" class="ex-reps" placeholder="Reps" value="10-12" required>
+        <input type="number" class="ex-rpe" placeholder="RPE" value="8">
+        <input type="number" class="ex-rest" placeholder="Descanso (s)" value="90" required>
         <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
     `;
     container.appendChild(exDiv);
@@ -1105,13 +1174,13 @@ async function submitNewBlock(e) {
             sets_count: parseInt(row.querySelector('.ex-sets').value),
             reps_range: row.querySelector('.ex-reps').value,
             rpe_target: parseInt(row.querySelector('.ex-rpe').value) || 0,
+            rest_seconds: parseInt(row.querySelector('.ex-rest').value) || 90,
             order_index: exIdx + 1
         });
     });
 
     const payload = {
         name: document.getElementById('newBlockName').value,
-        routine_class: document.getElementById('newBlockClass').value,
         description: document.getElementById('newBlockDesc').value,
         exercises: exercises
     };
@@ -1132,12 +1201,8 @@ async function submitNewBlock(e) {
 }
 
 // --- Routines ---
-let globalExercisesCache = [];
 async function fetchGlobalRoutines() {
     try {
-        // Cache exercises for dropdowns
-        const exRes = await fetch('/api/exercises');
-        globalExercisesCache = await exRes.json();
         
         const res = await fetch('/api/routines');
         const routines = await res.json();
@@ -1375,7 +1440,7 @@ function assignRoutinePrompt(planId, title) {
                 <h3 style="margin-bottom: 15px; color: var(--accent-cyan);">Asignar Plantilla</h3>
                 <p style="margin-bottom: 20px; font-size: 14px; color: #ccc;">Selecciona el cliente al que deseas asignarle la plantilla <strong>"${title}"</strong>. Esto reemplazará su rutina activa actual.</p>
                 
-                <select id="assignClientSelect" class="form-input" style="width: 100%; margin-bottom: 20px; padding: 10px; border-radius: 6px; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1);">
+                <select id="assignClientSelect" class="form-input" style="width: 100%; margin-bottom: 20px; padding: 10px; border-radius: 6px;">
                     ${optionsHtml}
                 </select>
                 
@@ -1520,13 +1585,13 @@ submitNewBlock = async function(e) {
             sets_count: parseInt(row.querySelector('.ex-sets').value),
             reps_range: row.querySelector('.ex-reps').value,
             rpe_target: parseInt(row.querySelector('.ex-rpe').value) || 0,
+            rest_seconds: parseInt(row.querySelector('.ex-rest').value) || 90,
             order_index: exIdx + 1
         });
     });
     const payload = {
         id: editingBlockId,
         name: document.getElementById('newBlockName').value,
-        routine_class: document.getElementById('newBlockClass').value,
         description: document.getElementById('newBlockDesc').value,
         exercises: exercises
     };
@@ -1549,7 +1614,6 @@ function editBlock(id) {
     editingBlockId = id;
     
     document.getElementById('newBlockName').value = block.name;
-    document.getElementById('newBlockClass').value = block.routine_class;
     document.getElementById('newBlockDesc').value = block.description || '';
     
     const formTitle = document.querySelector('#addBlockModal h3');
@@ -1558,22 +1622,26 @@ function editBlock(id) {
     document.getElementById('addBlockModal').style.display = 'flex'; 
     document.getElementById('blockExercisesContainer').innerHTML = '';
     
-    // Add existing exercises
+    // Resetear y poblar el filtro de músculo
+    populateMuscleFilter();
+    document.getElementById('exerciseMuscleFilter').value = '';
+    
+    // Cargar ejercicios existentes — TODOS los ejercicios disponibles sin filtro de clase
     block.exercises.forEach(ex => {
         const container = document.getElementById('blockExercisesContainer');
         const exDiv = document.createElement('div');
-        exDiv.style.display = 'flex'; exDiv.style.gap = '5px'; exDiv.style.marginBottom = '5px';
         exDiv.className = 'block-exercise-row';
         
-        const selectedClass = block.routine_class;
-        const filteredEx = selectedClass === "Fullbody" ? globalExercisesCache : globalExercisesCache.filter(e => e.routine_class === selectedClass || e.routine_class === "Fullbody");
-        let optionsHTML = filteredEx.map(e => `<option value="${e.id}" ${e.id == ex.exercise_id ? 'selected' : ''}>${e.name} (${e.primary_muscle})</option>`).join('');
+        let optionsHTML = globalExercisesCache.map(e =>
+            `<option value="${e.id}" ${e.id == ex.exercise_id ? 'selected' : ''}>${e.name} (${e.primary_muscle})</option>`
+        ).join('');
         
         exDiv.innerHTML = `
-            <select class="block-ex-id" style="flex:2;" required>${optionsHTML}</select>
-            <input type="number" class="ex-sets" placeholder="Series" value="${ex.sets_count}" style="flex:1;" required>
-            <input type="text" class="ex-reps" placeholder="Reps" value="${ex.reps_range}" style="flex:1;" required>
-            <input type="number" class="ex-rpe" placeholder="RPE" value="${ex.rpe_target || 8}" style="flex:1;">
+            <select class="block-ex-id" required>${optionsHTML}</select>
+            <input type="number" class="ex-sets" placeholder="Series" value="${ex.sets_count}" required>
+            <input type="text" class="ex-reps" placeholder="Reps" value="${ex.reps_range}" required>
+            <input type="number" class="ex-rpe" placeholder="RPE" value="${ex.rpe_target || 8}">
+            <input type="number" class="ex-rest" placeholder="Descanso (s)" value="${ex.rest_seconds !== undefined && ex.rest_seconds !== null ? ex.rest_seconds : 90}" required>
             <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
         `;
         container.appendChild(exDiv);

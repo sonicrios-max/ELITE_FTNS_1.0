@@ -542,7 +542,7 @@ header {
     font-weight: 600;
 }
 
-.form-group input, .form-group select, .form-group textarea {
+.form-group input, .form-group textarea {
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--glass-border);
     border-radius: 8px;
@@ -554,9 +554,71 @@ header {
     transition: var(--transition-smooth);
 }
 
+.form-group select {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    outline: none;
+    transition: var(--transition-smooth);
+    width: 100%;
+}
+
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
     border-color: var(--accent-gold);
     box-shadow: 0 0 8px rgba(243, 202, 76, 0.25);
+}
+
+/* Custom styling for select dropdown options to ensure dark mode theme consistency */
+select {
+    background-color: var(--bg-secondary) !important;
+    color: var(--color-text-primary) !important;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    outline: none;
+    transition: var(--transition-smooth);
+}
+
+select:focus {
+    border-color: var(--accent-gold) !important;
+    box-shadow: 0 0 8px rgba(243, 202, 76, 0.25) !important;
+}
+
+select option {
+    background-color: var(--bg-secondary) !important;
+    color: var(--color-text-primary) !important;
+}
+
+/* Clases de select dinámicos generados desde JavaScript */
+.block-id,
+.day-block-id,
+.form-input {
+    background-color: var(--bg-secondary) !important;
+    color: var(--color-text-primary) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 8px !important;
+    font-family: var(--font-sans) !important;
+    font-size: 13px !important;
+    outline: none !important;
+}
+
+.block-id:focus,
+.day-block-id:focus,
+.form-input:focus {
+    border-color: var(--accent-gold) !important;
+    box-shadow: 0 0 8px rgba(243, 202, 76, 0.25) !important;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 14px !important;
+    font-size: 14px !important;
 }
 
 /* Diet UI */
@@ -679,6 +741,94 @@ header {
     background: var(--accent-gold);
     color: #121212;
     box-shadow: var(--shadow-neon-gold);
+}
+/* Block exercise row editor styling */
+.block-exercise-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+    width: 100%;
+}
+
+.block-exercise-row select,
+.block-exercise-row input {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    outline: none;
+    transition: var(--transition-smooth);
+    min-width: 0;
+}
+
+.block-exercise-row select:focus,
+.block-exercise-row input:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 8px rgba(243, 202, 76, 0.25);
+}
+
+.block-exercise-row select {
+    background-color: var(--bg-secondary);
+}
+
+.block-exercise-row .block-ex-id {
+    flex: 3;
+}
+
+.block-exercise-row .ex-sets {
+    flex: 1;
+    text-align: center;
+}
+
+.block-exercise-row .ex-reps {
+    flex: 1.5;
+    text-align: center;
+}
+
+.block-exercise-row .ex-rpe {
+    flex: 1;
+    text-align: center;
+}
+
+.block-exercise-row .ex-rest {
+    flex: 1.2;
+    text-align: center;
+}
+
+.block-exercise-row button.btn-nav {
+    padding: 8px 12px;
+    color: var(--accent-red);
+}
+
+.block-exercise-row button.btn-nav:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Header row for block exercise columns */
+.block-exercise-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-right: 40px; /* Accounts for the delete button width at the end */
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 15px;
+}
+
+.block-exercise-header span {
+    text-align: center;
+}
+
+.block-exercise-header span:first-child {
+    text-align: left;
 }
 
 /* --- MOBILE RESPONSIVE OPTIMIZATIONS --- */

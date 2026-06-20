@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elite Coaching - Panel Maestro</title>
-    <link rel="stylesheet" href="/shared/style.css">
+    <link rel="stylesheet" href="/shared/style.css?v=1.0.3">
     <!-- FontAwesome for premium fitness icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -121,8 +121,11 @@
             <i class="fa-solid fa-dumbbell logo-icon"></i>
             <span>ELITE COACHING - RUTAS MAESTRAS</span>
         </div>
-        <div style="font-size: 13px; color: var(--color-text-secondary); font-weight: 500;">
-            <i class="fa-solid fa-shield-halved text-muted"></i> Seguridad y Acceso
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <a href="/admin/" class="btn-nav" style="border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; font-weight: bold; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-terminal"></i> Consola Dev</a>
+            <div style="font-size: 13px; color: var(--color-text-secondary); font-weight: 500;">
+                <i class="fa-solid fa-shield-halved text-muted"></i> Seguridad
+            </div>
         </div>
     </header>
 
@@ -187,16 +190,46 @@
     </div>
 
     <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const trainerId = urlParams.get('trainer') || '';
         let selectedAuthType = null; // 'trainer' or 'client'
         let selectedClientId = null; // user ID if client type
 
         document.addEventListener("DOMContentLoaded", () => {
+            if (trainerId) {
+                applyTrainerTheme();
+            }
             loadClients();
         });
 
+        async function applyTrainerTheme() {
+            try {
+                const response = await fetch(`/api/trainer/config?trainer=${trainerId}`);
+                const config = await response.json();
+                if (config.success) {
+                    if (config.theme_color) {
+                        document.documentElement.style.setProperty('--accent-gold', config.theme_color);
+                        document.documentElement.style.setProperty('--accent-cyan', config.theme_color);
+                        document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
+                    }
+                    document.title = `${config.name} - Portal Maestro`;
+                    const logoSpan = document.querySelector('.logo span');
+                    if (logoSpan) {
+                        logoSpan.innerText = config.name.toUpperCase();
+                    }
+                }
+            } catch (err) {
+                console.error("Error applying trainer theme:", err);
+            }
+        }
+
         async function loadClients() {
             try {
-                const response = await fetch('/api/clients');
+                const headers = {};
+                if (trainerId) {
+                    headers['X-Trainer-Id'] = trainerId;
+                }
+                const response = await fetch('/api/clients', { headers });
                 const clients = await response.json();
                 renderClients(clients);
             } catch (err) {
@@ -212,7 +245,7 @@
             const grid = document.getElementById("clientsGrid");
             grid.innerHTML = "";
             
-            if (clients.length === 0) {
+            if (!clients || clients.length === 0 || clients.error) {
                 grid.innerHTML = `
                     <div style="grid-column: 1/-1; text-align: center; color: var(--color-text-secondary); padding: 40px;">
                         No hay clientes registrados en el sistema.
@@ -254,7 +287,7 @@
             
             if (type === 'trainer') {
                 title.innerText = "Acceso Entrenador";
-                subtitle.innerText = "Credenciales del Entrenador (Admin)";
+                subtitle.innerText = trainerId ? `Credenciales del Entrenador (${trainerId})` : "Credenciales del Entrenador (Admin)";
                 icon.className = "fa-solid fa-user-gear";
             } else {
                 title.innerText = `Acceso: ${name}`;
@@ -285,10 +318,15 @@
                 password: password
             };
             
+            const headers = { 'Content-Type': 'application/json' };
+            if (trainerId) {
+                headers['X-Trainer-Id'] = trainerId;
+            }
+            
             try {
                 const response = await fetch('/api/auth', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: headers,
                     body: JSON.stringify(payload)
                 });
                 
@@ -297,12 +335,14 @@
                 if (result.success) {
                     if (selectedAuthType === 'trainer') {
                         sessionStorage.setItem('trainerAuth', 'true');
-                        window.location.href = "/trainer/";
+                        sessionStorage.setItem('trainerId', result.nickname);
+                        window.location.href = `/trainer/?trainer=${result.nickname}`;
                     } else {
                         // Validate that the user who logged in is indeed the one they clicked
                         if (result.userId === selectedClientId) {
                             sessionStorage.setItem(`clientAuth_${selectedClientId}`, 'true');
-                            window.location.href = `/client/?userId=${selectedClientId}`;
+                            sessionStorage.setItem('trainerId', trainerId || 'admin');
+                            window.location.href = `/client/?userId=${selectedClientId}&trainer=${trainerId || 'admin'}`;
                         } else {
                             error.innerText = "Las credenciales ingresadas pertenecen a otro cliente.";
                             error.style.display = "block";

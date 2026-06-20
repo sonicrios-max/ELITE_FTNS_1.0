@@ -33,3 +33,10 @@ Estas ideas fueron propuestas para mejorar la inteligencia, automatización y co
 * **Lógica**:
   $$Adherencia = 100 - \left(\frac{|Calorias\_Consumidas - Calorias\_Meta|}{Calorias\_Meta} \times 100\right)$$
 * **Implementación**: Comparar la suma de calorías de `meal_items` de un día contra el `target_calories` de la fecha correspondiente.
+
+## 6. Persistencia de Base de Datos en la Nube (Render + SQLite Efímero)
+* **Problema**: En el plan gratuito de Render, los contenedores son **efímeros**. Cada vez que el servidor entra en suspensión por inactividad (después de 15 minutos) o se realiza un despliegue, el archivo de base de datos local `fitness.db` se borra y se restablece al estado del Git.
+* **Soluciones propuestas**:
+  * **Opción A (Sencilla)**: Crear un **Persistent Volume** (disco duro persistente) en Render (con un costo aproximado de $1 USD al mes) y montar la carpeta `/database` para mantener el archivo `fitness.db` a salvo de reinicios.
+  * **Opción B (Escalable)**: Migrar el backend (`server.py`) para utilizar una base de datos PostgreSQL en la nube gratuita (como **Supabase** o **Neon**), eliminando la dependencia de SQLite local.
+* **Mantener Servidor Activo (Keep-awake)**: Utilizar servicios gratuitos como **UptimeRobot** o **cron-job.org** para enviar un ping HTTP cada 10-12 minutos a la URL de Render, evitando que entre en modo de suspensión y eliminando la demora de 30 segundos de arranque inicial.

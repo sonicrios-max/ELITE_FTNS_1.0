@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elite Fitness - Consola de Desarrollador</title>
+    <link rel="stylesheet" href="/shared/style.css?v=1.0.3">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Developer Terminal-inspired styling refinements */
+        :root {
+            --dev-green: #10b981;
+            --dev-glow: rgba(16, 185, 129, 0.25);
+            --accent-gold: #f3ca4c;
+        }
+
+        body {
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(16, 185, 129, 0.04) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(0, 0, 0, 0.4) 0px, transparent 50%);
+        }
+
+        .header-title {
+            color: var(--dev-green);
+            text-shadow: 0 0 10px var(--dev-glow);
+            font-family: var(--font-display);
+        }
+
+        /* Passcode Gate Overlay */
+        .gate-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(15px);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: var(--transition-smooth);
+        }
+
+        .gate-content {
+            width: 380px;
+            max-width: 90%;
+            padding: 40px 30px;
+            text-align: center;
+            border-color: var(--dev-green);
+            box-shadow: 0 0 25px var(--dev-glow);
+        }
+
+        .gate-icon {
+            font-size: 56px;
+            color: var(--dev-green);
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px var(--dev-glow);
+        }
+
+        /* Tabs and tables */
+        .tab-btn.active {
+            color: var(--dev-green);
+            border-bottom-color: var(--dev-green);
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .admin-table th, .admin-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .admin-table th {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+            background: rgba(0,0,0,0.15);
+        }
+
+        .admin-table td {
+            font-size: 13px;
+        }
+
+        .admin-table tr:hover {
+            background: rgba(255,255,255,0.01);
+        }
+
+        /* Theme dot */
+        .theme-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* Modal Overlay */
+        .admin-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .admin-modal-content {
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+
+        .btn-dev {
+            background: var(--dev-green);
+            color: #121212;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 0 12px var(--dev-glow);
+            transition: var(--transition-smooth);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            font-size: 13px;
+        }
+
+        .btn-dev:hover {
+            transform: translateY(-2px);
+            background: #0d9488;
+            box-shadow: 0 0 20px var(--dev-green);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-danger:hover {
+            background: #ef4444;
+            color: #ffffff;
+            box-shadow: 0 0 10px rgba(239,68,68,0.4);
+        }
+
+        .btn-edit {
+            background: rgba(243, 202, 76, 0.15);
+            color: var(--accent-gold);
+            border: 1px solid rgba(243, 202, 76, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 6px;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-edit:hover {
+            background: var(--accent-gold);
+            color: #121212;
+            box-shadow: 0 0 10px var(--accent-gold-glow);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Passcode security gate -->
+    <div id="gateOverlay" class="gate-overlay">
+        <div class="glass-card gate-content">
+            <i class="fa-solid fa-terminal gate-icon"></i>
+            <h2 class="header-title" style="margin-bottom: 10px;">Developer Console</h2>
+            <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 25px;">Ingresa clave de desarrollador para autorizar sesión:</p>
+            
+            <div id="gateError" style="color: var(--accent-red); font-size: 13px; margin-bottom: 15px; display: none;"></div>
+            
+            <form onsubmit="unlockConsole(event)">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <input type="password" id="gatePasscode" required placeholder="••••••••" style="text-align: center; font-size: 18px; letter-spacing: 2px;">
+                </div>
+                <button type="submit" class="btn-dev" style="width: 100%; justify-content: center;"><i class="fa-solid fa-key"></i> Autorizar</button>
+            </form>
+        </div>
+    </div>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-terminal logo-icon" style="color: var(--dev-green); text-shadow: 0 0 10px var(--dev-glow);"></i>
+            <span class="header-title">ELITE FITNESS - CONSOLA DEV</span>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="btn-nav"><i class="fa-solid fa-arrow-left"></i> Volver al Portal</a>
+        </div>
+    </header>
+
+    <div class="container" style="display: none;" id="adminDashboard">
+        
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab('tabTrainers')" id="btnTabTrainers"><i class="fa-solid fa-user-tie"></i> Suscripciones (Coaches)</button>
+            <button class="tab-btn" onclick="switchTab('tabClients')" id="btnTabClients"><i class="fa-solid fa-users"></i> Clientes de Coaches</button>
+        </div>
+
+        <!-- 1. Tab Trainers -->
+        <div id="tabTrainers" class="tab-panel active">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3>Lista de Entrenadores Suscritos</h3>
+                <button class="btn-dev" onclick="openTrainerModal()"><i class="fa-solid fa-user-plus"></i> Crear Entrenador</button>
+            </div>
+            
+            <div class="glass-card" style="padding: 10px; overflow-x: auto;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Entrenador</th>
+                            <th>Nickname</th>
+                            <th>E-mail</th>
+                            <th>Password</th>
+                            <th>Color Tema</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trainersTableBody">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. Tab Clients -->
+        <div id="tabClients" class="tab-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <h3 style="white-space: nowrap;">Filtrar por Entrenador:</h3>
+                    <select id="trainerSelector" style="margin: 0; padding: 8px 12px; width: 250px;" onchange="loadClients()">
+                        <!-- Loaded dynamically -->
+                    </select>
+                </div>
+                <button class="btn-dev" id="btnCreateClient" disabled onclick="openClientModal()"><i class="fa-solid fa-user-plus"></i> Crear Cliente</button>
+            </div>
+
+            <div class="glass-card" style="padding: 10px; overflow-x: auto;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Nickname</th>
+                            <th>E-mail</th>
+                            <th>Teléfono</th>
+                            <th>Nacimiento</th>
+                            <th>Estatura</th>
+                            <th>Clave</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientsTableBody">
+                        <tr>
+                            <td colspan="9" style="text-align: center; color: var(--color-text-secondary); padding: 30px;">
+                                Selecciona un entrenador para listar sus clientes.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trainer Add/Edit Modal -->
+    <div id="trainerModal" class="admin-modal">
+        <div class="glass-card admin-modal-content">
+            <h3 id="trainerModalTitle" style="margin-bottom: 20px; color: var(--dev-green);">Crear Entrenador</h3>
+            <form onsubmit="saveTrainer(event)">
+                <input type="hidden" id="trainerId">
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="trainerName" required placeholder="Ej. Coach Brayan">
+                </div>
+                <div class="form-group">
+                    <label>Nombre de Usuario (Nickname/Slug)</label>
+                    <input type="text" id="trainerNickname" required placeholder="Ej. coach_brayan" pattern="[a-z0-9_-]+" title="Solo letras minúsculas, números, guiones y guión bajo.">
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" id="trainerEmail" required placeholder="brayan@coach.com">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña de Acceso</label>
+                    <input type="text" id="trainerPassword" required placeholder="Clave de acceso">
+                </div>
+                <div class="form-group">
+                    <label>Color de Tema (Hexadecimal)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="trainerThemeColor" required placeholder="#f3ca4c" style="flex: 1;" oninput="updateColorPreview()">
+                        <input type="color" id="trainerColorPicker" style="width: 45px; height: 38px; padding: 0; cursor: pointer; border: none; background: transparent;" oninput="updateColorInput()">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                    <button type="button" class="btn-nav" onclick="closeTrainerModal()">Cancelar</button>
+                    <button type="submit" class="btn-dev"><i class="fa-solid fa-save"></i> Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Client Add/Edit Modal -->
+    <div id="clientModal" class="admin-modal">
+        <div class="glass-card admin-modal-content" style="width: 600px;">
+            <h3 id="clientModalTitle" style="margin-bottom: 20px; color: var(--dev-green);">Crear Cliente</h3>
+            <form onsubmit="saveClient(event)">
+                <input type="hidden" id="clientId">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" id="clientFirstName" required placeholder="Nombre">
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido</label>
+                        <input type="text" id="clientLastName" required placeholder="Apellido">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Correo Electrónico</label>
+                        <input type="email" id="clientEmail" required placeholder="cliente@correo.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" id="clientPhone" placeholder="Opcional">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nombre de Usuario (Nickname)</label>
+                        <input type="text" id="clientNickname" placeholder="Por defecto prefijo email">
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="text" id="clientPassword" placeholder="Por defecto 123456">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Fecha de Nacimiento</label>
+                        <input type="date" id="clientBirthdate">
+                    </div>
+                    <div class="form-group">
+                        <label>Estatura (cm)</label>
+                        <input type="number" id="clientHeightCm" step="0.1" value="170">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Grupo Sanguíneo</label>
+                        <input type="text" id="clientBlood" placeholder="Ej. O+">
+                    </div>
+                    <div class="form-group">
+                        <label>Alergias</label>
+                        <input type="text" id="clientAllergies" placeholder="Ej. Ninguna">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Medicamentos en Uso</label>
+                    <input type="text" id="clientMedications" placeholder="Ej. Ninguno">
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                    <button type="button" class="btn-nav" onclick="closeClientModal()">Cancelar</button>
+                    <button type="submit" class="btn-dev"><i class="fa-solid fa-save"></i> Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let adminPasscode = '';
+        let trainersList = [];
+
+        // Check if passcode is saved in session
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedPass = sessionStorage.getItem("adminPasscode");
+            if (savedPass) {
+                document.getElementById("gatePasscode").value = savedPass;
+                unlockConsole(new Event('submit'));
+            }
+        });
+
+        async function unlockConsole(event) {
+            if (event) event.preventDefault();
+            const inputPass = document.getElementById("gatePasscode").value;
+            const errDiv = document.getElementById("gateError");
+            errDiv.style.display = "none";
+
+            try {
+                const response = await fetch('/api/admin/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ passcode: inputPass })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    adminPasscode = inputPass;
+                    sessionStorage.setItem("adminPasscode", adminPasscode);
+                    
+                    document.getElementById("gateOverlay").style.opacity = '0';
+                    setTimeout(() => {
+                        document.getElementById("gateOverlay").style.display = 'none';
+                    }, 300);
+                    
+                    document.getElementById("adminDashboard").style.display = 'block';
+                    loadTrainers();
+                } else {
+                    errDiv.innerText = result.error || "Código inválido.";
+                    errDiv.style.display = "block";
+                    sessionStorage.removeItem("adminPasscode");
+                }
+            } catch (err) {
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            }
+        }
+
+        // --- TRAINERS LOGIC ---
+
+        async function loadTrainers() {
+            try {
+                const response = await fetch('/api/admin/trainers', {
+                    headers: { 'X-Admin-Passcode': adminPasscode }
+                });
+                trainersList = await response.json();
+                renderTrainersTable();
+                updateTrainerSelector();
+            } catch (err) {
+                console.error("Error loading trainers:", err);
+            }
+        }
+
+        function renderTrainersTable() {
+            const body = document.getElementById("trainersTableBody");
+            body.innerHTML = "";
+            
+            if (trainersList.length === 0) {
+                body.innerHTML = `<tr><td colspan="8" style="text-align:center;">No hay entrenadores.</td></tr>`;
+                return;
+            }
+
+            trainersList.forEach(t => {
+                const row = document.createElement("tr");
+                const isSystem = t.nickname === "admin";
+                row.innerHTML = `
+                    <td>${t.id}</td>
+                    <td><strong>${t.name}</strong></td>
+                    <td><code>${t.nickname}</code></td>
+                    <td>${t.email}</td>
+                    <td><code>${t.password}</code></td>
+                    <td>
+                        <span class="theme-dot" style="background-color: ${t.theme_color || '#f3ca4c'}"></span>
+                        ${t.theme_color || '#f3ca4c'}
+                    </td>
+                    <td><span class="compliance-badge">${t.subscription_status}</span></td>
+                    <td>
+                        <button class="btn-edit" onclick="openTrainerModal(${t.id})"><i class="fa-solid fa-edit"></i> Editar</button>
+                        ${!isSystem ? `<button class="btn-danger" onclick="deleteTrainer(${t.id}, '${t.nickname}')"><i class="fa-solid fa-trash"></i> Eliminar</button>` : ''}
+                    </td>
+                `;
+                body.appendChild(row);
+            });
+        }
+
+        function updateTrainerSelector() {
+            const sel = document.getElementById("trainerSelector");
+            const prevVal = sel.value;
+            sel.innerHTML = `<option value="">-- Selecciona Coach --</option>`;
+            
+            trainersList.forEach(t => {
+                const opt = document.createElement("option");
+                opt.value = t.nickname;
+                opt.innerText = `${t.name} (${t.nickname})`;
+                sel.appendChild(opt);
+            });
+            
+            if (prevVal && trainersList.some(t => t.nickname === prevVal)) {
+                sel.value = prevVal;
+                document.getElementById("btnCreateClient").disabled = false;
+            } else {
+                document.getElementById("btnCreateClient").disabled = true;
+                document.getElementById("clientsTableBody").innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: var(--color-text-secondary); padding: 30px;">
+                            Selecciona un entrenador para listar sus clientes.
+                        </td>
+                    </tr>`;
+            }
+        }
+
+        function openTrainerModal(id = null) {
+            const modal = document.getElementById("trainerModal");
+            const title = document.getElementById("trainerModalTitle");
+            
+            document.getElementById("trainerId").value = id || '';
+            document.getElementById("trainerName").value = '';
+            document.getElementById("trainerNickname").value = '';
+            document.getElementById("trainerNickname").disabled = false;
+            document.getElementById("trainerEmail").value = '';
+            document.getElementById("trainerPassword").value = '';
+            document.getElementById("trainerThemeColor").value = '#f3ca4c';
+            updateColorPreview();
+
+            if (id) {
+                title.innerText = "Editar Entrenador";
+                const trainer = trainersList.find(t => t.id === id);
+                if (trainer) {
+                    document.getElementById("trainerName").value = trainer.name;
+                    document.getElementById("trainerNickname").value = trainer.nickname;
+                    document.getElementById("trainerNickname").disabled = (trainer.nickname === "admin");
+                    document.getElementById("trainerEmail").value = trainer.email;
+                    document.getElementById("trainerPassword").value = trainer.password;
+                    document.getElementById("trainerThemeColor").value = trainer.theme_color || '#f3ca4c';
+                    updateColorPreview();
+                }
+            } else {
+                title.innerText = "Crear Entrenador";
+            }
+            modal.style.display = "flex";
+        }
+
+        function closeTrainerModal() {
+            document.getElementById("trainerModal").style.display = "none";
+        }
+
+        function updateColorPreview() {
+            const val = document.getElementById("trainerThemeColor").value;
+            document.getElementById("trainerColorPicker").value = val.startsWith("#") && val.length === 7 ? val : "#000000";
+        }
+
+        function updateColorInput() {
+            document.getElementById("trainerThemeColor").value = document.getElementById("trainerColorPicker").value;
+        }
+
+        async function saveTrainer(event) {
+            event.preventDefault();
+            const id = document.getElementById("trainerId").value;
+            const payload = {
+                id: id ? parseInt(id) : null,
+                name: document.getElementById("trainerName").value,
+                nickname: document.getElementById("trainerNickname").value,
+                email: document.getElementById("trainerEmail").value,
+                password: document.getElementById("trainerPassword").value,
+                theme_color: document.getElementById("trainerThemeColor").value
+            };
+
+            const url = id ? '/api/admin/trainers' : '/api/admin/trainers'; // PUT or POST
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Passcode': adminPasscode
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    closeTrainerModal();
+                    loadTrainers();
+                } else {
+                    alert(result.error || "Error al guardar el entrenador.");
+                }
+            } catch (err) {
+                alert("Error de conexión al guardar.");
+            }
+        }
+
+        async function deleteTrainer(id, nickname) {
+            if (!confirm(`¿ESTÁS SEGURO de eliminar al entrenador '${nickname}'? \n\nEsta acción borrará FÍSICAMENTE su base de datos, rutinas y clientes de forma irreversible.`)) {
+                return;
+            }
+            try {
+                const response = await fetch('/api/admin/trainers', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Passcode': adminPasscode
+                    },
+                    body: JSON.stringify({ id: id })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    loadTrainers();
+                } else {
+                    alert(result.error || "Error al eliminar.");
+                }
+            } catch (err) {
+                alert("Error de conexión.");
+            }
+        }
+
+
+        // --- CLIENTS LOGIC ---
+
+        async function loadClients() {
+            const nickname = document.getElementById("trainerSelector").value;
+            const btnCreate = document.getElementById("btnCreateClient");
+            const body = document.getElementById("clientsTableBody");
+            
+            if (!nickname) {
+                btnCreate.disabled = true;
+                body.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: var(--color-text-secondary); padding: 30px;">
+                            Selecciona un entrenador para listar sus clientes.
+                        </td>
+                    </tr>`;
+                return;
+            }
+            
+            btnCreate.disabled = false;
+            body.innerHTML = `<tr><td colspan="9" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando clientes...</td></tr>`;
+
+            try {
+                const response = await fetch('/api/clients', {
+                    headers: { 'X-Trainer-Id': nickname }
+                });
+                const clients = await response.json();
+                
+                body.innerHTML = "";
+                if (!clients || clients.length === 0 || clients.error) {
+                    body.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--color-text-secondary);">No hay clientes registrados en este Coach.</td></tr>`;
+                    return;
+                }
+
+                clients.forEach(c => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>${c.id}</td>
+                        <td><strong>${c.first_name} ${c.last_name}</strong></td>
+                        <td><code>${c.nickname || '-'}</code></td>
+                        <td>${c.email}</td>
+                        <td>${c.phone || '-'}</td>
+                        <td>${c.birthdate || '-'}</td>
+                        <td>${c.height_cm} cm</td>
+                        <td><code>${c.password || '-'}</code></td>
+                        <td>
+                            <button class="btn-edit" onclick="openClientModal(${c.id})"><i class="fa-solid fa-edit"></i> Editar</button>
+                            <button class="btn-danger" onclick="deleteClient(${c.id}, '${c.first_name} ${c.last_name}')"><i class="fa-solid fa-trash"></i> Eliminar</button>
+                        </td>
+                    `;
+                    body.appendChild(row);
+                });
+            } catch (err) {
+                body.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--accent-red);">Error de conexión al cargar clientes.</td></tr>`;
+            }
+        }
+
+        let selectedTrainerClients = [];
+
+        async function openClientModal(id = null) {
+            const modal = document.getElementById("clientModal");
+            const title = document.getElementById("clientModalTitle");
+            
+            document.getElementById("clientId").value = id || '';
+            document.getElementById("clientFirstName").value = '';
+            document.getElementById("clientLastName").value = '';
+            document.getElementById("clientEmail").value = '';
+            document.getElementById("clientPhone").value = '';
+            document.getElementById("clientNickname").value = '';
+            document.getElementById("clientPassword").value = '';
+            document.getElementById("clientBirthdate").value = '';
+            document.getElementById("clientHeightCm").value = '170';
+            document.getElementById("clientBlood").value = 'O+';
+            document.getElementById("clientAllergies").value = 'Ninguna';
+            document.getElementById("clientMedications").value = 'Ninguno';
+
+            if (id) {
+                title.innerText = "Editar Cliente";
+                const nickname = document.getElementById("trainerSelector").value;
+                // Fetch the client detail
+                try {
+                    const response = await fetch(`/api/clients/${id}`, {
+                        headers: { 'X-Trainer-Id': nickname }
+                    });
+                    const detail = await response.json();
+                    if (detail && detail.profile) {
+                        const p = detail.profile;
+                        document.getElementById("clientFirstName").value = p.first_name || '';
+                        document.getElementById("clientLastName").value = p.last_name || '';
+                        document.getElementById("clientEmail").value = p.email || '';
+                        document.getElementById("clientPhone").value = p.phone || '';
+                        document.getElementById("clientNickname").value = p.nickname || '';
+                        document.getElementById("clientPassword").value = p.password || '';
+                        document.getElementById("clientBirthdate").value = p.birthdate || '';
+                        document.getElementById("clientHeightCm").value = p.height_cm || '170';
+                        document.getElementById("clientBlood").value = p.blood_type || 'O+';
+                        document.getElementById("clientAllergies").value = p.allergies || 'Ninguna';
+                        document.getElementById("clientMedications").value = p.medications || 'Ninguno';
+                    }
+                } catch(e) {
+                    alert("Error cargando detalles del cliente.");
+                }
+            } else {
+                title.innerText = "Crear Cliente";
+            }
+            modal.style.display = "flex";
+        }
+
+        function closeClientModal() {
+            document.getElementById("clientModal").style.display = "none";
+        }
+
+        async function saveClient(event) {
+            event.preventDefault();
+            const id = document.getElementById("clientId").value;
+            const coachNickname = document.getElementById("trainerSelector").value;
+            
+            const payload = {
+                id: id ? parseInt(id) : null,
+                first_name: document.getElementById("clientFirstName").value,
+                last_name: document.getElementById("clientLastName").value,
+                email: document.getElementById("clientEmail").value,
+                phone: document.getElementById("clientPhone").value,
+                nickname: document.getElementById("clientNickname").value,
+                password: document.getElementById("clientPassword").value,
+                birthdate: document.getElementById("clientBirthdate").value,
+                height_cm: parseFloat(document.getElementById("clientHeightCm").value),
+                blood_type: document.getElementById("clientBlood").value,
+                allergies: document.getElementById("clientAllergies").value,
+                medications: document.getElementById("clientMedications").value
+            };
+
+            const url = '/api/clients';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Trainer-Id': coachNickname
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    closeClientModal();
+                    loadClients();
+                } else {
+                    alert(result.error || "Error al guardar el cliente.");
+                }
+            } catch (err) {
+                alert("Error de conexión.");
+            }
+        }
+
+        async function deleteClient(id, name) {
+            if (!confirm(`¿ESTÁS SEGURO de eliminar al cliente '${name}'? \n\nEsta acción borrará de forma irreversible todas sus rutinas, planes y reportes diarios.`)) {
+                return;
+            }
+            const coachNickname = document.getElementById("trainerSelector").value;
+            try {
+                const response = await fetch('/api/clients', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Trainer-Id': coachNickname
+                    },
+                    body: JSON.stringify({ id: id })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    loadClients();
+                } else {
+                    alert(result.error || "Error al eliminar.");
+                }
+            } catch (err) {
+                alert("Error de conexión.");
+            }
+        }
+
+
+        // --- TAB NAVIGATION ---
+
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            
+            document.getElementById(tabId).classList.add("active");
+            if (tabId === 'tabTrainers') {
+                document.getElementById("btnTabTrainers").classList.add("active");
+            } else {
+                document.getElementById("btnTabClients").classList.add("active");
+            }
+        }
+    </script>
+</body>
+</html>
