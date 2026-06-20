@@ -52,7 +52,22 @@ CREATE TABLE IF NOT EXISTS anthropometric_assessments (
     right_forearm REAL,
     left_forearm REAL,
     
+    -- Custom Dynamic Fields (JSON string)
+    custom_data TEXT,
+    
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 2.1 Trainer Custom Assessment Configuration
+CREATE TABLE IF NOT EXISTS assessment_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    field_name TEXT NOT NULL,
+    field_type TEXT NOT NULL DEFAULT 'number', -- 'number', 'text'
+    unit TEXT,
+    is_default BOOLEAN DEFAULT 0,
+    db_column TEXT, -- points to native column if is_default is true
+    is_active BOOLEAN DEFAULT 1,
+    order_index INTEGER DEFAULT 0
 );
 
 -- 3. Skinfold Assessments (Adipometry)

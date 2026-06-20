@@ -48,21 +48,11 @@ let stepsChartInstance = null;
 let hrvChartInstance = null;
 let sleepChartInstance = null;
 
-// 3D Mannequin Variables
-let mannequinAngle = 0;
-let mannequinInterval = null;
-let mannequinData = {
-    height: 172,
-    chest: 97,
-    waist: 80,
-    hips: 97,
-    bicep: 33.5,
-    fat: 10
-};
+
 
 function initTrainerDashboard() {
     loadClientsList();
-    startMannequinRotation();
+
 }
 
 if (document.readyState === "loading") {
@@ -155,13 +145,9 @@ async function selectClient(userId) {
         initOrUpdateCharts();
         renderWorkoutPlans();
         renderNutritionPlans();
-        initMannequinDates();
-        
-        // Make panels visible
         document.getElementById("profileHeaderCard").style.display = "block";
         document.getElementById("kpiContainer").style.display = "grid";
         document.getElementById("tabsCard").style.display = "block";
-        document.getElementById("mannequinCard").style.display = "block";
         
         // Clear new assessment form if open
         document.getElementById("newAssessmentFormContainer").style.display = "none";
@@ -402,7 +388,10 @@ function renderNutritionPlans() {
     
     container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-            <h3>Plan: ${diet.title}</h3>
+            <div style="display:flex; align-items:center; gap: 15px;">
+                <h3>Plan: ${diet.title}</h3>
+                <button class="btn-nav" style="color: var(--accent-red);" onclick="deleteNutritionPlan(${diet.id})"><i class="fa-solid fa-trash"></i> Eliminar Plan</button>
+            </div>
             <span class="compliance-badge" style="background:rgba(139,92,246,0.15); color:var(--accent-purple); border-color:rgba(139,92,246,0.3)">
                 Target: ${diet.target_calories} Kcal | P: ${diet.target_protein}g | C: ${diet.target_carbs}g | F: ${diet.target_fat}g
             </span>
@@ -607,215 +596,7 @@ function initOrUpdateCharts() {
     });
 }
 
-// 3D Morphing Mannequin Drawer
-function initMannequinDates() {
-    const selector = document.getElementById("mannequinDateSelector");
-    selector.innerHTML = "";
-    
-    const assessments = selectedUserFullData.assessments || [];
-    assessments.forEach(as => {
-        const option = document.createElement("option");
-        option.value = as.date;
-        option.innerText = as.date;
-        selector.appendChild(option);
-    });
-    
-    if (assessments.length > 0) {
-        selector.value = assessments[assessments.length - 1].date;
-        updateMannequinDimensions();
-    }
-}
 
-function updateMannequinDimensions() {
-    const date = document.getElementById("mannequinDateSelector").value;
-    const assessments = selectedUserFullData.assessments || [];
-    const record = assessments.find(as => as.date === date);
-    
-    if (record) {
-        mannequinData.height = record.height_cm;
-        mannequinData.chest = record.chest || 95;
-        mannequinData.waist = record.abdomen || 80;
-        mannequinData.hips = record.trochanter || 95;
-        mannequinData.bicep = record.right_bicep || 30;
-        mannequinData.fat = record.body_fat_percentage || 12;
-        
-        document.getElementById("mannequinStatsChest").innerText = mannequinData.chest;
-        document.getElementById("mannequinStatsAbdomen").innerText = mannequinData.waist;
-        document.getElementById("mannequinStatsHip").innerText = mannequinData.hips;
-        document.getElementById("mannequinStatsFat").innerText = mannequinData.fat.toFixed(1);
-    }
-}
-
-function startMannequinRotation() {
-    const canvas = document.getElementById("mannequinCanvas");
-    const ctx = canvas.getContext("2d");
-    
-    // Hide the placeholder loader
-    const loader = document.getElementById("mannequinLoading");
-    if (loader) loader.style.display = "none";
-    
-    if (mannequinInterval) clearInterval(mannequinInterval);
-    
-    mannequinInterval = setInterval(() => {
-        mannequinAngle += 0.02;
-        drawMannequinFrame(ctx, canvas.width, canvas.height);
-    }, 30);
-}
-
-function drawMannequinFrame(ctx, w, h) {
-    ctx.clearRect(0, 0, w, h);
-    
-    // Draw grid background
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += 30) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-    }
-    for (let y = 0; y < h; y += 30) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-    }
-
-    // Mathematical Morph Values
-    // Reference average dimensions
-    const chestScale = (mannequinData.chest / 100.0) * 20;
-    const waistScale = (mannequinData.waist / 85.0) * 16;
-    const hipScale = (mannequinData.hips / 100.0) * 18;
-    const bicepScale = (mannequinData.bicep / 35.0) * 7;
-    const fatOffset = mannequinData.fat > 18 ? (mannequinData.fat - 18) * 0.2 : 0;
-    
-    // 3D Nodes Definition (x, y, z)
-    // Front and back vertices to form a 3D volume
-    let nodes = [
-        // Head
-        { x: 0, y: 100, z: 0, r: 10 },
-        // Neck
-        { x: 0, y: 80, z: 0 },
-        // Shoulders
-        { x: -chestScale - 6, y: 70, z: 0 },
-        { x: chestScale + 6, y: 70, z: 0 },
-        // Chest
-        { x: -chestScale, y: 45, z: 3 + fatOffset },
-        { x: chestScale, y: 45, z: 3 + fatOffset },
-        { x: -chestScale, y: 45, z: -3 },
-        { x: chestScale, y: 45, z: -3 },
-        // Waist
-        { x: -waistScale, y: 15, z: 2 + fatOffset * 1.5 },
-        { x: waistScale, y: 15, z: 2 + fatOffset * 1.5 },
-        { x: -waistScale, y: 15, z: -2 },
-        { x: waistScale, y: 15, z: -2 },
-        // Hips
-        { x: -hipScale, y: -10, z: 0 },
-        { x: hipScale, y: -10, z: 0 },
-        // Knees
-        { x: -hipScale * 0.9, y: -55, z: 0 },
-        { x: hipScale * 0.9, y: -55, z: 0 },
-        // Feet
-        { x: -hipScale * 0.95, y: -100, z: 0 },
-        { x: hipScale * 0.95, y: -100, z: 0 },
-        // Elbow L & Hand L
-        { x: -chestScale - 15, y: 45, z: 0 },
-        { x: -chestScale - 18, y: 15, z: 0 },
-        // Elbow R & Hand R
-        { x: chestScale + 15, y: 45, z: 0 },
-        { x: chestScale + 18, y: 15, z: 0 }
-    ];
-
-    const cx = w / 2;
-    const cy = h / 2 - 10;
-    const zoom = 1.3;
-    const distance = 300;
-
-    // Rotate nodes in 3D (Y-axis rotation)
-    let projNodes = nodes.map(n => {
-        // Rotate
-        const cos = Math.cos(mannequinAngle);
-        const sin = Math.sin(mannequinAngle);
-        const rx = n.x * cos - (n.z || 0) * sin;
-        const rz = n.x * sin + (n.z || 0) * cos;
-        
-        // Project 3D -> 2D
-        const dScale = distance / (distance + rz);
-        const sx = cx + rx * dScale * zoom;
-        const sy = cy - n.y * dScale * zoom;
-        return { x: sx, y: sy, z: rz };
-    });
-
-    // Draw Skeleton Body
-    ctx.lineWidth = 2;
-    
-    // Color depends on body composition. Leaner = gold highlight, more fat = warm orange-red
-    const colorVal = Math.min(Math.max(10, mannequinData.fat), 30);
-    const pct = (colorVal - 10) / 20.0;
-    const r = Math.floor(243 - pct * 4);
-    const g = Math.floor(202 - pct * 134);
-    const b = Math.floor(76 - pct * 8);
-    const glowColor = `rgba(${r}, ${g}, ${b}, `;
-    ctx.strokeStyle = glowColor + "0.65)";
-    ctx.fillStyle = glowColor + "0.15)";
-    
-    // Function to draw a 3D cylinder/volume block between 4 nodes (2 left, 2 right)
-    function drawVolume(idxL1, idxR1, idxL2, idxR2) {
-        ctx.beginPath();
-        ctx.moveTo(projNodes[idxL1].x, projNodes[idxL1].y);
-        ctx.lineTo(projNodes[idxR1].x, projNodes[idxR1].y);
-        ctx.lineTo(projNodes[idxR2].x, projNodes[idxR2].y);
-        ctx.lineTo(projNodes[idxL2].x, projNodes[idxL2].y);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-    }
-
-    // 1. Draw Torso
-    drawVolume(2, 3, 5, 4); // shoulders to chest front
-    drawVolume(4, 5, 9, 8); // chest to waist
-    drawVolume(8, 9, 13, 12); // waist to hips
-
-    // 2. Draw Limbs as skeleton bones
-    ctx.strokeStyle = glowColor + "0.8)";
-    ctx.lineWidth = 3;
-
-    // Head
-    const headNode = projNodes[0];
-    const headRadius = 14 * (distance / (distance + nodes[0].z)) * zoom;
-    ctx.beginPath();
-    ctx.arc(headNode.x, headNode.y, headRadius, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke();
-
-    // Neck to shoulders
-    ctx.beginPath();
-    ctx.moveTo(projNodes[1].x, projNodes[1].y);
-    ctx.lineTo((projNodes[2].x + projNodes[3].x)/2, (projNodes[2].y + projNodes[3].y)/2);
-    ctx.stroke();
-
-    // Left Arm (Shoulder L -> Elbow L -> Hand L)
-    ctx.beginPath();
-    ctx.moveTo(projNodes[2].x, projNodes[2].y);
-    ctx.lineTo(projNodes[18].x, projNodes[18].y);
-    ctx.lineTo(projNodes[19].x, projNodes[19].y);
-    ctx.stroke();
-
-    // Right Arm (Shoulder R -> Elbow R -> Hand R)
-    ctx.beginPath();
-    ctx.moveTo(projNodes[3].x, projNodes[3].y);
-    ctx.lineTo(projNodes[20].x, projNodes[20].y);
-    ctx.lineTo(projNodes[21].x, projNodes[21].y);
-    ctx.stroke();
-
-    // Left Leg (Hip L -> Knee L -> Foot L)
-    ctx.beginPath();
-    ctx.moveTo(projNodes[12].x, projNodes[12].y);
-    ctx.lineTo(projNodes[14].x, projNodes[14].y);
-    ctx.lineTo(projNodes[16].x, projNodes[16].y);
-    ctx.stroke();
-
-    // Right Leg (Hip R -> Knee R -> Foot R)
-    ctx.beginPath();
-    ctx.moveTo(projNodes[13].x, projNodes[13].y);
-    ctx.lineTo(projNodes[15].x, projNodes[15].y);
-    ctx.lineTo(projNodes[17].x, projNodes[17].y);
-    ctx.stroke();
-}
 
 // Tab switcher
 function switchTab(tabId) {
@@ -973,11 +754,13 @@ function showGlobalView(viewName) {
     document.getElementById('clientsView').style.display = 'none';
     document.getElementById('trainingLibView').style.display = 'none';
     document.getElementById('nutritionLibView').style.display = 'none';
+    document.getElementById('assessmentLibView').style.display = 'none';
     
     // Deactivate nav links
     document.getElementById('navClients').classList.remove('active');
     document.getElementById('navTraining').classList.remove('active');
     document.getElementById('navNutrition').classList.remove('active');
+    document.getElementById('navAssessment').classList.remove('active');
     
     if (viewName === 'clients') {
         document.getElementById('clientsView').style.display = 'block';
@@ -991,6 +774,11 @@ function showGlobalView(viewName) {
     } else if (viewName === 'nutrition') {
         document.getElementById('nutritionLibView').style.display = 'block';
         document.getElementById('navNutrition').classList.add('active');
+        fetchGlobalNutritionPlans();
+    } else if (viewName === 'assessment') {
+        document.getElementById('assessmentLibView').style.display = 'block';
+        document.getElementById('navAssessment').classList.add('active');
+        fetchAssessmentConfig();
     }
 }
 
@@ -1740,4 +1528,433 @@ closeRoutineModal = function() {
     const formTitle = document.querySelector('#addRoutineModal h3');
     if(formTitle) formTitle.textContent = "Nueva Plantilla";
     originalCloseRoutine();
+}
+
+// ==========================================
+// NUTRITION PLAN LOGIC
+// ==========================================
+let nutritionMealCounter = 0;
+
+let isCreatingGlobalNutrition = false;
+
+function openNutritionModal(isGlobal = false) {
+    isCreatingGlobalNutrition = isGlobal;
+    if (!isGlobal && !activeUserId) {
+        alert("Selecciona un cliente primero.");
+        return;
+    }
+    document.getElementById("addNutritionModal").style.display = "flex";
+    document.getElementById("newNutStart").value = new Date().toISOString().substring(0, 10);
+    
+    let d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    document.getElementById("newNutEnd").value = d.toISOString().substring(0, 10);
+    
+    document.getElementById("mealsContainer").innerHTML = "";
+    nutritionMealCounter = 0;
+    addNutritionMeal("Desayuno");
+    addNutritionMeal("Almuerzo");
+    addNutritionMeal("Cena");
+}
+
+function closeNutritionModal() {
+    document.getElementById("addNutritionModal").style.display = "none";
+}
+
+function addNutritionMeal(defaultName = "") {
+    nutritionMealCounter++;
+    const mId = nutritionMealCounter;
+    
+    const container = document.getElementById("mealsContainer");
+    const mealCard = document.createElement("div");
+    mealCard.className = "workout-day-card";
+    mealCard.id = `mealCard_${mId}`;
+    mealCard.style.position = "relative";
+    mealCard.style.padding = "10px";
+    
+    mealCard.innerHTML = `
+        <button type="button" class="btn-nav" style="position: absolute; top: 10px; right: 10px; color: var(--accent-red);" onclick="this.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
+        <div class="form-group" style="width: 80%;">
+            <label>Nombre de la Comida</label>
+            <input type="text" class="meal-name-input" placeholder="Ej. Desayuno o Snack" value="${defaultName}" required>
+        </div>
+        <div style="margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <label style="font-size: 12px; color: var(--accent-cyan);">Alimentos / Ingredientes</label>
+                <button type="button" class="btn-nav" onclick="addFoodItemToMeal(${mId})" style="font-size: 11px;"><i class="fa-solid fa-plus"></i> Ingrediente</button>
+            </div>
+            <div id="mealFoods_${mId}">
+                <!-- Alimentos -->
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(mealCard);
+    addFoodItemToMeal(mId); // Add at least one empty food item
+}
+
+function addFoodItemToMeal(mId) {
+    const container = document.getElementById(`mealFoods_${mId}`);
+    const foodRow = document.createElement("div");
+    foodRow.style.display = "flex";
+    foodRow.style.gap = "5px";
+    foodRow.style.marginBottom = "5px";
+    foodRow.className = "food-item-row";
+    
+    foodRow.innerHTML = `
+        <input type="text" class="food-name" placeholder="Alimento" required style="flex: 2; font-size: 11px;">
+        <input type="number" class="food-weight" placeholder="Peso(g)" required style="flex: 1; font-size: 11px;">
+        <input type="number" class="food-cal" placeholder="Kcal" required style="flex: 1; font-size: 11px;">
+        <input type="number" step="0.1" class="food-pro" placeholder="Pro(g)" required style="flex: 1; font-size: 11px;">
+        <input type="number" step="0.1" class="food-carb" placeholder="Car(g)" required style="flex: 1; font-size: 11px;">
+        <input type="number" step="0.1" class="food-fat" placeholder="Gra(g)" required style="flex: 1; font-size: 11px;">
+        <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    
+    container.appendChild(foodRow);
+}
+
+async function submitNewNutritionPlan(event) {
+    event.preventDefault();
+    
+    const payload = {
+        user_id: isCreatingGlobalNutrition ? 0 : activeUserId,
+        title: document.getElementById("newNutTitle").value,
+        description: document.getElementById("newNutDesc").value,
+        start_date: document.getElementById("newNutStart").value,
+        end_date: document.getElementById("newNutEnd").value,
+        target_calories: parseInt(document.getElementById("newNutCal").value),
+        target_protein: parseInt(document.getElementById("newNutPro").value),
+        target_carbs: parseInt(document.getElementById("newNutCarb").value),
+        target_fat: parseInt(document.getElementById("newNutFat").value),
+        meals: []
+    };
+    
+    const mealCards = document.querySelectorAll("#mealsContainer .workout-day-card");
+    let orderIdx = 1;
+    
+    mealCards.forEach(card => {
+        const mealName = card.querySelector(".meal-name-input").value;
+        const foodRows = card.querySelectorAll(".food-item-row");
+        
+        let mealItems = [];
+        foodRows.forEach(row => {
+            mealItems.push({
+                food_name: row.querySelector(".food-name").value,
+                weight_g: parseFloat(row.querySelector(".food-weight").value),
+                calories_kcal: parseInt(row.querySelector(".food-cal").value),
+                protein_g: parseFloat(row.querySelector(".food-pro").value),
+                carbs_g: parseFloat(row.querySelector(".food-carb").value),
+                fat_g: parseFloat(row.querySelector(".food-fat").value)
+            });
+        });
+        
+        if(mealItems.length > 0) {
+            payload.meals.push({
+                meal_name: mealName,
+                order_index: orderIdx++,
+                items: mealItems
+            });
+        }
+    });
+    
+    try {
+        const res = await fetch('/api/nutrition_plans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("Plan de Nutrición guardado correctamente.");
+            closeNutritionModal();
+            if (isCreatingGlobalNutrition) {
+                fetchGlobalNutritionPlans();
+            } else {
+                selectClient(activeUserId); // Recargar perfil
+            }
+        } else {
+            alert("Error al guardar: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error de red.");
+    }
+}
+
+async function deleteNutritionPlan(planId) {
+    if (!confirm("¿Seguro que deseas eliminar este plan de nutrición?")) return;
+    
+    try {
+        const res = await fetch(`/api/nutrition_plans/${planId}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (document.getElementById('nutritionLibView').style.display === 'block') {
+                fetchGlobalNutritionPlans();
+            } else {
+                selectClient(activeUserId);
+            }
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+let globalNutritionPlansCache = [];
+async function fetchGlobalNutritionPlans() {
+    try {
+        const res = await fetch('/api/nutrition_plans?user_id=0');
+        const data = await res.json();
+        globalNutritionPlansCache = data;
+        const tbody = document.getElementById('globalNutritionList');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        globalNutritionPlansCache.forEach(plan => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${plan.id}</td>
+                    <td style="font-weight: bold; color: var(--accent-green);">${plan.title}</td>
+                    <td>${plan.description || '-'}</td>
+                    <td>${plan.target_calories || 0} kcal</td>
+                    <td>${plan.target_protein || 0}g / ${plan.target_carbs || 0}g / ${plan.target_fat || 0}g</td>
+                    <td style="display: flex; gap: 5px;">
+                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="assignGlobalNutritionPlan(${plan.id})"><i class="fa-solid fa-share-nodes"></i> Asignar</button>
+                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteNutritionPlan(${plan.id})"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        console.error("Error fetching global nutrition plans", err);
+    }
+}
+
+function assignGlobalNutritionPlan(planId) {
+    const plan = globalNutritionPlansCache.find(p => p.id === planId);
+    if (!plan) return;
+    
+    const clientHtml = usersData.map(u => `<option value="${u.id}">${u.first_name} ${u.last_name}</option>`).join('');
+    
+    const modalHtml = `
+        <div id="assignNutritionModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+            <div class="glass-card" style="width: 400px; max-width: 95%;">
+                <h3 style="color: var(--accent-green); margin-bottom: 15px;"><i class="fa-solid fa-share-nodes"></i> Asignar Plantilla a Cliente</h3>
+                <p style="margin-bottom: 15px; color: var(--color-text-secondary);">Selecciona el cliente al que deseas asignarle la plantilla <strong>${plan.title}</strong>.</p>
+                <div class="form-group">
+                    <label>Cliente</label>
+                    <select id="assignNutritionClientSelect">
+                        ${clientHtml}
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button class="btn-nav" onclick="document.getElementById('assignNutritionModal').remove()">Cancelar</button>
+                    <button class="btn-primary" onclick="confirmAssignNutritionPlan(${plan.id})">Asignar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function confirmAssignNutritionPlan(planId) {
+    const select = document.getElementById('assignNutritionClientSelect');
+    const clientId = select.value;
+    
+    try {
+        const res = await fetch('/api/nutrition_plans/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_id: planId, user_id: clientId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("Plantilla de nutrición asignada correctamente al cliente.");
+            document.getElementById('assignNutritionModal').remove();
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// ==========================================
+// NEW: Assessment Config Management
+// ==========================================
+
+let globalAssessmentConfig = [];
+
+async function fetchAssessmentConfig() {
+    try {
+        const res = await fetch('/api/assessment_config');
+        const data = await res.json();
+        if (data.success) {
+            globalAssessmentConfig = data.config;
+            renderAssessmentConfigTable();
+        }
+    } catch (e) {
+        console.error("Error fetching assessment config:", e);
+    }
+}
+
+function renderAssessmentConfigTable() {
+    const tbody = document.getElementById('assessmentConfigTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    globalAssessmentConfig.forEach(conf => {
+        const isDefaultBadge = conf.is_default ? '<span class="compliance-badge" style="background:#555; color:white;">Base</span>' : '<span class="compliance-badge">Custom</span>';
+        
+        // Icon for visibility
+        const eyeIcon = conf.is_active ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+        const eyeColor = conf.is_active ? 'var(--accent-green)' : 'var(--color-text-secondary)';
+        
+        tbody.innerHTML += `
+            <tr>
+                <td style="text-align: left;">${conf.order_index}</td>
+                <td style="font-weight: bold; color: var(--accent-cyan); text-align: left;">${conf.field_name} ${isDefaultBadge}</td>
+                <td style="text-align: left;">${conf.field_type === 'number' ? 'Número' : 'Texto'}</td>
+                <td style="text-align: left;">${conf.unit || '-'}</td>
+                <td style="display: flex; gap: 5px; text-align: left;">
+                    <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: ${eyeColor};" onclick="toggleAssessmentConfigVisibility(${conf.id}, ${conf.is_active})" title="${conf.is_active ? 'Ocultar Campo' : 'Mostrar Campo'}">${eyeIcon}</button>
+                    <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="openAssessmentConfigModal(${conf.id})" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    ${!conf.is_default ? `<button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteAssessmentConfig(${conf.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>` : ''}
+                </td>
+            </tr>
+        `;
+    });
+}
+
+async function toggleAssessmentConfigVisibility(id, currentStatus) {
+    const newStatus = currentStatus ? 0 : 1;
+    try {
+        const res = await fetch('/api/assessment_config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, is_active: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+            fetchAssessmentConfig();
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function openAssessmentConfigModal(id = null) {
+    const modal = document.getElementById('assessmentConfigModal');
+    const form = modal.querySelector('form');
+    form.reset();
+    
+    document.getElementById('editAssessmentConfigId').value = '';
+    document.getElementById('editAssessmentConfigIsDefault').value = '0';
+    document.getElementById('editAssessmentConfigDbColumn').value = '';
+    document.getElementById('assessmentConfigModalTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Nuevo Campo';
+    document.getElementById('configFieldName').disabled = false;
+    document.getElementById('configFieldType').disabled = false;
+    
+    if (id) {
+        const conf = globalAssessmentConfig.find(c => c.id === id);
+        if (conf) {
+            document.getElementById('assessmentConfigModalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Editar Campo';
+            document.getElementById('editAssessmentConfigId').value = conf.id;
+            document.getElementById('editAssessmentConfigIsDefault').value = conf.is_default;
+            document.getElementById('editAssessmentConfigDbColumn').value = conf.db_column || '';
+            
+            document.getElementById('configFieldName').value = conf.field_name;
+            document.getElementById('configFieldType').value = conf.field_type;
+            document.getElementById('configFieldUnit').value = conf.unit || '';
+            document.getElementById('configOrderIndex').value = conf.order_index;
+            document.getElementById('configIsActive').checked = conf.is_active;
+            
+            // Si es por defecto, no dejamos cambiar nombre ni tipo para no romper la BD, solo visibilidad y orden.
+            if (conf.is_default) {
+                document.getElementById('configFieldName').disabled = true;
+                document.getElementById('configFieldType').disabled = true;
+            }
+        }
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function closeAssessmentConfigModal() {
+    document.getElementById('assessmentConfigModal').style.display = 'none';
+}
+
+async function submitAssessmentConfig(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('editAssessmentConfigId').value;
+    const payload = {
+        field_name: document.getElementById('configFieldName').value,
+        field_type: document.getElementById('configFieldType').value,
+        unit: document.getElementById('configFieldUnit').value,
+        order_index: parseInt(document.getElementById('configOrderIndex').value),
+        is_active: document.getElementById('configIsActive').checked ? 1 : 0
+    };
+    
+    const isDefault = document.getElementById('editAssessmentConfigIsDefault').value === '1';
+    
+    // Si es nuevo o no es default, pasamos los datos completos
+    if (!id) {
+        payload.is_default = 0;
+    } else {
+        payload.id = parseInt(id);
+        if (isDefault) {
+            // No enviar field_name/type para no sobreescribir defaults si el input estaba disabled
+            delete payload.field_name;
+            delete payload.field_type;
+        }
+    }
+    
+    try {
+        const url = '/api/assessment_config';
+        const method = id ? 'PUT' : 'POST';
+        
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+            closeAssessmentConfigModal();
+            fetchAssessmentConfig();
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function deleteAssessmentConfig(id) {
+    if (!confirm("¿Seguro que deseas eliminar permanentemente este campo? Las valoraciones existentes perderán este dato.")) return;
+    
+    try {
+        const res = await fetch('/api/assessment_config', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        });
+        const data = await res.json();
+        if (data.success) {
+            fetchAssessmentConfig();
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+    }
 }

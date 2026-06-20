@@ -172,6 +172,51 @@ def check_and_migrate_db(db_path):
                 VALUES (0, 'Sistema', 'Plantillas', 'sistema@elitecoach.local', 0, 'sistema', '123456')
             """)
             conn.commit()
+
+        # Migration: Add custom_data to anthropometric_assessments
+        cursor.execute("PRAGMA table_info(anthropometric_assessments)")
+        anthro_columns = [row[1] for row in cursor.fetchall()]
+        if "custom_data" not in anthro_columns:
+            print("Migration: Adding column 'custom_data' to 'anthropometric_assessments' table...")
+            cursor.execute("ALTER TABLE anthropometric_assessments ADD COLUMN custom_data TEXT")
+            conn.commit()
+
+        # Migration: Create assessment_config table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS assessment_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                field_name TEXT NOT NULL,
+                field_type TEXT NOT NULL DEFAULT 'number',
+                unit TEXT,
+                is_default BOOLEAN DEFAULT 0,
+                db_column TEXT,
+                is_active BOOLEAN DEFAULT 1,
+                order_index INTEGER DEFAULT 0
+            )
+        ''')
+        conn.commit()
+
+        # Seed default assessment configs if empty
+        cursor.execute("SELECT id FROM assessment_config")
+        if not cursor.fetchone():
+            print("Migration: Seeding default assessment configurations...")
+            defaults = [
+                ('Peso', 'number', 'kg', 1, 'weight_kg', 10),
+                ('Estatura', 'number', 'cm', 1, 'height_cm', 20),
+                ('Grasa Corporal', 'number', '%', 1, 'body_fat_percentage', 30),
+                ('Masa Magra', 'number', 'kg', 1, 'lean_mass_kg', 40),
+                ('Pecho', 'number', 'cm', 1, 'chest', 50),
+                ('Abdomen', 'number', 'cm', 1, 'abdomen', 60),
+                ('Bíceps Derecho', 'number', 'cm', 1, 'right_bicep', 70),
+                ('Bíceps Izquierdo', 'number', 'cm', 1, 'left_bicep', 80),
+                ('Muslo Derecho', 'number', 'cm', 1, 'right_thigh', 90),
+                ('Muslo Izquierdo', 'number', 'cm', 1, 'left_thigh', 100),
+            ]
+            cursor.executemany('''
+                INSERT INTO assessment_config (field_name, field_type, unit, is_default, db_column, order_index)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', defaults)
+            conn.commit()
             
     except Exception as e:
         print("Error during migration:", e)
@@ -255,12 +300,16 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_get_workout_blocks()
         elif path == "/api/routines":
             self.handle_get_routines()
+        elif path == "/api/nutrition_plans":
+            self.handle_get_nutrition_plans(parsed_url.query)
         elif path == "/api/daily_logs/calendar":
             self.handle_get_daily_calendar(parsed_url.query)
         elif path == "/api/trainer/config":
             self.handle_get_trainer_config()
         elif path == "/api/admin/trainers":
             self.handle_admin_get_trainers()
+        elif path == "/api/assessment_config":
+            self.handle_get_assessment_config()
         
         # Route Web Dashboards
         elif path == "/" or path == "/index.html":
@@ -322,6 +371,12 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_create_routine(data)
         elif path == "/api/routines/assign":
             self.handle_assign_routine(data)
+        elif path == "/api/nutrition_plans":
+            self.handle_create_nutrition_plan(data)
+        elif path == "/api/nutrition_plans/assign":
+            self.handle_assign_nutrition_plan(data)
+        elif path == "/api/assessment_config":
+            self.handle_create_assessment_config(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
@@ -346,6 +401,10 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_update_client(data)
         elif path == "/api/admin/trainers":
             self.handle_admin_update_trainer(data)
+        elif path == "/api/nutrition_plans":
+            self.handle_update_nutrition_plan(data)
+        elif path == "/api/assessment_config":
+            self.handle_update_assessment_config(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
@@ -370,6 +429,10 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_delete_client(data)
         elif path == "/api/admin/trainers":
             self.handle_admin_delete_trainer(data)
+        elif path == "/api/nutrition_plans":
+            self.handle_delete_nutrition_plan(data)
+        elif path == "/api/assessment_config":
+            self.handle_delete_assessment_config(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
@@ -1426,6 +1489,282 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             cursor.execute("DELETE FROM users WHERE id = ?", (client_id,))
             conn.commit()
             self.send_json_response(200, {"success": True, "message": "Cliente eliminado correctamente."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_create_nutrition_plan(self, data):
+        user_id = data.get("user_id")
+        title = data.get("title")
+        if user_id is None or not title:
+            self.send_error_response(400, "user_id y title son requeridos.")
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO nutrition_plans (user_id, title, description, start_date, end_date, target_calories, target_protein, target_carbs, target_fat)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (user_id, title, data.get("description", ""), data.get("start_date"), data.get("end_date"), 
+                  data.get("target_calories"), data.get("target_protein"), data.get("target_carbs"), data.get("target_fat")))
+            plan_id = cursor.lastrowid
+            
+            meals = data.get("meals", [])
+            for meal in meals:
+                cursor.execute("INSERT INTO meals (nutrition_plan_id, meal_name, order_index) VALUES (?, ?, ?)", 
+                    (plan_id, meal.get("meal_name", "Comida"), meal.get("order_index", 1)))
+                meal_id = cursor.lastrowid
+                
+                items = meal.get("items", [])
+                for item in items:
+                    cursor.execute("""
+                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (meal_id, item.get("food_name"), item.get("weight_g", 0), item.get("calories_kcal", 0),
+                          item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", "")))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "plan_id": plan_id})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_assign_nutrition_plan(self, data):
+        plan_id = data.get("plan_id")
+        user_id = data.get("user_id")
+        if not plan_id or not user_id:
+            self.send_error_response(400, "plan_id y user_id son requeridos.")
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # Copy plan
+            cursor.execute("SELECT * FROM nutrition_plans WHERE id = ?", (plan_id,))
+            plan_row = cursor.fetchone()
+            if not plan_row:
+                self.send_error_response(404, "Plantilla de nutrición no encontrada.")
+                return
+                
+            p = dict(plan_row)
+            cursor.execute("""
+                INSERT INTO nutrition_plans (user_id, title, description, start_date, end_date, target_calories, target_protein, target_carbs, target_fat)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (user_id, p['title'], p['description'], p['start_date'], p['end_date'], 
+                  p['target_calories'], p['target_protein'], p['target_carbs'], p['target_fat']))
+            new_plan_id = cursor.lastrowid
+            
+            # Copy meals
+            cursor.execute("SELECT * FROM meals WHERE nutrition_plan_id = ?", (plan_id,))
+            meals = cursor.fetchall()
+            for meal_row in meals:
+                m = dict(meal_row)
+                cursor.execute("INSERT INTO meals (nutrition_plan_id, meal_name, order_index) VALUES (?, ?, ?)", 
+                    (new_plan_id, m['meal_name'], m['order_index']))
+                new_meal_id = cursor.lastrowid
+                
+                # Copy meal items
+                cursor.execute("SELECT * FROM meal_items WHERE meal_id = ?", (m['id'],))
+                items = cursor.fetchall()
+                for item_row in items:
+                    i = dict(item_row)
+                    cursor.execute("""
+                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (new_meal_id, i['food_name'], i['weight_g'], i['calories_kcal'],
+                          i['protein_g'], i['carbs_g'], i['fat_g'], i['notes']))
+                          
+            conn.commit()
+            self.send_json_response(200, {"success": True, "new_plan_id": new_plan_id})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_get_nutrition_plans(self, query_string):
+        query_params = urllib.parse.parse_qs(query_string)
+        user_id = query_params.get("user_id")
+        
+        if not user_id:
+            self.send_error_response(400, "user_id is required.")
+            return
+            
+        user_id = int(user_id[0])
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM nutrition_plans WHERE user_id = ?", (user_id,))
+            plans = [dict(row) for row in cursor.fetchall()]
+            
+            for plan in plans:
+                cursor.execute("SELECT * FROM meals WHERE nutrition_plan_id = ? ORDER BY order_index ASC", (plan['id'],))
+                plan['meals'] = [dict(row) for row in cursor.fetchall()]
+                for meal in plan['meals']:
+                    cursor.execute("SELECT * FROM meal_items WHERE meal_id = ?", (meal['id'],))
+                    meal['items'] = [dict(row) for row in cursor.fetchall()]
+                    
+            self.send_json_response(200, plans)
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_update_nutrition_plan(self, data):
+        plan_id = data.get("id")
+        if not plan_id:
+            self.send_error_response(400, "El ID del plan es requerido.")
+            return
+
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                UPDATE nutrition_plans SET 
+                    title = ?, description = ?, start_date = ?, end_date = ?, 
+                    target_calories = ?, target_protein = ?, target_carbs = ?, target_fat = ?
+                WHERE id = ?
+            """, (data.get("title"), data.get("description"), data.get("start_date"), data.get("end_date"),
+                  data.get("target_calories"), data.get("target_protein"), data.get("target_carbs"), data.get("target_fat"), plan_id))
+            
+            if "meals" in data:
+                cursor.execute("DELETE FROM meals WHERE nutrition_plan_id = ?", (plan_id,))
+                for meal in data["meals"]:
+                    cursor.execute("INSERT INTO meals (nutrition_plan_id, meal_name, order_index) VALUES (?, ?, ?)", 
+                        (plan_id, meal.get("meal_name", "Comida"), meal.get("order_index", 1)))
+                    meal_id = cursor.lastrowid
+                    
+                    for item in meal.get("items", []):
+                        cursor.execute("""
+                            INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (meal_id, item.get("food_name"), item.get("weight_g", 0), item.get("calories_kcal", 0),
+                              item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", "")))
+            
+            conn.commit()
+            self.send_json_response(200, {"success": True, "message": "Plan de nutrición actualizado."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_delete_nutrition_plan(self, data):
+        plan_id = data.get("id")
+        if not plan_id:
+            self.send_error_response(400, "El ID del plan es requerido.")
+            return
+
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.execute("DELETE FROM nutrition_plans WHERE id = ?", (plan_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "message": "Plan de nutrición eliminado."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    # --- Assessment Config Handlers ---
+    
+    def handle_get_assessment_config(self):
+        conn = self.get_db_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM assessment_config ORDER BY order_index ASC, id ASC")
+            configs = [dict(row) for row in cursor.fetchall()]
+            self.send_json_response(200, {"success": True, "config": configs})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+            
+    def handle_create_assessment_config(self, data):
+        field_name = data.get("field_name")
+        field_type = data.get("field_type", "number")
+        unit = data.get("unit", "")
+        is_default = data.get("is_default", 0)
+        db_column = data.get("db_column")
+        is_active = data.get("is_active", 1)
+        order_index = data.get("order_index", 0)
+        
+        if not field_name:
+            self.send_json_response(400, {"success": False, "error": "field_name is required"})
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT INTO assessment_config (field_name, field_type, unit, is_default, db_column, is_active, order_index)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (field_name, field_type, unit, is_default, db_column, is_active, order_index))
+            conn.commit()
+            new_id = cursor.lastrowid
+            self.send_json_response(200, {"success": True, "id": new_id})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_update_assessment_config(self, data):
+        config_id = data.get("id")
+        if not config_id:
+            self.send_json_response(400, {"success": False, "error": "Config ID is required"})
+            return
+            
+        field_name = data.get("field_name")
+        unit = data.get("unit")
+        is_active = data.get("is_active")
+        order_index = data.get("order_index")
+        
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            updates = []
+            params = []
+            if field_name is not None:
+                updates.append("field_name = ?")
+                params.append(field_name)
+            if unit is not None:
+                updates.append("unit = ?")
+                params.append(unit)
+            if is_active is not None:
+                updates.append("is_active = ?")
+                params.append(is_active)
+            if order_index is not None:
+                updates.append("order_index = ?")
+                params.append(order_index)
+                
+            if not updates:
+                self.send_json_response(200, {"success": True, "message": "Nothing to update"})
+                return
+                
+            params.append(config_id)
+            query = "UPDATE assessment_config SET " + ", ".join(updates) + " WHERE id = ?"
+            cursor.execute(query, params)
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+            
+    def handle_delete_assessment_config(self, data):
+        config_id = data.get("id")
+        if not config_id:
+            self.send_json_response(400, {"success": False, "error": "Config ID is required"})
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM assessment_config WHERE id = ? AND is_default = 0", (config_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
         except Exception as e:
             self.send_json_response(500, {"success": False, "error": str(e)})
         finally:

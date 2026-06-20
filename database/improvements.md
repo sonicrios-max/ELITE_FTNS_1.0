@@ -40,3 +40,10 @@ Estas ideas fueron propuestas para mejorar la inteligencia, automatización y co
   * **Opción A (Sencilla)**: Crear un **Persistent Volume** (disco duro persistente) en Render (con un costo aproximado de $1 USD al mes) y montar la carpeta `/database` para mantener el archivo `fitness.db` a salvo de reinicios.
   * **Opción B (Escalable)**: Migrar el backend (`server.py`) para utilizar una base de datos PostgreSQL en la nube gratuita (como **Supabase** o **Neon**), eliminando la dependencia de SQLite local.
 * **Mantener Servidor Activo (Keep-awake)**: Utilizar servicios gratuitos como **UptimeRobot** o **cron-job.org** para enviar un ping HTTP cada 10-12 minutos a la URL de Render, evitando que entre en modo de suspensión y eliminando la demora de 30 segundos de arranque inicial.
+
+## 7. Fórmulas Matemáticas Personalizadas e Indicadores Dinámicos
+* **Propósito**: Dar libertad a los entrenadores para crear sus propios indicadores (KPIs) usando las variables personalizadas de sus fichas antropométricas.
+* **Implementación**: 
+  * Permitir al entrenador definir fórmulas con sintaxis simple (ej. `(Pecho - Cintura) / Altura`).
+  * El sistema evaluará estas fórmulas dinámicamente usando eval seguro (o un parser matemático) para generar gráficas de progreso personalizadas.
+  * **Advertencias de Dependencia**: Si el entrenador intenta ocultar/eliminar un campo de la ficha base (ej. Peso) que está siendo utilizado en un indicador (ej. BMI o Fórmula Personalizada), el sistema lanzará una advertencia previniendo la ruptura de la lógica.

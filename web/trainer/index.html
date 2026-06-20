@@ -57,6 +57,7 @@
         </div>
         <div class="nav-links">
             <a href="#" onclick="showGlobalView('clients')" class="btn-nav active" id="navClients"><i class="fa-solid fa-users"></i> Clientes</a>
+            <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment"><i class="fa-solid fa-ruler-combined"></i> Valoraciones</a>
             <a href="#" onclick="showGlobalView('training')" class="btn-nav" id="navTraining"><i class="fa-solid fa-dumbbell"></i> Entrenamiento</a>
             <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Nutrición</a>
             <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" class="btn-nav"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
@@ -300,40 +301,17 @@
 
                     <!-- TAB 4: DIETS & MEAL PLANS -->
                     <div class="tab-panel" id="tabNutricion">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3>Plan de Nutrición Actual</h3>
+                            <button class="btn-primary" onclick="openNutritionModal()"><i class="fa-solid fa-plus"></i> Asignar Plan</button>
+                        </div>
                         <div id="nutritionPlanContainer">
                             <!-- Loaded dynamically -->
                         </div>
                     </div>
                 </div>
 
-                <!-- 3D Morphing Mannequin Progress Panel -->
-                <div class="glass-card" id="mannequinCard" style="display: none;">
-                    <h3>Conceptualización del Progreso en Modelo 3D</h3>
-                    <p style="color: var(--color-text-secondary); margin-bottom: 15px;">Este modelo morfométrico interactivo ajusta su estructura tridimensional de forma matemática de acuerdo a la adipometría y circunferencias del cliente en la fecha seleccionada.</p>
-                    
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: flex-end; align-items: center;">
-                        <label style="font-size: 12px; color: var(--color-text-secondary);">Seleccionar Evaluación:</label>
-                        <select id="mannequinDateSelector" onchange="updateMannequinDimensions()" style="padding: 6px; border-radius: 6px;">
-                            <!-- Filled dynamically -->
-                        </select>
-                    </div>
 
-                    <div class="canvas-container-3d">
-                        <div class="canvas-placeholder-text" id="mannequinLoading">
-                            <i class="fa-solid fa-rotate fa-spin" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
-                            Cargando Renderizador Morph 3D...
-                        </div>
-                        <canvas id="mannequinCanvas" width="400" height="350"></canvas>
-                        
-                        <div class="overlay-stats-3d">
-                            <strong>Dimensiones 3D Calculadas:</strong><br>
-                            - Pecho: <span id="mannequinStatsChest">-</span> cm<br>
-                            - Cintura: <span id="mannequinStatsAbdomen">-</span> cm<br>
-                            - Caderas: <span id="mannequinStatsHip">-</span> cm<br>
-                            - Grasa: <span id="mannequinStatsFat">-</span>%
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -390,9 +368,52 @@
         <div class="glass-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2><i class="fa-solid fa-apple-whole" style="color: var(--accent-green);"></i> Plantillas de Nutrición (Globales)</h2>
-                <button class="btn-primary"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
+                <button class="btn-primary" onclick="openNutritionModal(true)"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
             </div>
-            <p style="color: var(--color-text-secondary);">En construcción... (Fase posterior)</p>
+            
+            <table class="data-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="width: 50px; text-align: left;">ID</th>
+                        <th style="text-align: left;">Título de la Plantilla</th>
+                        <th style="text-align: left;">Descripción</th>
+                        <th style="width: 100px; text-align: left;">Calorías</th>
+                        <th style="width: 150px; text-align: left;">Macros (P/C/G)</th>
+                        <th style="width: 120px; text-align: left;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="globalNutritionList">
+                    <!-- Llenado dinámico -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- VISTA 4: CONFIGURADOR DE VALORACIONES -->
+    <div class="container" id="assessmentLibView" style="display: none;">
+        <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fa-solid fa-ruler-combined" style="color: var(--accent-cyan);"></i> Configuración de Ficha Antropométrica</h2>
+                <button class="btn-primary" onclick="openAssessmentConfigModal()"><i class="fa-solid fa-plus"></i> Nuevo Campo</button>
+            </div>
+            <p style="color: var(--color-text-secondary); margin-bottom: 20px;">
+                Personaliza los campos que conforman la ficha de valoración de tus clientes. Puedes ocultar campos predeterminados o crear nuevos. Ten en cuenta que si ocultas campos predeterminados, algunos indicadores calculados podrían dejar de funcionar.
+            </p>
+            
+            <table class="data-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="width: 60px; text-align: left;">Orden</th>
+                        <th style="text-align: left;">Nombre del Campo</th>
+                        <th style="width: 100px; text-align: left;">Tipo</th>
+                        <th style="width: 100px; text-align: left;">Unidad</th>
+                        <th style="width: 120px; text-align: left;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="assessmentConfigTableBody">
+                    <!-- Llenado dinámico -->
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -583,6 +604,69 @@
         </div>
     </div>
 
+    <!-- Add Nutrition Plan Modal -->
+    <div id="addNutritionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 700px; max-width: 95%; max-height: 90vh; overflow-y: auto;">
+            <h3 style="color: var(--accent-green); margin-bottom: 15px;"><i class="fa-solid fa-apple-whole"></i> Asignar Nuevo Plan de Nutrición</h3>
+            <form onsubmit="submitNewNutritionPlan(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Título del Plan</label>
+                        <input type="text" id="newNutTitle" required placeholder="Ej. Fase de Volumen Limpio">
+                    </div>
+                    <div class="form-group">
+                        <label>Descripción / Indicaciones</label>
+                        <input type="text" id="newNutDesc" placeholder="Ej. Dieta alta en proteínas...">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Inicio</label>
+                        <input type="date" id="newNutStart" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Fin</label>
+                        <input type="date" id="newNutEnd" required>
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 15px; margin-bottom: 10px; color: var(--accent-green);">Metas de Macros (Diarios)</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Calorías (Kcal)</label>
+                        <input type="number" id="newNutCal" required placeholder="Ej. 2500">
+                    </div>
+                    <div class="form-group">
+                        <label>Proteína (g)</label>
+                        <input type="number" id="newNutPro" required placeholder="Ej. 160">
+                    </div>
+                    <div class="form-group">
+                        <label>Carbohidratos (g)</label>
+                        <input type="number" id="newNutCarb" required placeholder="Ej. 250">
+                    </div>
+                    <div class="form-group">
+                        <label>Grasas (g)</label>
+                        <input type="number" id="newNutFat" required placeholder="Ej. 65">
+                    </div>
+                </div>
+
+                <!-- Dynamic Meals Builder -->
+                <div id="nutritionMealsBuilder" style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4>Comidas del Día</h4>
+                        <button type="button" class="btn-nav" onclick="addNutritionMeal()"><i class="fa-solid fa-plus"></i> Agregar Comida</button>
+                    </div>
+                    <div id="mealsContainer">
+                        <!-- Llenado por JS -->
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-nav" onclick="closeNutritionModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Plan de Nutrición</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Calendar Day Details Modal -->
     <div id="dayDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
         <div class="glass-card" style="width: 400px; max-width: 95%;">
@@ -598,6 +682,51 @@
             <div style="margin-top: 15px; text-align: right;">
                 <button type="button" class="btn-primary" onclick="document.getElementById('dayDetailModal').style.display='none'">Cerrar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Assessment Config Modal -->
+    <div id="assessmentConfigModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 600px; max-width: 95%;">
+            <h3 style="color: var(--accent-cyan); margin-bottom: 15px;" id="assessmentConfigModalTitle"><i class="fa-solid fa-pen-to-square"></i> Configurar Campo</h3>
+            <form onsubmit="submitAssessmentConfig(event)">
+                <input type="hidden" id="editAssessmentConfigId">
+                <input type="hidden" id="editAssessmentConfigIsDefault" value="0">
+                <input type="hidden" id="editAssessmentConfigDbColumn" value="">
+                
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Nombre del Campo</label>
+                        <input type="text" id="configFieldName" required placeholder="Ej. Pliegue Abdominal">
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Dato</label>
+                        <select id="configFieldType" required>
+                            <option value="number" selected>Número</option>
+                            <option value="text">Texto Corto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Unidad (opcional)</label>
+                        <input type="text" id="configFieldUnit" placeholder="Ej. mm, kg, cm">
+                    </div>
+                    <div class="form-group">
+                        <label>Orden de Aparición</label>
+                        <input type="number" id="configOrderIndex" value="100" required>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="configIsActive" checked>
+                            Campo Activo (Visible)
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-nav" onclick="closeAssessmentConfigModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Campo</button>
+                </div>
+            </form>
         </div>
     </div>
 
