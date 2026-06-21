@@ -107,6 +107,9 @@ def initialize_tenant_db(trainer_nickname):
         print(f"Error initializing tenant database for '{trainer_nickname}': {e}")
     finally:
         conn.close()
+        
+    # Ensure it's migrated and seeded with configurations
+    check_and_migrate_db(tenant_db_path)
 
 def get_tenant_db_path(trainer_nickname):
     if not trainer_nickname:
@@ -217,6 +220,78 @@ def check_and_migrate_db(db_path):
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', defaults)
             conn.commit()
+
+        # Migration: Add custom_data to meal_items
+        cursor.execute("PRAGMA table_info(meal_items)")
+        meal_item_columns = [row[1] for row in cursor.fetchall()]
+        if "custom_data" not in meal_item_columns:
+            print("Migration: Adding column 'custom_data' to 'meal_items' table...")
+            cursor.execute("ALTER TABLE meal_items ADD COLUMN custom_data TEXT")
+            conn.commit()
+
+        # Migration: Create nutrition_config table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS nutrition_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                field_name TEXT NOT NULL,
+                field_type TEXT NOT NULL DEFAULT 'number',
+                unit TEXT,
+                is_default BOOLEAN DEFAULT 0,
+                db_column TEXT,
+                is_active BOOLEAN DEFAULT 1,
+                order_index INTEGER DEFAULT 0
+            )
+        ''')
+        conn.commit()
+
+        # Seed default nutrition configs if empty
+        cursor.execute("SELECT id FROM nutrition_config")
+        if not cursor.fetchone():
+            print("Migration: Seeding default nutrition configurations...")
+            nut_defaults = [
+                ('Peso', 'number', 'g', 1, 'weight_g', 10),
+                ('Calorías', 'number', 'kcal', 1, 'calories_kcal', 20),
+                ('Proteínas', 'number', 'g', 1, 'protein_g', 30),
+                ('Carbohidratos', 'number', 'g', 1, 'carbs_g', 40),
+                ('Grasas', 'number', 'g', 1, 'fat_g', 50),
+            ]
+            cursor.executemany('''
+                INSERT INTO nutrition_config (field_name, field_type, unit, is_default, db_column, order_index)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', nut_defaults)
+            conn.commit()
+            
+        # Migration: Create food_library table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS food_library (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                weight_g REAL NOT NULL DEFAULT 100,
+                calories_kcal INTEGER NOT NULL DEFAULT 0,
+                protein_g REAL NOT NULL DEFAULT 0,
+                carbs_g REAL NOT NULL DEFAULT 0,
+                fat_g REAL NOT NULL DEFAULT 0,
+                custom_data TEXT
+            )
+        ''')
+        conn.commit()
+
+        # Seed default foods if empty
+        cursor.execute("SELECT id FROM food_library")
+        if not cursor.fetchone():
+            print("Migration: Seeding default food library...")
+            food_defaults = [
+                ("Pechuga de Pollo", 100.0, 165, 31.0, 0.0, 3.6),
+                ("Arroz Blanco", 100.0, 130, 2.7, 28.0, 0.3),
+                ("Avena en Hojuelas", 100.0, 389, 16.9, 66.3, 6.9),
+                ("Huevo Entero", 100.0, 155, 13.0, 1.1, 11.0),
+                ("Filete de Salmón", 100.0, 208, 20.0, 0.0, 13.0)
+            ]
+            cursor.executemany('''
+                INSERT INTO food_library (name, weight_g, calories_kcal, protein_g, carbs_g, fat_g)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', food_defaults)
+            conn.commit()
             
     except Exception as e:
         print("Error during migration:", e)
@@ -310,6 +385,10 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_admin_get_trainers()
         elif path == "/api/assessment_config":
             self.handle_get_assessment_config()
+        elif path == "/api/nutrition_config":
+            self.handle_get_nutrition_config()
+        elif path == "/api/foods":
+            self.handle_get_foods()
         
         # Route Web Dashboards
         elif path == "/" or path == "/index.html":
@@ -377,6 +456,12 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_assign_nutrition_plan(data)
         elif path == "/api/assessment_config":
             self.handle_create_assessment_config(data)
+        elif path == "/api/nutrition_config":
+            self.handle_create_nutrition_config(data)
+        elif path == "/api/foods":
+            self.handle_create_food(data)
+        elif path == "/api/assessments":
+            self.handle_create_assessment(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
@@ -405,16 +490,21 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_update_nutrition_plan(data)
         elif path == "/api/assessment_config":
             self.handle_update_assessment_config(data)
+        elif path == "/api/nutrition_config":
+            self.handle_update_nutrition_config(data)
+        elif path == "/api/foods":
+            self.handle_update_food(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
     def do_DELETE(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
+        content_length_str = self.headers.get('Content-Length')
+        content_length = int(content_length_str) if content_length_str else 0
+        post_data = self.rfile.read(content_length) if content_length > 0 else b""
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
         try:
-            data = json.loads(post_data.decode('utf-8'))
+            data = json.loads(post_data.decode('utf-8')) if post_data else {}
         except json.JSONDecodeError:
             self.send_error_response(400, "Malformed JSON payload.")
             return
@@ -433,6 +523,10 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_delete_nutrition_plan(data)
         elif path == "/api/assessment_config":
             self.handle_delete_assessment_config(data)
+        elif path == "/api/nutrition_config":
+            self.handle_delete_nutrition_config(data)
+        elif path == "/api/foods":
+            self.handle_delete_food(data)
         else:
             self.send_error_response(404, "Endpoint not found.")
 
@@ -659,7 +753,16 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 meal = dict(meal_row)
                 # Fetch meal items
                 cursor.execute("SELECT * FROM meal_items WHERE meal_id = ? ORDER BY id ASC", (meal['id'],))
-                meal['items'] = [dict(item) for item in cursor.fetchall()]
+                meal_items = []
+                for item_row in cursor.fetchall():
+                    item = dict(item_row)
+                    if item.get("custom_data"):
+                        try:
+                            item["custom_data"] = json.loads(item["custom_data"])
+                        except Exception:
+                            pass
+                    meal_items.append(item)
+                meal['items'] = meal_items
                 meals.append(meal)
             nutrition_plan['meals'] = meals
 
@@ -828,7 +931,6 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         INSERT INTO workout_day_blocks (workout_day_id, workout_block_id, order_index)
                         VALUES (?, ?, ?)
                     """, (new_day_id, t_db[2], t_db[3]))
-                    
             conn.commit()
             self.send_json_response(200, {"success": True, "message": "Rutina asignada correctamente"})
         except Exception as e:
@@ -839,30 +941,51 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def handle_create_assessment(self, data):
         user_id = data.get("user_id")
         date = data.get("date")
-        weight = float(data.get("weight_kg", 0))
-        height = float(data.get("height_cm", 170))
-        fc_rep = int(data.get("fc_rep", 60))
-        neck = float(data.get("neck", 0))
-        chest = float(data.get("chest", 0))
-        abdomen = float(data.get("abdomen", 0))
-        right_bicep = float(data.get("right_bicep", 0))
-        right_thigh = float(data.get("right_thigh", 0))
-        
-        triceps = float(data.get("triceps", 0))
-        scapular = float(data.get("scapular", 0))
-        iliac = float(data.get("iliac", 0))
-        abdominal = float(data.get("abdominal", 0))
-        
         if not user_id or not date:
             self.send_error_response(400, "Missing user_id or date.")
             return
             
+        # Extract all parameters with defaults
+        weight = float(data.get("weight_kg", 0))
+        height = float(data.get("height_cm", 170))
+        fc_rep = int(data.get("fc_rep", 60))
+        
+        # Other native columns for anthropometric_assessments
+        neck = float(data.get("neck", 0))
+        chest = float(data.get("chest", 0))
+        shoulder = float(data.get("shoulder", 0))
+        abdomen = float(data.get("abdomen", 0))
+        iliac = float(data.get("iliac", 0))
+        trochanter = float(data.get("trochanter", 0))
+        right_thigh = float(data.get("right_thigh", 0))
+        left_thigh = float(data.get("left_thigh", 0))
+        right_calf = float(data.get("right_calf", 0))
+        left_calf = float(data.get("left_calf", 0))
+        right_bicep = float(data.get("right_bicep", 0))
+        left_bicep = float(data.get("left_bicep", 0))
+        right_forearm = float(data.get("right_forearm", 0))
+        left_forearm = float(data.get("left_forearm", 0))
+        custom_data = data.get("custom_data", "")
+        if isinstance(custom_data, (dict, list)):
+            custom_data = json.dumps(custom_data)
+        
+        # Skinfolds (skinfold_assessments table)
+        triceps = float(data.get("triceps", 0))
+        scapular = float(data.get("scapular", 0))
+        iliac_fold = float(data.get("iliac", 0)) # iliac maps to iliac fold
+        abdominal = float(data.get("abdominal", 0))
+        inner_thigh = float(data.get("inner_thigh", 0))
+        mid_thigh = float(data.get("mid_thigh", 0))
+        medial_calf = float(data.get("medial_calf", 0))
+        chest_fold = float(data.get("chest_fold", 0))
+        biceps_fold = float(data.get("biceps_fold", 0))
+        
         # Faulkner formula for fat %
-        fat_pct = (triceps + scapular + iliac + abdominal) * 0.153 + 5.783
+        fat_pct = (triceps + scapular + iliac_fold + abdominal) * 0.153 + 5.783
         fat_mass = weight * (fat_pct / 100.0)
         lean_mass = weight - fat_mass
         bmi = weight / ((height/100.0) * (height/100.0))
-        sum_folds = triceps + scapular + iliac + abdominal
+        sum_folds = triceps + scapular + iliac_fold + abdominal
         
         conn = self.get_db_connection()
         cursor = conn.cursor()
@@ -875,13 +998,13 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     user_id, date, weight_kg, height_cm, bmi, fc_max, fc_rep,
                     neck, chest, shoulder, abdomen, iliac, trochanter,
                     right_thigh, left_thigh, right_calf, left_calf,
-                    right_bicep, left_bicep, right_forearm, left_forearm
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    right_bicep, left_bicep, right_forearm, left_forearm, custom_data
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 user_id, date, weight, height, bmi, 195, fc_rep,
-                neck, chest, 0.0, abdomen, 0.0, 0.0,
-                right_thigh, right_thigh, 0.0, 0.0,
-                right_bicep, right_bicep, 0.0, 0.0
+                neck, chest, shoulder, abdomen, iliac, trochanter,
+                right_thigh, left_thigh, right_calf, left_calf,
+                right_bicep, left_bicep, right_forearm, left_forearm, custom_data
             ))
             assessment_id = cursor.lastrowid
             
@@ -892,8 +1015,8 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     sum_folds, body_fat_percentage, fat_mass_kg, lean_mass_kg
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                assessment_id, scapular, triceps, abdominal, iliac,
-                0.0, 0.0, 0.0, 0.0, 0.0,
+                assessment_id, scapular, triceps, abdominal, iliac_fold,
+                inner_thigh, mid_thigh, medial_calf, chest_fold, biceps_fold,
                 sum_folds, fat_pct, fat_mass, lean_mass
             ))
             conn.commit()
@@ -1519,11 +1642,14 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 
                 items = meal.get("items", [])
                 for item in items:
+                    custom_data_val = item.get("custom_data")
+                    if isinstance(custom_data_val, (dict, list)):
+                        custom_data_val = json.dumps(custom_data_val)
                     cursor.execute("""
-                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (meal_id, item.get("food_name"), item.get("weight_g", 0), item.get("calories_kcal", 0),
-                          item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", "")))
+                          item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", ""), custom_data_val))
             conn.commit()
             self.send_json_response(200, {"success": True, "plan_id": plan_id})
         except Exception as e:
@@ -1539,6 +1665,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
             
         conn = self.get_db_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         try:
             # Copy plan
@@ -1571,10 +1698,10 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 for item_row in items:
                     i = dict(item_row)
                     cursor.execute("""
-                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (new_meal_id, i['food_name'], i['weight_g'], i['calories_kcal'],
-                          i['protein_g'], i['carbs_g'], i['fat_g'], i['notes']))
+                          i['protein_g'], i['carbs_g'], i['fat_g'], i['notes'], i.get('custom_data')))
                           
             conn.commit()
             self.send_json_response(200, {"success": True, "new_plan_id": new_plan_id})
@@ -1593,6 +1720,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             
         user_id = int(user_id[0])
         conn = self.get_db_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         try:
             cursor.execute("SELECT * FROM nutrition_plans WHERE user_id = ?", (user_id,))
@@ -1603,7 +1731,16 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 plan['meals'] = [dict(row) for row in cursor.fetchall()]
                 for meal in plan['meals']:
                     cursor.execute("SELECT * FROM meal_items WHERE meal_id = ?", (meal['id'],))
-                    meal['items'] = [dict(row) for row in cursor.fetchall()]
+                    meal_items = []
+                    for row in cursor.fetchall():
+                        item = dict(row)
+                        if item.get("custom_data"):
+                            try:
+                                item["custom_data"] = json.loads(item["custom_data"])
+                            except Exception:
+                                pass
+                        meal_items.append(item)
+                    meal['items'] = meal_items
                     
             self.send_json_response(200, plans)
         except Exception as e:
@@ -1636,11 +1773,14 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     meal_id = cursor.lastrowid
                     
                     for item in meal.get("items", []):
+                        custom_data_val = item.get("custom_data")
+                        if isinstance(custom_data_val, (dict, list)):
+                            custom_data_val = json.dumps(custom_data_val)
                         cursor.execute("""
-                            INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (meal_id, item.get("food_name"), item.get("weight_g", 0), item.get("calories_kcal", 0),
-                              item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", "")))
+                              item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", ""), custom_data_val))
             
             conn.commit()
             self.send_json_response(200, {"success": True, "message": "Plan de nutrición actualizado."})
@@ -1763,6 +1903,232 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         cursor = conn.cursor()
         try:
             cursor.execute("DELETE FROM assessment_config WHERE id = ? AND is_default = 0", (config_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    # --- Nutrition Config Handlers ---
+    
+    def handle_get_nutrition_config(self):
+        conn = self.get_db_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM nutrition_config ORDER BY order_index ASC, id ASC")
+            configs = [dict(row) for row in cursor.fetchall()]
+            self.send_json_response(200, {"success": True, "config": configs})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+            
+    def handle_get_foods(self):
+        conn = self.get_db_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM food_library ORDER BY name ASC")
+            foods = []
+            for row in cursor.fetchall():
+                item = dict(row)
+                if item.get("custom_data"):
+                    try:
+                        item["custom_data"] = json.loads(item["custom_data"])
+                    except:
+                        item["custom_data"] = {}
+                else:
+                    item["custom_data"] = {}
+                foods.append(item)
+            self.send_json_response(200, {"success": True, "foods": foods})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+            
+    def handle_create_food(self, data):
+        name = data.get("name")
+        weight_g = float(data.get("weight_g", 100.0))
+        calories_kcal = int(data.get("calories_kcal", 0))
+        protein_g = float(data.get("protein_g", 0.0))
+        carbs_g = float(data.get("carbs_g", 0.0))
+        fat_g = float(data.get("fat_g", 0.0))
+        custom_data = data.get("custom_data", {})
+        
+        if not name:
+            self.send_json_response(400, {"success": False, "error": "name is required"})
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT INTO food_library (name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, json.dumps(custom_data) if custom_data else None))
+            conn.commit()
+            new_id = cursor.lastrowid
+            self.send_json_response(200, {"success": True, "id": new_id})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_update_food(self, data):
+        food_id = data.get("id")
+        if not food_id:
+            self.send_json_response(400, {"success": False, "error": "Food ID is required"})
+            return
+            
+        name = data.get("name")
+        weight_g = data.get("weight_g")
+        calories_kcal = data.get("calories_kcal")
+        protein_g = data.get("protein_g")
+        carbs_g = data.get("carbs_g")
+        fat_g = data.get("fat_g")
+        custom_data = data.get("custom_data")
+        
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            updates = []
+            params = []
+            if name is not None:
+                updates.append("name = ?")
+                params.append(name)
+            if weight_g is not None:
+                updates.append("weight_g = ?")
+                params.append(float(weight_g))
+            if calories_kcal is not None:
+                updates.append("calories_kcal = ?")
+                params.append(int(calories_kcal))
+            if protein_g is not None:
+                updates.append("protein_g = ?")
+                params.append(float(protein_g))
+            if carbs_g is not None:
+                updates.append("carbs_g = ?")
+                params.append(float(carbs_g))
+            if fat_g is not None:
+                updates.append("fat_g = ?")
+                params.append(float(fat_g))
+            if custom_data is not None:
+                updates.append("custom_data = ?")
+                params.append(json.dumps(custom_data) if custom_data else None)
+                
+            if not updates:
+                self.send_json_response(200, {"success": True, "message": "Nothing to update"})
+                return
+                
+            params.append(food_id)
+            query = "UPDATE food_library SET " + ", ".join(updates) + " WHERE id = ?"
+            cursor.execute(query, params)
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_delete_food(self, data):
+        food_id = data.get("id")
+        if not food_id:
+            self.send_json_response(400, {"success": False, "error": "Food ID is required"})
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM food_library WHERE id = ?", (food_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+            
+    def handle_create_nutrition_config(self, data):
+        field_name = data.get("field_name")
+        field_type = data.get("field_type", "number")
+        unit = data.get("unit", "")
+        is_default = data.get("is_default", 0)
+        db_column = data.get("db_column")
+        is_active = data.get("is_active", 1)
+        order_index = data.get("order_index", 0)
+        
+        if not field_name:
+            self.send_json_response(400, {"success": False, "error": "field_name is required"})
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT INTO nutrition_config (field_name, field_type, unit, is_default, db_column, is_active, order_index)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (field_name, field_type, unit, is_default, db_column, is_active, order_index))
+            conn.commit()
+            new_id = cursor.lastrowid
+            self.send_json_response(200, {"success": True, "id": new_id})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_update_nutrition_config(self, data):
+        config_id = data.get("id")
+        if not config_id:
+            self.send_json_response(400, {"success": False, "error": "Config ID is required"})
+            return
+            
+        field_name = data.get("field_name")
+        unit = data.get("unit")
+        is_active = data.get("is_active")
+        order_index = data.get("order_index")
+        
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            updates = []
+            params = []
+            if field_name is not None:
+                updates.append("field_name = ?")
+                params.append(field_name)
+            if unit is not None:
+                updates.append("unit = ?")
+                params.append(unit)
+            if is_active is not None:
+                updates.append("is_active = ?")
+                params.append(is_active)
+            if order_index is not None:
+                updates.append("order_index = ?")
+                params.append(order_index)
+                
+            if not updates:
+                self.send_json_response(200, {"success": True, "message": "Nothing to update"})
+                return
+                
+            params.append(config_id)
+            query = "UPDATE nutrition_config SET " + ", ".join(updates) + " WHERE id = ?"
+            cursor.execute(query, params)
+            conn.commit()
+            self.send_json_response(200, {"success": True})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+            
+    def handle_delete_nutrition_config(self, data):
+        config_id = data.get("id")
+        if not config_id:
+            self.send_json_response(400, {"success": False, "error": "Config ID is required"})
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM nutrition_config WHERE id = ? AND is_default = 0", (config_id,))
             conn.commit()
             self.send_json_response(200, {"success": True})
         except Exception as e:

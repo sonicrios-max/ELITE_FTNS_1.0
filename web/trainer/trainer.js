@@ -41,6 +41,7 @@ let activeUserId = 1;
 let activeTab = 'tabFicha';
 let usersData = [];
 let selectedUserFullData = null;
+let globalFoodLibrary = [];
 
 // Chart.js Instances
 let weightChartInstance = null;
@@ -50,9 +51,11 @@ let sleepChartInstance = null;
 
 
 
-function initTrainerDashboard() {
+async function initTrainerDashboard() {
+    await fetchAssessmentConfig();
+    await fetchNutritionConfig();
+    await fetchFoodLibrary();
     loadClientsList();
-
 }
 
 if (document.readyState === "loading") {
@@ -234,14 +237,42 @@ function calculateAndDisplayKPIs() {
     document.getElementById("kpiWtHRDesc").innerText = wthrDesc;
 }
 
-// Render Assessments Table
+// Render Assessments Table (Dynamic based on active trainer settings)
 function renderAssessmentsTable() {
-    const body = document.getElementById("assessmentHistoryBody");
-    body.innerHTML = "";
+    const table = document.getElementById("assessmentHistoryTable");
+    if (!table) return;
+    
+    const thead = table.querySelector("thead");
+    const tbody = document.getElementById("assessmentHistoryBody");
+    tbody.innerHTML = "";
     
     const assessments = selectedUserFullData.assessments;
+    
+    // Get active config fields sorted by order_index
+    const activeFields = globalAssessmentConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    
+    // Build headers
+    let headersHtml = `<tr><th>Fecha</th>`;
+    activeFields.forEach(field => {
+        if (field.db_column === 'body_fat_percentage') {
+            headersHtml += `<th>Grasa (%)</th><th>Pliegues (Suma)</th>`;
+        } else if (field.db_column === 'weight_kg') {
+            headersHtml += `<th>Peso (kg)</th><th>IMC</th>`;
+        } else {
+            headersHtml += `<th>${field.field_name}${field.unit ? ' (' + field.unit + ')' : ''}</th>`;
+        }
+    });
+    headersHtml += `</tr>`;
+    thead.innerHTML = headersHtml;
+    
+    // Build rows
     if (!assessments || assessments.length === 0) {
-        body.innerHTML = `<tr><td colspan="8" style="text-align:center;">No hay registros de valoración.</td></tr>`;
+        const colSpan = activeFields.reduce((acc, field) => {
+            if (field.db_column === 'body_fat_percentage') return acc + 2;
+            if (field.db_column === 'weight_kg') return acc + 2;
+            return acc + 1;
+        }, 1);
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;">No hay registros de valoración.</td></tr>`;
         return;
     }
     
@@ -249,21 +280,43 @@ function renderAssessmentsTable() {
     const sorted = [...assessments].reverse();
     
     sorted.forEach(as => {
-        const leanMass = as.lean_mass_kg || (as.weight_kg - (as.weight_kg * (as.body_fat_percentage / 100.0)));
-        const sumFolds = as.sum_folds || (as.scapular + as.triceps + as.abdominal + as.suprailiac);
+        let rowHtml = `<tr><td style="font-weight:700; color:var(--accent-cyan);">${as.date}</td>`;
         
+        activeFields.forEach(field => {
+            if (field.db_column === 'body_fat_percentage') {
+                const fatPct = as.body_fat_percentage || 0;
+                const sumFolds = as.sum_folds || ((as.scapular || 0) + (as.triceps || 0) + (as.abdominal || 0) + (as.iliac || as.suprailiac || 0));
+                rowHtml += `<td><strong>${fatPct.toFixed(1)}%</strong></td><td>${sumFolds ? sumFolds.toFixed(1) + ' mm' : '-'}</td>`;
+            } else if (field.db_column === 'weight_kg') {
+                const weight = as.weight_kg || 0;
+                const bmi = as.bmi || (weight / (((as.height_cm || 170) / 100.0) ** 2));
+                rowHtml += `<td>${weight} kg</td><td>${bmi.toFixed(1)}</td>`;
+            } else if (field.db_column === 'lean_mass_kg') {
+                const leanMass = as.lean_mass_kg || (as.weight_kg - (as.weight_kg * ((as.body_fat_percentage || 0) / 100.0)));
+                rowHtml += `<td>${leanMass.toFixed(1)} kg</td>`;
+            } else if (field.is_default && field.db_column) {
+                const val = as[field.db_column];
+                rowHtml += `<td>${val !== null && val !== undefined ? val : '-'}</td>`;
+            } else {
+                let customVal = '-';
+                if (as.custom_data) {
+                    try {
+                        const parsed = typeof as.custom_data === 'string' ? JSON.parse(as.custom_data) : as.custom_data;
+                        if (parsed && parsed[field.field_name] !== undefined) {
+                            customVal = parsed[field.field_name];
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+                rowHtml += `<td>${customVal}</td>`;
+            }
+        });
+        
+        rowHtml += `</tr>`;
         const row = document.createElement("tr");
-        row.innerHTML = `
-            <td style="font-weight:700; color:var(--accent-cyan);">${as.date}</td>
-            <td>${as.weight_kg} kg</td>
-            <td>${as.bmi.toFixed(1)}</td>
-            <td><strong>${(as.body_fat_percentage || 0).toFixed(1)}%</strong></td>
-            <td>${as.abdomen || '-'} cm</td>
-            <td>${as.right_bicep || '-'} cm</td>
-            <td>${leanMass.toFixed(1)} kg</td>
-            <td>${sumFolds ? sumFolds.toFixed(1) + ' mm' : '-'}</td>
-        `;
-        body.appendChild(row);
+        row.innerHTML = rowHtml;
+        tbody.appendChild(row);
     });
 }
 
@@ -386,15 +439,29 @@ function renderNutritionPlans() {
         return;
     }
     
+    const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    
+    const activeTargetParts = [];
+    const hasCal = activeFields.some(f => f.db_column === 'calories_kcal');
+    const hasPro = activeFields.some(f => f.db_column === 'protein_g');
+    const hasCarb = activeFields.some(f => f.db_column === 'carbs_g');
+    const hasFat = activeFields.some(f => f.db_column === 'fat_g');
+    
+    if (hasCal) activeTargetParts.push(`Meta Calórica: ${diet.target_calories} Kcal`);
+    if (hasPro) activeTargetParts.push(`P: ${diet.target_protein}g`);
+    if (hasCarb) activeTargetParts.push(`C: ${diet.target_carbs}g`);
+    if (hasFat) activeTargetParts.push(`G: ${diet.target_fat}g`);
+    
+    const targetLabel = activeTargetParts.length > 0 ? `Target: ${activeTargetParts.join(' | ')}` : '';
+    
     container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
             <div style="display:flex; align-items:center; gap: 15px;">
                 <h3>Plan: ${diet.title}</h3>
+                <button class="btn-nav" style="color: var(--accent-green);" onclick="editNutritionPlan(${diet.id}, false)"><i class="fa-solid fa-pen"></i> Editar Plan</button>
                 <button class="btn-nav" style="color: var(--accent-red);" onclick="deleteNutritionPlan(${diet.id})"><i class="fa-solid fa-trash"></i> Eliminar Plan</button>
             </div>
-            <span class="compliance-badge" style="background:rgba(139,92,246,0.15); color:var(--accent-purple); border-color:rgba(139,92,246,0.3)">
-                Target: ${diet.target_calories} Kcal | P: ${diet.target_protein}g | C: ${diet.target_carbs}g | F: ${diet.target_fat}g
-            </span>
+            ${targetLabel ? `<span class="compliance-badge" style="background:rgba(139,92,246,0.15); color:var(--accent-purple); border-color:rgba(139,92,246,0.3)">${targetLabel}</span>` : ''}
         </div>
         <p style="color:var(--color-text-secondary); margin-bottom: 20px;">${diet.description || ''}</p>
     `;
@@ -404,32 +471,60 @@ function renderNutritionPlans() {
         mealBox.className = "diet-meal-box";
         
         let foodItemsHtml = "";
-        let mCal = 0, mPro = 0, mCarb = 0, mFat = 0;
+        let totals = {};
         
         meal.items.forEach(food => {
-            mCal += food.calories_kcal;
-            mPro += food.protein_g;
-            mCarb += food.carbs_g;
-            mFat += food.fat_g;
+            let macrosParts = [];
+            activeFields.forEach(field => {
+                let val = null;
+                if (field.is_default && field.db_column) {
+                    val = food[field.db_column];
+                } else if (food.custom_data && food.custom_data[field.field_name] !== undefined) {
+                    val = food.custom_data[field.field_name];
+                }
+                
+                if (typeof val === 'number') {
+                    totals[field.field_name] = (totals[field.field_name] || 0) + val;
+                }
+                
+                if (val !== null && val !== undefined) {
+                    if (field.db_column === 'weight_g') return;
+                    if (field.db_column === 'calories_kcal') return;
+                    macrosParts.push(`${field.field_name}: ${val}${field.unit ? field.unit : ''}`);
+                }
+            });
+            
+            const hasWeight = activeFields.some(f => f.db_column === 'weight_g');
+            const weightLabel = hasWeight ? ` (${food.weight_g}g)` : '';
+            
+            const hasCalories = activeFields.some(f => f.db_column === 'calories_kcal');
+            const caloriesLabel = hasCalories ? `<strong style="color:var(--accent-purple); margin-left:10px;">${food.calories_kcal} Kcal</strong>` : '';
             
             foodItemsHtml += `
                 <div class="food-item">
                     <div>
                         <span class="food-name">${food.food_name}</span>
-                        <span style="color:var(--color-text-muted); font-size:12px;"> (${food.weight_g}g)</span>
+                        <span style="color:var(--color-text-muted); font-size:12px;">${weightLabel}</span>
                     </div>
                     <div style="text-align:right;">
-                        <span class="food-macros">P: ${food.protein_g}g | C: ${food.carbs_g}g | G: ${food.fat_g}g</span>
-                        <strong style="color:var(--accent-purple); margin-left:10px;">${food.calories_kcal} Kcal</strong>
+                        <span class="food-macros">${macrosParts.join(' | ')}</span>
+                        ${caloriesLabel}
                     </div>
                 </div>
             `;
         });
         
+        let subtotalParts = [];
+        activeFields.forEach(field => {
+            if (totals[field.field_name] !== undefined) {
+                subtotalParts.push(`${field.field_name}: ${totals[field.field_name].toFixed(1)}${field.unit ? field.unit : ''}`);
+            }
+        });
+        
         mealBox.innerHTML = `
             <h4>
                 <span>${meal.meal_name}</span>
-                <span>Subtotal: ${mCal} Kcal (P: ${mPro.toFixed(1)}g | C: ${mCarb.toFixed(1)}g | G: ${mFat.toFixed(1)}g)</span>
+                <span>Subtotal: ${subtotalParts.join(' | ')}</span>
             </h4>
             <div class="food-item-list">
                 ${foodItemsHtml}
@@ -616,6 +711,7 @@ function toggleNewAssessmentForm() {
     const container = document.getElementById("newAssessmentFormContainer");
     if (container.style.display === "none") {
         container.style.display = "block";
+        renderAssessmentForm();
         // Default date to today
         document.getElementById("formDate").value = new Date().toISOString().substring(0, 10);
     } else {
@@ -623,41 +719,110 @@ function toggleNewAssessmentForm() {
     }
 }
 
-// Submit New Assessment (Ficha) to API
+// Generate the input fields inside the assessment form dynamically based on config
+function renderAssessmentForm() {
+    const container = document.getElementById("assessmentFormGrid");
+    if (!container) return;
+    
+    // Core fields: Date and resting HR are always present
+    let formHtml = `
+        <div class="form-group">
+            <label>Fecha de Evaluación</label>
+            <input type="date" id="formDate" required>
+        </div>
+        <div class="form-group">
+            <label>Frecuencia Cardíaca Reposo (bpm)</label>
+            <input type="number" id="formFcRep" value="65">
+        </div>
+    `;
+    
+    const activeFields = globalAssessmentConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    
+    activeFields.forEach(field => {
+        if (field.db_column === 'lean_mass_kg') {
+            // Masa magra is calculated from weight and fat%, no input needed
+            return;
+        }
+        
+        if (field.db_column === 'body_fat_percentage') {
+            // Show the 4 skinfolds inputs
+            formHtml += `
+                <div class="form-group">
+                    <label>Pliegue Tríceps (mm)</label>
+                    <input type="number" step="0.1" id="formFoldTriceps" placeholder="0.0">
+                </div>
+                <div class="form-group">
+                    <label>Pliegue Subescapular (mm)</label>
+                    <input type="number" step="0.1" id="formFoldScapular" placeholder="0.0">
+                </div>
+                <div class="form-group">
+                    <label>Pliegue Suprailiaco (mm)</label>
+                    <input type="number" step="0.1" id="formFoldIliac" placeholder="0.0">
+                </div>
+                <div class="form-group">
+                    <label>Pliegue Abdominal (mm)</label>
+                    <input type="number" step="0.1" id="formFoldAbdominal" placeholder="0.0">
+                </div>
+            `;
+        } else {
+            const inputId = `formField_${field.id}`;
+            const stepAttr = field.field_type === 'number' ? 'step="0.1"' : '';
+            const typeAttr = field.field_type === 'number' ? 'number' : 'text';
+            const unitLabel = field.unit ? ` (${field.unit})` : '';
+            
+            // pre-fill height from client profile if it's Estatura
+            let valueAttr = '';
+            if (field.db_column === 'height_cm' && selectedUserFullData?.profile?.height_cm) {
+                valueAttr = `value="${selectedUserFullData.profile.height_cm}"`;
+            }
+            
+            formHtml += `
+                <div class="form-group">
+                    <label>${field.field_name}${unitLabel}</label>
+                    <input type="${typeAttr}" ${stepAttr} id="${inputId}" ${valueAttr} placeholder="Ingresar valor">
+                </div>
+            `;
+        }
+    });
+    
+    container.innerHTML = formHtml;
+}
+
+// Submit New Assessment (Ficha) to API dynamically
 async function submitNewAssessment(event) {
     event.preventDefault();
     
     const date = document.getElementById("formDate").value;
-    const weight = parseFloat(document.getElementById("formWeight").value);
     const fcRep = parseInt(document.getElementById("formFcRep").value) || 60;
-    const neck = parseFloat(document.getElementById("formNeck").value);
-    const chest = parseFloat(document.getElementById("formChest").value);
-    const abdomen = parseFloat(document.getElementById("formAbdomen").value);
-    const rightBicep = parseFloat(document.getElementById("formBicepD").value);
-    const rightThigh = parseFloat(document.getElementById("formThighD").value);
-    
-    const triceps = parseFloat(document.getElementById("formFoldTriceps").value);
-    const scapular = parseFloat(document.getElementById("formFoldScapular").value);
-    const iliac = parseFloat(document.getElementById("formFoldIliac").value);
-    const abdominal = parseFloat(document.getElementById("formFoldAbdominal").value);
     
     const payload = {
         user_id: activeUserId,
         date,
-        weight_kg: weight,
-        height_cm: selectedUserFullData.profile.height_cm,
-        fc_rep: fcRep,
-        neck,
-        chest,
-        abdomen,
-        right_bicep: rightBicep,
-        right_thigh: rightThigh,
-        
-        triceps,
-        scapular,
-        iliac,
-        abdominal
+        fc_rep,
+        height_cm: selectedUserFullData?.profile?.height_cm || 170,
+        custom_data: {}
     };
+    
+    const activeFields = globalAssessmentConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    
+    activeFields.forEach(field => {
+        if (field.db_column === 'body_fat_percentage') {
+            payload.triceps = parseFloat(document.getElementById("formFoldTriceps")?.value || 0);
+            payload.scapular = parseFloat(document.getElementById("formFoldScapular")?.value || 0);
+            payload.iliac = parseFloat(document.getElementById("formFoldIliac")?.value || 0);
+            payload.abdominal = parseFloat(document.getElementById("formFoldAbdominal")?.value || 0);
+        } else if (field.db_column === 'lean_mass_kg') {
+            // Calculated automatically
+        } else if (field.is_default && field.db_column) {
+            const inputVal = parseFloat(document.getElementById(`formField_${field.id}`)?.value || 0);
+            payload[field.db_column] = inputVal;
+        } else {
+            const inputVal = document.getElementById(`formField_${field.id}`)?.value || '';
+            payload.custom_data[field.field_name] = field.field_type === 'number' ? parseFloat(inputVal || 0) : inputVal;
+        }
+    });
+    
+    payload.custom_data = JSON.stringify(payload.custom_data);
     
     try {
         const response = await fetch('/api/assessments', {
@@ -668,7 +833,6 @@ async function submitNewAssessment(event) {
         
         const result = await response.json();
         if (result.success) {
-            // Re-select client to update UI
             alert("Evaluación guardada exitosamente.");
             selectClient(activeUserId);
         } else {
@@ -755,6 +919,7 @@ function showGlobalView(viewName) {
     document.getElementById('trainingLibView').style.display = 'none';
     document.getElementById('nutritionLibView').style.display = 'none';
     document.getElementById('assessmentLibView').style.display = 'none';
+    document.getElementById('nutritionConfigLibView').style.display = 'none';
     
     // Deactivate nav links
     document.getElementById('navClients').classList.remove('active');
@@ -775,10 +940,15 @@ function showGlobalView(viewName) {
         document.getElementById('nutritionLibView').style.display = 'block';
         document.getElementById('navNutrition').classList.add('active');
         fetchGlobalNutritionPlans();
+        fetchFoodLibraryAndRender();
     } else if (viewName === 'assessment') {
         document.getElementById('assessmentLibView').style.display = 'block';
         document.getElementById('navAssessment').classList.add('active');
         fetchAssessmentConfig();
+    } else if (viewName === 'nutrition_config') {
+        document.getElementById('nutritionConfigLibView').style.display = 'block';
+        document.getElementById('navNutrition').classList.add('active');
+        fetchNutritionConfig();
     }
 }
 
@@ -1028,23 +1198,51 @@ function openRoutineModal() {
 }
 function closeRoutineModal() { document.getElementById('addRoutineModal').style.display = 'none'; }
 
-function addRoutineDay() {
+function addRoutineDay(defaultName = "", prefillBlocks = null, defaultOrder = null) {
     dayCounter++;
+    const dId = dayCounter;
+    const container = document.getElementById('daysContainer');
+    
+    if (defaultOrder === null || defaultOrder === undefined) {
+        const currentCards = container.querySelectorAll('.routine-day-builder').length;
+        defaultOrder = currentCards + 1;
+    }
+    if (!defaultName) {
+        defaultName = `Día ${defaultOrder}`;
+    }
+    
     const div = document.createElement('div');
     div.className = 'glass-card routine-day-builder';
     div.style.marginBottom = '10px';
-    div.style.padding = '10px';
+    div.style.padding = '15px';
     div.style.background = 'rgba(0,0,0,0.2)';
     
     div.innerHTML = `
-        <div style="display:flex; gap: 10px; margin-bottom: 10px;">
-            <input type="text" class="day-name-input" placeholder="Nombre del Día (Ej. Torso)" value="Día ${dayCounter}" required style="flex: 1;">
-            <button type="button" class="btn-nav" onclick="this.parentElement.parentElement.remove()" style="color: var(--accent-red);"><i class="fa-solid fa-trash"></i></button>
+        <div style="display:flex; gap: 15px; margin-bottom: 10px; align-items: flex-end; width: 90%;">
+            <div class="form-group" style="flex: 3; margin-bottom: 0;">
+                <label style="font-size: 11px; color: var(--color-text-secondary);">Nombre del Día</label>
+                <input type="text" class="day-name-input" placeholder="Nombre del Día (Ej. Torso)" value="${defaultName}" required style="width: 100%;">
+            </div>
+            <div class="form-group" style="flex: 1; margin-bottom: 0; min-width: 80px; max-width: 100px;">
+                <label style="font-size: 11px; color: var(--color-text-secondary);">Orden</label>
+                <input type="number" class="day-order-input" placeholder="Orden" value="${defaultOrder}" required min="1" style="width: 100%;">
+            </div>
+            <button type="button" class="btn-nav" onclick="this.parentElement.parentElement.remove()" style="color: var(--accent-red); margin-bottom: 5px;"><i class="fa-solid fa-trash"></i></button>
         </div>
-        <div class="day-blocks-container"></div>
-        <button type="button" class="btn-nav" style="font-size: 12px; padding: 4px 8px;" onclick="addBlockToDayBuilder(this)"><i class="fa-solid fa-plus"></i> Añadir Bloque</button>
+        <div class="day-blocks-container" id="dayBlocks_${dId}"></div>
+        <button type="button" class="btn-secondary" style="font-size: 12px; margin-top: 10px;" onclick="addBlockToDayBuilder(this)"><i class="fa-solid fa-plus"></i> Añadir Bloque</button>
     `;
-    document.getElementById('daysContainer').appendChild(div);
+    
+    container.appendChild(div);
+    
+    if (prefillBlocks && prefillBlocks.length > 0) {
+        prefillBlocks.forEach(blk => {
+            const blkId = typeof blk === 'object' ? (blk.block_id || blk.id) : blk;
+            addBlockToDayBuilderBtn(dId, blkId);
+        });
+    } else {
+        addBlockToDayBuilderBtn(dId);
+    }
 }
 
 function addBlockToDayBuilder(btn) {
@@ -1064,13 +1262,33 @@ function addBlockToDayBuilder(btn) {
     container.appendChild(blockDiv);
 }
 
+function addBlockToDayBuilderBtn(dId, prefillBlockId = null) {
+    const container = document.getElementById(`dayBlocks_${dId}`);
+    if (!container) return;
+    const blockDiv = document.createElement('div');
+    blockDiv.style.display = 'flex';
+    blockDiv.style.gap = '5px';
+    blockDiv.style.marginBottom = '5px';
+    blockDiv.className = 'day-block-row';
+    
+    let optionsHTML = globalBlocksCache.map(b => `<option value="${b.id}" ${b.id === prefillBlockId ? 'selected' : ''}>${b.name} (${b.routine_class})</option>`).join('');
+    
+    blockDiv.innerHTML = `
+        <select class="block-id" style="flex:1;" required>${optionsHTML}</select>
+        <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    container.appendChild(blockDiv);
+}
+
 async function submitNewRoutine(e) {
     e.preventDefault();
     
-    const days = [];
     const dayElements = document.querySelectorAll('.routine-day-builder');
-    dayElements.forEach((dayEl, index) => {
+    let tempDays = [];
+    
+    dayElements.forEach((dayEl, idx) => {
         const dayName = dayEl.querySelector('.day-name-input').value;
+        const dayOrder = parseInt(dayEl.querySelector('.day-order-input').value) || (idx + 1);
         const blocks = [];
         const blockRows = dayEl.querySelectorAll('.day-block-row');
         blockRows.forEach((row, bIdx) => {
@@ -1079,17 +1297,33 @@ async function submitNewRoutine(e) {
                 order_index: bIdx + 1
             });
         });
-        days.push({
+        
+        // Shift any already added day that has order_index >= dayOrder
+        tempDays.forEach(d => {
+            if (d.order_index >= dayOrder) {
+                d.order_index += 1;
+            }
+        });
+        
+        tempDays.push({
             day_name: dayName,
-            order_index: index + 1,
+            order_index: dayOrder,
             blocks: blocks
         });
+    });
+    
+    // Sort days by order index ascending
+    tempDays.sort((a, b) => a.order_index - b.order_index);
+    
+    // Normalize order indices to be sequential starting from 1
+    tempDays.forEach((d, index) => {
+        d.order_index = index + 1;
     });
 
     const payload = {
         title: document.getElementById('newRoutineTitle').value,
         description: document.getElementById('newRoutineDesc').value,
-        days: days
+        days: tempDays
     };
     
     const res = await fetch('/api/routines', {
@@ -1450,17 +1684,41 @@ submitNewRoutine = async function(e) {
     if(!editingRoutineId) return originalSubmitRoutine(e);
     
     e.preventDefault();
-    const days = [];
-    document.querySelectorAll('.day-builder-card').forEach((card, idx) => {
-        const dayName = card.querySelector('.day-name').value;
-        const blockIds = Array.from(card.querySelectorAll('.day-block-id')).map(sel => parseInt(sel.value));
-        days.push({ day_name: dayName, order_index: idx + 1, block_ids: blockIds });
+    const dayElements = document.querySelectorAll('.routine-day-builder');
+    let tempDays = [];
+    
+    dayElements.forEach((dayEl, idx) => {
+        const dayName = dayEl.querySelector('.day-name-input').value;
+        const dayOrder = parseInt(dayEl.querySelector('.day-order-input').value) || (idx + 1);
+        const blockIds = Array.from(dayEl.querySelectorAll('.block-id')).map(sel => parseInt(sel.value));
+        
+        // Shift any already added day that has order_index >= dayOrder
+        tempDays.forEach(d => {
+            if (d.order_index >= dayOrder) {
+                d.order_index += 1;
+            }
+        });
+        
+        tempDays.push({
+            day_name: dayName,
+            order_index: dayOrder,
+            block_ids: blockIds
+        });
     });
+    
+    // Sort days by order index ascending
+    tempDays.sort((a, b) => a.order_index - b.order_index);
+    
+    // Normalize order indices to be sequential starting from 1
+    tempDays.forEach((d, index) => {
+        d.order_index = index + 1;
+    });
+    
     const payload = {
         id: editingRoutineId,
         title: document.getElementById('newRoutineTitle').value,
         description: document.getElementById('newRoutineDesc').value,
-        days: days
+        days: tempDays
     };
     const res = await fetch('/api/routines', {
         method: 'PUT',
@@ -1492,32 +1750,7 @@ function editRoutine(id) {
         dayCounter = 0;
         
         routine.days.forEach(day => {
-            dayCounter++;
-            const d = dayCounter;
-            const card = document.createElement('div');
-            card.className = 'day-builder-card';
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <input type="text" class="day-name form-input" value="${day.day_name}" required style="width:200px;">
-                    <button type="button" class="btn-nav" onclick="this.parentElement.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
-                </div>
-                <div class="day-blocks" id="dayBlocks_${d}"></div>
-                <button type="button" class="btn-secondary" style="font-size:12px; margin-top:10px;" onclick="addBlockToDayBuilder(this)"><i class="fa-solid fa-plus"></i> Añadir Bloque</button>
-            `;
-            document.getElementById('daysContainer').appendChild(card);
-            
-            day.blocks.forEach(blk => {
-                const bContainer = document.getElementById(`dayBlocks_${d}`);
-                const div = document.createElement('div');
-                div.style.display = 'flex'; div.style.gap = '5px'; div.style.marginBottom = '5px';
-                
-                let optionsHtml = globalBlocksCache.map(b => `<option value="${b.id}" ${b.id == blk.id ? 'selected' : ''}>${b.name} (${b.routine_class})</option>`).join('');
-                div.innerHTML = `
-                    <select class="day-block-id" style="flex:1;" required>${optionsHtml}</select>
-                    <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
-                `;
-                bContainer.appendChild(div);
-            });
+            addRoutineDay(day.day_name, day.blocks, day.order_index);
         });
     });
 }
@@ -1537,13 +1770,23 @@ let nutritionMealCounter = 0;
 
 let isCreatingGlobalNutrition = false;
 
-function openNutritionModal(isGlobal = false) {
+let editingNutritionPlanId = null;
+
+function openNutritionModal(isGlobal = false, editPlanId = null) {
     isCreatingGlobalNutrition = isGlobal;
+    editingNutritionPlanId = editPlanId;
+    
     if (!isGlobal && !activeUserId) {
         alert("Selecciona un cliente primero.");
         return;
     }
-    document.getElementById("addNutritionModal").style.display = "flex";
+    
+    const modal = document.getElementById("addNutritionModal");
+    const modalTitle = modal.querySelector("h3");
+    
+    // Reset form
+    document.getElementById("newNutTitle").value = "";
+    document.getElementById("newNutDesc").value = "";
     document.getElementById("newNutStart").value = new Date().toISOString().substring(0, 10);
     
     let d = new Date();
@@ -1552,35 +1795,88 @@ function openNutritionModal(isGlobal = false) {
     
     document.getElementById("mealsContainer").innerHTML = "";
     nutritionMealCounter = 0;
-    addNutritionMeal("Desayuno");
-    addNutritionMeal("Almuerzo");
-    addNutritionMeal("Cena");
+    
+    if (editPlanId) {
+        if (modalTitle) {
+            modalTitle.innerHTML = `<i class="fa-solid fa-apple-whole"></i> Editar Plan de Nutrición`;
+        }
+        let plan = null;
+        if (isGlobal) {
+            plan = globalNutritionPlansCache.find(p => p.id === editPlanId);
+        } else {
+            plan = selectedUserFullData.nutrition_plan;
+        }
+        
+        if (plan) {
+            document.getElementById("newNutTitle").value = plan.title;
+            document.getElementById("newNutDesc").value = plan.description || "";
+            document.getElementById("newNutStart").value = plan.start_date || "";
+            document.getElementById("newNutEnd").value = plan.end_date || "";
+            
+            renderTargetMacrosForm(plan);
+            
+            if (plan.meals && plan.meals.length > 0) {
+                plan.meals.forEach(meal => {
+                    addNutritionMeal(meal.meal_name, meal.items, meal.order_index);
+                });
+            } else {
+                addNutritionMeal("Desayuno", null, 1);
+                addNutritionMeal("Almuerzo", null, 2);
+                addNutritionMeal("Cena", null, 3);
+            }
+        }
+    } else {
+        if (modalTitle) {
+            modalTitle.innerHTML = isGlobal ? `<i class="fa-solid fa-apple-whole"></i> Nueva Plantilla de Nutrición` : `<i class="fa-solid fa-apple-whole"></i> Asignar Nuevo Plan de Nutrición`;
+        }
+        renderTargetMacrosForm();
+        addNutritionMeal("Desayuno", null, 1);
+        addNutritionMeal("Almuerzo", null, 2);
+        addNutritionMeal("Cena", null, 3);
+    }
+    
+    modal.style.display = "flex";
 }
 
 function closeNutritionModal() {
     document.getElementById("addNutritionModal").style.display = "none";
+    editingNutritionPlanId = null;
 }
 
-function addNutritionMeal(defaultName = "") {
+function addNutritionMeal(defaultName = "", prefillItems = null, defaultOrder = null) {
     nutritionMealCounter++;
     const mId = nutritionMealCounter;
     
     const container = document.getElementById("mealsContainer");
+    
+    if (defaultOrder === null || defaultOrder === undefined) {
+        const currentCards = container.querySelectorAll(".workout-day-card").length;
+        defaultOrder = currentCards + 1;
+    }
+    
     const mealCard = document.createElement("div");
     mealCard.className = "workout-day-card";
     mealCard.id = `mealCard_${mId}`;
     mealCard.style.position = "relative";
-    mealCard.style.padding = "10px";
+    mealCard.style.padding = "15px";
     
     mealCard.innerHTML = `
         <button type="button" class="btn-nav" style="position: absolute; top: 10px; right: 10px; color: var(--accent-red);" onclick="this.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
-        <div class="form-group" style="width: 80%;">
-            <label>Nombre de la Comida</label>
-            <input type="text" class="meal-name-input" placeholder="Ej. Desayuno o Snack" value="${defaultName}" required>
+        
+        <div style="display: flex; gap: 15px; margin-bottom: 10px; align-items: flex-end; width: 90%;">
+            <div class="form-group" style="flex: 3; margin-bottom: 0;">
+                <label style="font-size: 11px; color: var(--color-text-secondary);">Nombre de la Comida</label>
+                <input type="text" class="meal-name-input" placeholder="Ej. Desayuno o Snack" value="${defaultName}" required style="width: 100%;">
+            </div>
+            <div class="form-group" style="flex: 1; margin-bottom: 0; min-width: 80px; max-width: 100px;">
+                <label style="font-size: 11px; color: var(--color-text-secondary);">Orden</label>
+                <input type="number" class="meal-order-input" placeholder="Orden" value="${defaultOrder}" required min="1" style="width: 100%;">
+            </div>
         </div>
-        <div style="margin-top: 10px;">
+
+        <div style="margin-top: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                <label style="font-size: 12px; color: var(--accent-cyan);">Alimentos / Ingredientes</label>
+                <label style="font-size: 12px; color: var(--accent-green);">Alimentos / Ingredientes</label>
                 <button type="button" class="btn-nav" onclick="addFoodItemToMeal(${mId})" style="font-size: 11px;"><i class="fa-solid fa-plus"></i> Ingrediente</button>
             </div>
             <div id="mealFoods_${mId}">
@@ -1590,26 +1886,130 @@ function addNutritionMeal(defaultName = "") {
     `;
     
     container.appendChild(mealCard);
-    addFoodItemToMeal(mId); // Add at least one empty food item
+    if (prefillItems && prefillItems.length > 0) {
+        prefillItems.forEach(item => {
+            addFoodItemToMeal(mId, item);
+        });
+    } else {
+        addFoodItemToMeal(mId); // Add at least one empty food item
+    }
 }
 
-function addFoodItemToMeal(mId) {
+function renderTargetMacrosForm(prefillPlan = null) {
+    const grid = document.getElementById("targetMacrosGrid");
+    if (!grid) return;
+    
+    const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    
+    const targets = [
+        { column: 'calories_kcal', label: 'Calorías (Kcal)', id: 'newNutCal', placeholder: 'Ej. 2500' },
+        { column: 'protein_g', label: 'Proteína (g)', id: 'newNutPro', placeholder: 'Ej. 160' },
+        { column: 'carbs_g', label: 'Carbohidratos (g)', id: 'newNutCarb', placeholder: 'Ej. 250' },
+        { column: 'fat_g', label: 'Grasas (g)', id: 'newNutFat', placeholder: 'Ej. 65' }
+    ];
+    
+    let html = '';
+    let count = 0;
+    targets.forEach(t => {
+        const isActive = activeFields.some(f => f.db_column === t.column);
+        let val = '';
+        if (prefillPlan) {
+            if (t.column === 'calories_kcal') val = prefillPlan.target_calories;
+            else if (t.column === 'protein_g') val = prefillPlan.target_protein;
+            else if (t.column === 'carbs_g') val = prefillPlan.target_carbs;
+            else if (t.column === 'fat_g') val = prefillPlan.target_fat;
+        }
+        
+        if (isActive) {
+            html += `
+                <div class="form-group">
+                    <label>${t.label}</label>
+                    <input type="number" id="${t.id}" required placeholder="${t.placeholder}" value="${val !== null && val !== undefined ? val : ''}">
+                </div>
+            `;
+            count++;
+        } else {
+            html += `<input type="hidden" id="${t.id}" value="${val || 0}">`;
+        }
+    });
+    
+    const title = document.getElementById("targetMacrosTitle");
+    if (title) {
+        title.style.display = count > 0 ? "block" : "none";
+    }
+    
+    grid.innerHTML = html;
+}
+
+function addFoodItemToMeal(mId, prefillItem = null) {
     const container = document.getElementById(`mealFoods_${mId}`);
+    if (!container) return;
     const foodRow = document.createElement("div");
     foodRow.style.display = "flex";
     foodRow.style.gap = "5px";
     foodRow.style.marginBottom = "5px";
     foodRow.className = "food-item-row";
     
-    foodRow.innerHTML = `
-        <input type="text" class="food-name" placeholder="Alimento" required style="flex: 2; font-size: 11px;">
-        <input type="number" class="food-weight" placeholder="Peso(g)" required style="flex: 1; font-size: 11px;">
-        <input type="number" class="food-cal" placeholder="Kcal" required style="flex: 1; font-size: 11px;">
-        <input type="number" step="0.1" class="food-pro" placeholder="Pro(g)" required style="flex: 1; font-size: 11px;">
-        <input type="number" step="0.1" class="food-carb" placeholder="Car(g)" required style="flex: 1; font-size: 11px;">
-        <input type="number" step="0.1" class="food-fat" placeholder="Gra(g)" required style="flex: 1; font-size: 11px;">
-        <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
-    `;
+    let html = `<input type="text" class="food-name" placeholder="Alimento" list="defaultFoodsList" value="${prefillItem ? prefillItem.food_name : ''}" required style="flex: 2; font-size: 11px; min-width: 120px;">`;
+    
+    const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    activeFields.forEach(field => {
+        const stepAttr = field.field_type === 'number' ? 'step="0.1"' : '';
+        const typeAttr = field.field_type === 'number' ? 'number' : 'text';
+        const unitLabel = field.unit ? `${field.unit}` : '';
+        const placeholder = `${field.field_name.substring(0,3)}${unitLabel ? '(' + unitLabel + ')' : ''}`;
+        
+        let val = '';
+        if (prefillItem) {
+            if (field.is_default && field.db_column) {
+                val = prefillItem[field.db_column] !== null && prefillItem[field.db_column] !== undefined ? prefillItem[field.db_column] : '';
+            } else if (prefillItem.custom_data && prefillItem.custom_data[field.field_name] !== undefined) {
+                val = prefillItem.custom_data[field.field_name];
+            }
+        }
+        
+        html += `<input type="${typeAttr}" ${stepAttr} class="food-field" data-id="${field.id}" placeholder="${placeholder}" value="${val}" required style="flex: 1; font-size: 11px; min-width: 60px;">`;
+    });
+    
+    html += `<button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>`;
+    foodRow.innerHTML = html;
+    
+    // Bind autocomplete & auto-calculation
+    const nameInput = foodRow.querySelector('.food-name');
+    nameInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        const matchedFood = globalFoodLibrary.find(f => f.name.toLowerCase() === val.toLowerCase());
+        if (matchedFood) {
+            foodRow.dataset.selectedFood = matchedFood.name;
+            const weightInput = foodRow.querySelector('.food-field[data-id="1"]');
+            if (weightInput) {
+                if (!weightInput.value) {
+                    weightInput.value = matchedFood.weight_g;
+                }
+            }
+            scaleFoodFields(foodRow, matchedFood);
+        }
+    });
+    
+    const weightInput = foodRow.querySelector('.food-field[data-id="1"]');
+    if (weightInput) {
+        weightInput.addEventListener('input', () => {
+            const foodName = foodRow.dataset.selectedFood;
+            if (foodName) {
+                const matchedFood = globalFoodLibrary.find(f => f.name === foodName);
+                if (matchedFood) {
+                    scaleFoodFields(foodRow, matchedFood);
+                }
+            }
+        });
+    }
+    
+    if (prefillItem) {
+        const matched = globalFoodLibrary.find(f => f.name.toLowerCase() === prefillItem.food_name.toLowerCase());
+        if (matched) {
+            foodRow.dataset.selectedFood = matched.name;
+        }
+    }
     
     container.appendChild(foodRow);
 }
@@ -1623,44 +2023,85 @@ async function submitNewNutritionPlan(event) {
         description: document.getElementById("newNutDesc").value,
         start_date: document.getElementById("newNutStart").value,
         end_date: document.getElementById("newNutEnd").value,
-        target_calories: parseInt(document.getElementById("newNutCal").value),
-        target_protein: parseInt(document.getElementById("newNutPro").value),
-        target_carbs: parseInt(document.getElementById("newNutCarb").value),
-        target_fat: parseInt(document.getElementById("newNutFat").value),
+        target_calories: parseInt(document.getElementById("newNutCal").value) || 0,
+        target_protein: parseInt(document.getElementById("newNutPro").value) || 0,
+        target_carbs: parseInt(document.getElementById("newNutCarb").value) || 0,
+        target_fat: parseInt(document.getElementById("newNutFat").value) || 0,
         meals: []
     };
     
     const mealCards = document.querySelectorAll("#mealsContainer .workout-day-card");
+    let tempMeals = [];
     let orderIdx = 1;
     
-    mealCards.forEach(card => {
+    mealCards.forEach((card, idx) => {
         const mealName = card.querySelector(".meal-name-input").value;
+        const mealOrder = parseInt(card.querySelector(".meal-order-input").value) || (idx + 1);
         const foodRows = card.querySelectorAll(".food-item-row");
         
         let mealItems = [];
         foodRows.forEach(row => {
-            mealItems.push({
+            const item = {
                 food_name: row.querySelector(".food-name").value,
-                weight_g: parseFloat(row.querySelector(".food-weight").value),
-                calories_kcal: parseInt(row.querySelector(".food-cal").value),
-                protein_g: parseFloat(row.querySelector(".food-pro").value),
-                carbs_g: parseFloat(row.querySelector(".food-carb").value),
-                fat_g: parseFloat(row.querySelector(".food-fat").value)
+                weight_g: 0,
+                calories_kcal: 0,
+                protein_g: 0,
+                carbs_g: 0,
+                fat_g: 0,
+                custom_data: {}
+            };
+            
+            const fieldInputs = row.querySelectorAll(".food-field");
+            fieldInputs.forEach(input => {
+                const fId = parseInt(input.dataset.id);
+                const field = globalNutritionConfig.find(f => f.id === fId);
+                if (field) {
+                    const rawVal = input.value;
+                    const val = field.field_type === 'number' ? (parseFloat(rawVal) || 0) : rawVal;
+                    if (field.is_default && field.db_column) {
+                        item[field.db_column] = val;
+                    } else {
+                        item.custom_data[field.field_name] = val;
+                    }
+                }
             });
+            
+            mealItems.push(item);
         });
         
-        if(mealItems.length > 0) {
-            payload.meals.push({
+        if (mealItems.length > 0) {
+            // Shift any already added meal that has order_index >= mealOrder
+            tempMeals.forEach(m => {
+                if (m.order_index >= mealOrder) {
+                    m.order_index += 1;
+                }
+            });
+            
+            tempMeals.push({
                 meal_name: mealName,
-                order_index: orderIdx++,
+                order_index: mealOrder,
                 items: mealItems
             });
         }
     });
     
+    // Sort meals by order index ascending
+    tempMeals.sort((a, b) => a.order_index - b.order_index);
+    
+    // Normalize order indices to be sequential starting from 1
+    tempMeals.forEach((m, index) => {
+        m.order_index = index + 1;
+    });
+    
+    payload.meals = tempMeals;
+    
+    if (editingNutritionPlanId) {
+        payload.id = editingNutritionPlanId;
+    }
+    
     try {
         const res = await fetch('/api/nutrition_plans', {
-            method: 'POST',
+            method: editingNutritionPlanId ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
@@ -1686,8 +2127,10 @@ async function deleteNutritionPlan(planId) {
     if (!confirm("¿Seguro que deseas eliminar este plan de nutrición?")) return;
     
     try {
-        const res = await fetch(`/api/nutrition_plans/${planId}`, {
-            method: 'DELETE'
+        const res = await fetch('/api/nutrition_plans', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: planId })
         });
         const data = await res.json();
         if (data.success) {
@@ -1724,6 +2167,7 @@ async function fetchGlobalNutritionPlans() {
                     <td>${plan.target_protein || 0}g / ${plan.target_carbs || 0}g / ${plan.target_fat || 0}g</td>
                     <td style="display: flex; gap: 5px;">
                         <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="assignGlobalNutritionPlan(${plan.id})"><i class="fa-solid fa-share-nodes"></i> Asignar</button>
+                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-green);" onclick="editNutritionPlan(${plan.id}, true)" title="Editar"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteNutritionPlan(${plan.id})"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 </tr>
@@ -1784,11 +2228,107 @@ async function confirmAssignNutritionPlan(planId) {
     }
 }
 
+function editNutritionPlan(id, isGlobal) {
+    openNutritionModal(isGlobal, id);
+}
+
+function promptAssignNutritionToClient() {
+    if (!activeUserId) {
+        alert("Selecciona un cliente primero.");
+        return;
+    }
+    const client = usersData.find(u => u.id === activeUserId);
+    const clientName = client ? `${client.first_name} ${client.last_name}` : "Cliente";
+    
+    if (globalNutritionPlansCache.length === 0) {
+        fetch('/api/nutrition_plans?user_id=0')
+            .then(r => r.json())
+            .then(data => {
+                globalNutritionPlansCache = data;
+                showAssignNutritionToClientModal(clientName);
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Error al cargar las plantillas globales.");
+            });
+    } else {
+        showAssignNutritionToClientModal(clientName);
+    }
+}
+
+function showAssignNutritionToClientModal(clientName) {
+    let optionsHtml = globalNutritionPlansCache.map(p => `<option value="${p.id}">${p.title} (${p.target_calories || 0} kcal)</option>`).join('');
+    
+    if (globalNutritionPlansCache.length === 0) {
+        optionsHtml = `<option value="">(No hay plantillas globales creadas)</option>`;
+    }
+    
+    const modalHtml = `
+        <div id="assignNutritionToClientModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+            <div class="glass-card" style="width: 450px; max-width: 95%; padding: 25px;">
+                <h3 style="color: var(--accent-green); margin-bottom: 15px;"><i class="fa-solid fa-apple-whole"></i> Asignar Plan a ${clientName}</h3>
+                <p style="margin-bottom: 20px; color: var(--color-text-secondary); font-size: 14px;">Selecciona una plantilla global existente para asignársela a este cliente, o crea un plan personalizado desde cero.</p>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Plantillas Disponibles</label>
+                    <select id="assignNutritionTemplateSelect" class="form-input" style="width: 100%;" ${globalNutritionPlansCache.length === 0 ? 'disabled' : ''}>
+                        ${optionsHtml}
+                    </select>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; align-items: center;">
+                    <button class="btn-secondary" onclick="document.getElementById('assignNutritionToClientModal').remove()">Cancelar</button>
+                    <button class="btn-primary" style="background: var(--accent-purple); border-color: var(--accent-purple);" onclick="createNewCustomNutritionPlan()">Crear desde Cero</button>
+                    <button class="btn-primary" onclick="confirmAssignNutritionToActiveClient()" ${globalNutritionPlansCache.length === 0 ? 'disabled' : ''}>Asignar Plantilla</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existing = document.getElementById('assignNutritionToClientModal');
+    if (existing) existing.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function createNewCustomNutritionPlan() {
+    const modal = document.getElementById('assignNutritionToClientModal');
+    if (modal) modal.remove();
+    openNutritionModal(false);
+}
+
+async function confirmAssignNutritionToActiveClient() {
+    const select = document.getElementById('assignNutritionTemplateSelect');
+    const planId = select.value;
+    if (!planId) return;
+    
+    try {
+        const res = await fetch('/api/nutrition_plans/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_id: planId, user_id: activeUserId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("Plan de nutrición asignado correctamente al cliente.");
+            const modal = document.getElementById('assignNutritionToClientModal');
+            if (modal) modal.remove();
+            selectClient(activeUserId);
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error al conectar con el servidor.");
+    }
+}
+
 // ==========================================
 // NEW: Assessment Config Management
 // ==========================================
 
 let globalAssessmentConfig = [];
+let globalNutritionConfig = [];
 
 async function fetchAssessmentConfig() {
     try {
@@ -1841,7 +2381,10 @@ async function toggleAssessmentConfigVisibility(id, currentStatus) {
         });
         const data = await res.json();
         if (data.success) {
-            fetchAssessmentConfig();
+            await fetchAssessmentConfig();
+            if (activeUserId && selectedUserFullData) {
+                selectClient(activeUserId);
+            }
         } else {
             alert("Error: " + data.error);
         }
@@ -1930,7 +2473,10 @@ async function submitAssessmentConfig(e) {
         const data = await res.json();
         if (data.success) {
             closeAssessmentConfigModal();
-            fetchAssessmentConfig();
+            await fetchAssessmentConfig();
+            if (activeUserId && selectedUserFullData) {
+                selectClient(activeUserId);
+            }
         } else {
             alert("Error: " + data.error);
         }
@@ -1950,7 +2496,10 @@ async function deleteAssessmentConfig(id) {
         });
         const data = await res.json();
         if (data.success) {
-            fetchAssessmentConfig();
+            await fetchAssessmentConfig();
+            if (activeUserId && selectedUserFullData) {
+                selectClient(activeUserId);
+            }
         } else {
             alert("Error: " + data.error);
         }
@@ -1958,3 +2507,420 @@ async function deleteAssessmentConfig(id) {
         console.error(err);
     }
 }
+
+// ==========================================
+// NEW: Nutrition Config Management
+// ==========================================
+
+async function fetchNutritionConfig() {
+    try {
+        const res = await fetch('/api/nutrition_config');
+        const data = await res.json();
+        if (data.success) {
+            globalNutritionConfig = data.config;
+            renderNutritionConfigTable();
+        }
+    } catch (e) {
+        console.error("Error fetching nutrition config:", e);
+    }
+}
+
+function renderNutritionConfigTable() {
+    const tbody = document.getElementById('nutritionConfigTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    globalNutritionConfig.forEach(conf => {
+        const isDefaultBadge = conf.is_default ? '<span class="compliance-badge" style="background:#555; color:white;">Base</span>' : '<span class="compliance-badge">Custom</span>';
+        
+        // Icon for visibility
+        const eyeIcon = conf.is_active ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+        const eyeColor = conf.is_active ? 'var(--accent-green)' : 'var(--color-text-secondary)';
+        
+        tbody.innerHTML += `
+            <tr>
+                <td style="text-align: left;">${conf.order_index}</td>
+                <td style="font-weight: bold; color: var(--accent-green); text-align: left;">${conf.field_name} ${isDefaultBadge}</td>
+                <td style="text-align: left;">${conf.field_type === 'number' ? 'Número' : 'Texto'}</td>
+                <td style="text-align: left;">${conf.unit || '-'}</td>
+                <td style="display: flex; gap: 5px; text-align: left;">
+                    <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: ${eyeColor};" onclick="toggleNutritionConfigVisibility(${conf.id}, ${conf.is_active})" title="${conf.is_active ? 'Ocultar Campo' : 'Mostrar Campo'}">${eyeIcon}</button>
+                    <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="openNutritionConfigModal(${conf.id})" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    ${!conf.is_default ? `<button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteNutritionConfig(${conf.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>` : ''}
+                </td>
+            </tr>
+        `;
+    });
+}
+
+async function toggleNutritionConfigVisibility(id, currentStatus) {
+    const newStatus = currentStatus ? 0 : 1;
+    try {
+        const res = await fetch('/api/nutrition_config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, is_active: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+            await fetchNutritionConfig();
+            if (activeUserId && selectedUserFullData) {
+                selectClient(activeUserId);
+            }
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function openNutritionConfigModal(id = null) {
+    const modal = document.getElementById('nutritionConfigModal');
+    const form = modal.querySelector('form');
+    form.reset();
+    
+    document.getElementById('editNutritionConfigId').value = '';
+    document.getElementById('editNutritionConfigIsDefault').value = '0';
+    document.getElementById('editNutritionConfigDbColumn').value = '';
+    document.getElementById('nutritionConfigModalTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Nuevo Campo';
+    document.getElementById('nutConfigFieldName').disabled = false;
+    document.getElementById('nutConfigFieldType').disabled = false;
+    
+    if (id) {
+        const conf = globalNutritionConfig.find(c => c.id === id);
+        if (conf) {
+            document.getElementById('nutritionConfigModalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Editar Campo';
+            document.getElementById('editNutritionConfigId').value = conf.id;
+            document.getElementById('editNutritionConfigIsDefault').value = conf.is_default;
+            document.getElementById('editNutritionConfigDbColumn').value = conf.db_column || '';
+            
+            document.getElementById('nutConfigFieldName').value = conf.field_name;
+            document.getElementById('nutConfigFieldType').value = conf.field_type;
+            document.getElementById('nutConfigFieldUnit').value = conf.unit || '';
+            document.getElementById('nutConfigOrderIndex').value = conf.order_index;
+            document.getElementById('nutConfigIsActive').checked = conf.is_active;
+            
+            if (conf.is_default) {
+                document.getElementById('nutConfigFieldName').disabled = true;
+                document.getElementById('nutConfigFieldType').disabled = true;
+            }
+        }
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function closeNutritionConfigModal() {
+    document.getElementById('nutritionConfigModal').style.display = 'none';
+}
+
+async function submitNutritionConfig(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('editNutritionConfigId').value;
+    const payload = {
+        field_name: document.getElementById('nutConfigFieldName').value,
+        field_type: document.getElementById('nutConfigFieldType').value,
+        unit: document.getElementById('nutConfigFieldUnit').value,
+        order_index: parseInt(document.getElementById('nutConfigOrderIndex').value),
+        is_active: document.getElementById('nutConfigIsActive').checked ? 1 : 0
+    };
+    
+    const isDefault = document.getElementById('editNutritionConfigIsDefault').value === '1';
+    
+    if (!id) {
+        payload.is_default = 0;
+    } else {
+        payload.id = parseInt(id);
+        if (isDefault) {
+            delete payload.field_name;
+            delete payload.field_type;
+        }
+    }
+    
+    try {
+        const url = '/api/nutrition_config';
+        const method = id ? 'PUT' : 'POST';
+        
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+            closeNutritionConfigModal();
+            await fetchNutritionConfig();
+            if (activeUserId && selectedUserFullData) {
+                selectClient(activeUserId);
+            }
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function deleteNutritionConfig(id) {
+    if (!confirm("¿Seguro que deseas eliminar permanentemente este campo? Las plantillas y dietas existentes perderán este dato.")) return;
+    
+    try {
+        const res = await fetch('/api/nutrition_config', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        });
+        const data = await res.json();
+        if (data.success) {
+            await fetchNutritionConfig();
+            if (activeUserId && selectedUserFullData) {
+                selectClient(activeUserId);
+            }
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function fetchFoodLibrary() {
+    try {
+        const res = await fetch('/api/foods');
+        const data = await res.json();
+        if (data.success) {
+            globalFoodLibrary = data.foods;
+            
+            // Build datalist dynamically
+            let dl = document.getElementById('defaultFoodsList');
+            if (!dl) {
+                dl = document.createElement('datalist');
+                dl.id = 'defaultFoodsList';
+                document.body.appendChild(dl);
+            }
+            dl.innerHTML = '';
+            globalFoodLibrary.forEach(food => {
+                const opt = document.createElement('option');
+                opt.value = food.name;
+                dl.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error("Error fetching food library:", e);
+    }
+}
+
+async function fetchFoodLibraryAndRender() {
+    await fetchFoodLibrary();
+    renderFoodsTable();
+}
+
+function renderFoodsTable() {
+    const headerRow = document.getElementById('globalFoodsHeader');
+    const tbody = document.getElementById('globalFoodsList');
+    if (!headerRow || !tbody) return;
+    
+    // Build Headers
+    let headerHtml = `
+        <th style="width: 50px; text-align: left;">ID</th>
+        <th style="text-align: left;">Alimento</th>
+    `;
+    
+    const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    activeFields.forEach(field => {
+        const unitStr = field.unit ? ` (${field.unit})` : '';
+        headerHtml += `<th style="text-align: left;">${field.field_name}${unitStr}</th>`;
+    });
+    
+    headerHtml += `<th style="width: 120px; text-align: left;">Acciones</th>`;
+    headerRow.innerHTML = headerHtml;
+    
+    // Build Body
+    tbody.innerHTML = '';
+    globalFoodLibrary.forEach(food => {
+        let rowHtml = `
+            <tr>
+                <td>${food.id}</td>
+                <td style="font-weight: bold; color: var(--accent-green);">${food.name}</td>
+        `;
+        
+        activeFields.forEach(field => {
+            let val = '-';
+            if (field.is_default && field.db_column) {
+                val = food[field.db_column] !== null && food[field.db_column] !== undefined ? food[field.db_column] : '-';
+            } else {
+                val = food.custom_data && food.custom_data[field.field_name] !== undefined ? food.custom_data[field.field_name] : '-';
+            }
+            rowHtml += `<td>${val}</td>`;
+        });
+        
+        rowHtml += `
+                <td style="display: flex; gap: 5px;">
+                    <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-green);" onclick="editFood(${food.id})" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteFood(${food.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += rowHtml;
+    });
+}
+
+function openFoodModal(id = null) {
+    const modal = document.getElementById('foodModal');
+    const form = modal.querySelector('form');
+    form.reset();
+    
+    document.getElementById('editFoodId').value = '';
+    document.getElementById('foodModalTitle').innerHTML = '<i class="fa-solid fa-apple-whole"></i> Nuevo Alimento';
+    
+    const grid = document.getElementById('foodNutritionFieldsGrid');
+    grid.innerHTML = '';
+    
+    const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    activeFields.forEach(field => {
+        const typeAttr = field.field_type === 'number' ? 'number' : 'text';
+        const stepAttr = field.field_type === 'number' ? 'step="0.1"' : '';
+        const unitLabel = field.unit ? ` (${field.unit})` : '';
+        
+        grid.innerHTML += `
+            <div class="form-group">
+                <label>${field.field_name}${unitLabel}</label>
+                <input type="${typeAttr}" ${stepAttr} class="modal-food-field" data-id="${field.id}" data-name="${field.field_name}" data-db-col="${field.db_column || ''}" required placeholder="Ingrese valor">
+            </div>
+        `;
+    });
+    
+    if (id) {
+        const food = globalFoodLibrary.find(f => f.id === id);
+        if (food) {
+            document.getElementById('foodModalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Editar Alimento';
+            document.getElementById('editFoodId').value = food.id;
+            document.getElementById('foodName').value = food.name;
+            
+            activeFields.forEach(field => {
+                const input = grid.querySelector(`.modal-food-field[data-id="${field.id}"]`);
+                if (input) {
+                    if (field.is_default && field.db_column) {
+                        input.value = food[field.db_column] !== null && food[field.db_column] !== undefined ? food[field.db_column] : '';
+                    } else if (food.custom_data && food.custom_data[field.field_name] !== undefined) {
+                        input.value = food.custom_data[field.field_name];
+                    }
+                }
+            });
+        }
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function closeFoodModal() {
+    document.getElementById('foodModal').style.display = 'none';
+}
+
+async function submitFoodForm(event) {
+    event.preventDefault();
+    
+    const foodId = document.getElementById('editFoodId').value;
+    const name = document.getElementById('foodName').value;
+    
+    const payload = {
+        name: name,
+        custom_data: {}
+    };
+    
+    if (foodId) {
+        payload.id = parseInt(foodId);
+    }
+    
+    const inputs = document.querySelectorAll('.modal-food-field');
+    inputs.forEach(input => {
+        const dbCol = input.dataset.dbCol;
+        const fieldName = input.dataset.name;
+        const val = input.type === 'number' ? parseFloat(input.value) : input.value;
+        
+        if (dbCol) {
+            payload[dbCol] = val;
+        } else {
+            payload.custom_data[fieldName] = val;
+        }
+    });
+    
+    const method = foodId ? 'PUT' : 'POST';
+    
+    try {
+        const res = await fetch('/api/foods', {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeFoodModal();
+            await fetchFoodLibraryAndRender();
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (e) {
+        console.error("Error submitting food:", e);
+    }
+}
+
+function editFood(id) {
+    openFoodModal(id);
+}
+
+async function deleteFood(id) {
+    if (!confirm("¿Seguro que deseas eliminar este alimento de la biblioteca?")) return;
+    
+    try {
+        const res = await fetch('/api/foods', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        });
+        const data = await res.json();
+        if (data.success) {
+            await fetchFoodLibraryAndRender();
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (e) {
+        console.error("Error deleting food:", e);
+    }
+}
+
+function scaleFoodFields(foodRow, food) {
+    const weightInput = foodRow.querySelector('.food-field[data-id="1"]');
+    if (!weightInput) return;
+    const currentWeight = parseFloat(weightInput.value) || 0;
+    if (currentWeight <= 0) return;
+    
+    const factor = currentWeight / food.weight_g;
+    
+    const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    activeFields.forEach(field => {
+        if (field.id === 1) return; 
+        
+        const input = foodRow.querySelector(`.food-field[data-id="${field.id}"]`);
+        if (!input) return;
+        
+        if (field.is_default && field.db_column) {
+            let baseVal = 0;
+            if (field.db_column === 'calories_kcal') baseVal = food.calories_kcal;
+            else if (field.db_column === 'protein_g') baseVal = food.protein_g;
+            else if (field.db_column === 'carbs_g') baseVal = food.carbs_g;
+            else if (field.db_column === 'fat_g') baseVal = food.fat_g;
+            
+            input.value = Math.round((baseVal * factor) * 10) / 10;
+        } else {
+            if (food.custom_data && food.custom_data[field.field_name] !== undefined) {
+                const baseVal = parseFloat(food.custom_data[field.field_name]) || 0;
+                input.value = Math.round((baseVal * factor) * 10) / 10;
+            }
+        }
+    });
+}
+

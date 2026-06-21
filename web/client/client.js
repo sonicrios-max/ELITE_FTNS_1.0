@@ -40,6 +40,7 @@
 let userId = 1;
 let activeTab = 'tabRutinas';
 let clientFullData = null;
+let globalNutritionConfig = [];
 
 // Chart.js Instances
 let weightChartInstance = null;
@@ -50,16 +51,27 @@ let stepsChartInstance = null;
 // Hydration State
 let currentWaterIntakeMl = 0;
 
-function initClientDashboard() {
+async function loadNutritionConfig() {
+    try {
+        const res = await fetch('/api/nutrition_config');
+        const data = await res.json();
+        if (data.success) {
+            globalNutritionConfig = data.config;
+        }
+    } catch (e) {
+        console.error("Error loading nutrition config:", e);
+    }
+}
+
+async function initClientDashboard() {
     // Parse userId from query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const idParam = urlParams.get('userId');
     if (idParam) {
         userId = parseInt(idParam);
     }
-    
+    await loadNutritionConfig();
     loadClientData();
-
 }
 
 if (document.readyState === "loading") {
@@ -113,10 +125,23 @@ function populateKPIs() {
     
     // 3. Nutrition KPI
     if (diet) {
-        document.getElementById("clientKpiCalories").innerText = `${diet.target_calories || 0} Kcal`;
-        document.getElementById("clientKpiMacrosDesc").innerText = `P: ${diet.target_protein || 0}g | C: ${diet.target_carbs || 0}g | G: ${diet.target_fat || 0}g`;
+        const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+        const hasCal = activeFields.some(f => f.db_column === 'calories_kcal');
+        const hasPro = activeFields.some(f => f.db_column === 'protein_g');
+        const hasCarb = activeFields.some(f => f.db_column === 'carbs_g');
+        const hasFat = activeFields.some(f => f.db_column === 'fat_g');
+        
+        document.getElementById("clientKpiCalories").innerText = hasCal ? `${diet.target_calories || 0} Kcal` : '- Kcal';
+        
+        let macrosParts = [];
+        if (hasPro) macrosParts.push(`P: ${diet.target_protein || 0}g`);
+        if (hasCarb) macrosParts.push(`C: ${diet.target_carbs || 0}g`);
+        if (hasFat) macrosParts.push(`G: ${diet.target_fat || 0}g`);
+        
+        document.getElementById("clientKpiMacrosDesc").innerText = macrosParts.length > 0 ? macrosParts.join(' | ') : 'Sin macros visibles';
     } else {
         document.getElementById("clientKpiCalories").innerText = "-";
+        document.getElementById("clientKpiMacrosDesc").innerText = "-";
     }
 }
 
@@ -332,17 +357,33 @@ function renderNutritionPlans() {
         return;
     }
     
+    const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    
+    const activeTargetParts = [];
+    const hasCal = activeFields.some(f => f.db_column === 'calories_kcal');
+    const hasPro = activeFields.some(f => f.db_column === 'protein_g');
+    const hasCarb = activeFields.some(f => f.db_column === 'carbs_g');
+    const hasFat = activeFields.some(f => f.db_column === 'fat_g');
+    
+    if (hasCal) activeTargetParts.push(`Meta Diaria: ${diet.target_calories} Kcal`);
+    if (hasPro) activeTargetParts.push(`P: ${diet.target_protein}g`);
+    if (hasCarb) activeTargetParts.push(`C: ${diet.target_carbs}g`);
+    if (hasFat) activeTargetParts.push(`G: ${diet.target_fat}g`);
+    
+    const targetLabel = activeTargetParts.length > 0 ? activeTargetParts.join(' | ') : '';
+    
     container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
             <h3>Mi Plan: ${diet.title}</h3>
             <span style="font-size:12px; color:var(--color-text-secondary);">Activo desde: ${diet.start_date}</span>
         </div>
         <p style="color:var(--color-text-secondary); margin-bottom: 20px;">${diet.description || ''}</p>
+        ${targetLabel ? `
         <div style="margin-bottom: 20px;">
             <span class="compliance-badge" style="background:rgba(139,92,246,0.15); color:var(--accent-purple); border-color:rgba(139,92,246,0.3); font-size:14px; padding: 8px 12px;">
-                Meta Diaria: ${diet.target_calories} Kcal | P: ${diet.target_protein}g | C: ${diet.target_carbs}g | G: ${diet.target_fat}g
+                ${targetLabel}
             </span>
-        </div>
+        </div>` : ''}
     `;
     
     diet.meals.forEach(meal => {
@@ -350,33 +391,61 @@ function renderNutritionPlans() {
         mealBox.className = "diet-meal-box";
         
         let foodItemsHtml = "";
-        let mCal = 0, mPro = 0, mCarb = 0, mFat = 0;
+        let totals = {};
         
         meal.items.forEach(food => {
-            mCal += food.calories_kcal;
-            mPro += food.protein_g;
-            mCarb += food.carbs_g;
-            mFat += food.fat_g;
+            let macrosParts = [];
+            activeFields.forEach(field => {
+                let val = null;
+                if (field.is_default && field.db_column) {
+                    val = food[field.db_column];
+                } else if (food.custom_data && food.custom_data[field.field_name] !== undefined) {
+                    val = food.custom_data[field.field_name];
+                }
+                
+                if (typeof val === 'number') {
+                    totals[field.field_name] = (totals[field.field_name] || 0) + val;
+                }
+                
+                if (val !== null && val !== undefined) {
+                    if (field.db_column === 'weight_g') return;
+                    if (field.db_column === 'calories_kcal') return;
+                    macrosParts.push(`${field.field_name}: ${val}${field.unit ? field.unit : ''}`);
+                }
+            });
+            
+            const hasWeight = activeFields.some(f => f.db_column === 'weight_g');
+            const weightLabel = hasWeight ? ` (${food.weight_g}g)` : '';
+            
+            const hasCalories = activeFields.some(f => f.db_column === 'calories_kcal');
+            const caloriesLabel = hasCalories ? `<strong style="color:var(--accent-purple); margin-left:10px;">${food.calories_kcal} Kcal</strong>` : '';
             
             foodItemsHtml += `
                 <div class="food-item">
                     <div>
                         <span class="food-name">${food.food_name}</span>
-                        <span style="color:var(--color-text-muted); font-size:12px;"> (${food.weight_g}g)</span>
+                        <span style="color:var(--color-text-muted); font-size:12px;">${weightLabel}</span>
                     </div>
                     <div style="text-align:right;">
-                        <span class="food-macros">P: ${food.protein_g}g | C: ${food.carbs_g}g | G: ${food.fat_g}g</span>
-                        <strong style="color:var(--accent-purple); margin-left:10px;">${food.calories_kcal} Kcal</strong>
+                        <span class="food-macros">${macrosParts.join(' | ')}</span>
+                        ${caloriesLabel}
                     </div>
                 </div>
             `;
+        });
+        
+        let subtotalParts = [];
+        activeFields.forEach(field => {
+            if (totals[field.field_name] !== undefined) {
+                subtotalParts.push(`${field.field_name}: ${totals[field.field_name].toFixed(1)}${field.unit ? field.unit : ''}`);
+            }
         });
         
         mealBox.innerHTML = `
             <h4>
                 <span>${meal.meal_name}</span>
                 <span style="font-size:12px; font-weight:normal; color:var(--color-text-secondary);">
-                    Subtotal: ${mCal} Kcal (P: ${mPro.toFixed(1)}g | C: ${mCarb.toFixed(1)}g | G: ${mFat.toFixed(1)}g)
+                    Subtotal: ${subtotalParts.join(' | ')}
                 </span>
             </h4>
             <div class="food-item-list">

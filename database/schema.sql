@@ -241,5 +241,30 @@ CREATE TABLE IF NOT EXISTS meal_items (
     carbs_g REAL NOT NULL,
     fat_g REAL NOT NULL,
     notes TEXT,
+    custom_data TEXT, -- JSON representation of custom dynamic nutritional values
     FOREIGN KEY (meal_id) REFERENCES meals(id) ON DELETE CASCADE
+);
+
+-- 14. Trainer Custom Nutrition Configuration
+CREATE TABLE IF NOT EXISTS nutrition_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    field_name TEXT NOT NULL,
+    field_type TEXT NOT NULL DEFAULT 'number', -- 'number', 'text'
+    unit TEXT,
+    is_default BOOLEAN DEFAULT 0,
+    db_column TEXT, -- points to native column if is_default is true
+    is_active BOOLEAN DEFAULT 1,
+    order_index INTEGER DEFAULT 0
+);
+
+-- 15. Global Food/Ingredient Library
+CREATE TABLE IF NOT EXISTS food_library (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    weight_g REAL NOT NULL DEFAULT 100,
+    calories_kcal INTEGER NOT NULL DEFAULT 0,
+    protein_g REAL NOT NULL DEFAULT 0,
+    carbs_g REAL NOT NULL DEFAULT 0,
+    fat_g REAL NOT NULL DEFAULT 0,
+    custom_data TEXT -- JSON representation of custom dynamic nutritional values
 );
