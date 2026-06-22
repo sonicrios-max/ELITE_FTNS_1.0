@@ -27,7 +27,9 @@
                     document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
                 }
                 const logoSpan = document.querySelector('.logo span');
-                // Logo text stays as ELITE COACHING to leave room for the logout button
+                if (logoSpan) {
+                    logoSpan.innerText = `ELITE COACHING | ${config.name.toUpperCase()}`;
+                }
             }
         } catch (e) {
             console.error("Error loading theme config:", e);
@@ -424,16 +426,16 @@ function renderWorkoutPlans() {
                     `;
                 });
                 blocksHtml += `
-                    <div style="margin-bottom: 20px; border-left: 3px solid var(--accent-cyan); padding-left: 12px; background: rgba(0,0,0,0.1); padding-top: 10px; padding-bottom: 10px; border-radius: 0 8px 8px 0;">
-                        <h5 style="color: var(--accent-cyan); margin-bottom: 10px; font-size: 14px;">Bloque: ${block.name} <span style="color:var(--color-text-secondary); font-size:11px; font-weight:normal;">[${block.routine_class}]</span></h5>
+                    <div style="margin-bottom: 10px; border-left: 2px solid var(--accent-cyan); padding-left: 8px; background: rgba(0,0,0,0.1); padding-top: 8px; padding-bottom: 8px; border-radius: 0 4px 4px 0;">
+                        <h5 style="color: var(--accent-cyan); margin-bottom: 5px; font-size: 12px; margin-top: 0;">Bloque: ${block.name} <span style="color:var(--color-text-secondary); font-size:10px; font-weight:normal;">[${block.routine_class}]</span></h5>
                         <div style="overflow-x: auto; width: 100%;">
-                            <table class="exercise-table" style="min-width: 400px; font-size: 10px;">
+                            <table class="exercise-table" style="min-width: 400px; font-size: 11px; white-space: nowrap;">
                                 <thead>
                                     <tr>
                                         <th style="padding: 4px;">Ejercicio</th>
                                         <th style="padding: 4px;">Series</th>
                                         <th style="padding: 4px;">Rango Reps</th>
-                                        <th style="padding: 4px;">Esfuerzo (RPE)</th>
+                                        <th style="padding: 4px;">RPE</th>
                                         <th style="padding: 4px;">Descanso</th>
                                         <th style="padding: 4px;">Multimedia</th>
                                     </tr>
@@ -447,10 +449,8 @@ function renderWorkoutPlans() {
         }
         
         dayCard.innerHTML = `
-            <h4>${day.day_name}</h4>
-            <div style="margin-top: 15px;">
-                ${blocksHtml}
-            </div>
+            <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 13px;">${day.day_name}</h4>
+            ${blocksHtml}
         `;
         container.appendChild(dayCard);
     });

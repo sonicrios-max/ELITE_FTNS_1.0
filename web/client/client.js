@@ -100,7 +100,10 @@ async function loadClientData() {
 function displayClientHeader() {
     const user = clientFullData.profile;
     document.getElementById("clientNameHeader").innerText = `${user.first_name} ${user.last_name}`;
-    // The logo stays as ELITE COACHING to make room for the logout button
+    const logoSpan = document.querySelector('.logo span');
+    if (logoSpan) {
+        logoSpan.innerText = `ELITE COACHING | ${user.first_name.toUpperCase()}`;
+    }
 }
 
 function populateKPIs() {
