@@ -75,4 +75,4 @@ def run_stress_test(concurrent_users, total_users_to_test):
 
 if __name__ == "__main__":
     # Simular 5 usuarios haciendo peticiones al mismo tiempo, con un total de 10 flujos de usuario
-    run_stress_test(concurrent_users=5, total_users_to_test=10)
+    run_stress_test(concurrent_users=25, total_users_to_test=100)
