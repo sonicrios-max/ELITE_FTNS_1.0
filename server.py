@@ -1,10 +1,15 @@
-import http.server
-import socketserver
 import json
 import sqlite3
 import os
 import urllib.parse
 from datetime import datetime
+import shutil
+
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("PORT", 8080))
@@ -43,6 +48,7 @@ if os.path.exists(SEED_DIR) and not os.path.exists(SEEDED_FLAG):
 def init_master_db():
     print(f"Initializing master database at: {MASTER_DB_PATH}")
     conn = sqlite3.connect(MASTER_DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL;")
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS trainers (
@@ -77,6 +83,7 @@ def initialize_tenant_db(trainer_nickname):
         schema_sql = f.read()
         
     conn = sqlite3.connect(tenant_db_path)
+    conn.execute("PRAGMA journal_mode=WAL;")
     cursor = conn.cursor()
     try:
         cursor.executescript(schema_sql)
@@ -133,6 +140,7 @@ def check_and_migrate_db(db_path):
         return
         
     conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA journal_mode=WAL;")
     cursor = conn.cursor()
     try:
         cursor.execute("PRAGMA table_info(users)")
@@ -317,218 +325,53 @@ def migrate_existing_db_to_admin_tenant():
         if file.startswith("trainer_") and file.endswith(".db"):
             check_and_migrate_db(os.path.join(TENANTS_DIR, file))
 
+class MockWfile:
+    def __init__(self):
+        self.data = b""
+    def write(self, data):
+        self.data += data
 
-
-class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
-    
-    def log_message(self, format, *args):
-        # Override to suppress default console spam
-        pass
+class FitnessHTTPRequestHandler(object):
+    def __init__(self, request: Request, trainer_id: str = None):
+        self.request = request
+        self.headers = request.headers
+        self._trainer_id = trainer_id
+        self.wfile = MockWfile()
+        self._status_code = 200
+        self._content_type = "application/json; charset=utf-8"
 
     def get_request_trainer(self):
-        # 1. Check custom header X-Trainer-Id
-        trainer_id = self.headers.get('X-Trainer-Id')
-        if trainer_id:
-            return trainer_id.strip().lower()
-            
-        # 2. Check query parameter 'trainer'
-        parsed_url = urllib.parse.urlparse(self.path)
-        query_params = urllib.parse.parse_qs(parsed_url.query)
-        trainer_param = query_params.get("trainer")
-        if trainer_param:
-            return trainer_param[0].strip().lower()
-            
+        if self._trainer_id:
+            return self._trainer_id
+        t = self.headers.get("X-Trainer-Id")
+        if t:
+            return t.strip().lower()
+        t_param = self.request.query_params.get("trainer")
+        if t_param:
+            return t_param.strip().lower()
         return "admin"
 
     def get_db_connection(self):
         trainer = self.get_request_trainer()
         db_path = get_tenant_db_path(trainer)
-        return sqlite3.connect(db_path)
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        return conn
 
-    def end_headers(self):
-        # Allow cross-origin requests for testing
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        super().end_headers()
+    def serve_local_file(self, full_path, content_type):
+        self._status_code = 200
+        self._content_type = content_type
+        with open(full_path, 'rb') as f:
+            self.wfile.write(f.read())
 
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.end_headers()
+    def send_json_response(self, status_code, body):
+        self._status_code = status_code
+        self._content_type = "application/json; charset=utf-8"
+        json_bytes = json.dumps(body, ensure_ascii=False).encode('utf-8')
+        self.wfile.write(json_bytes)
 
-    def do_GET(self):
-        parsed_url = urllib.parse.urlparse(self.path)
-        path = parsed_url.path
-        
-        # Route API queries
-        if path == "/api/clients":
-            self.handle_get_clients()
-        elif path.startswith("/api/clients/"):
-            try:
-                user_id = int(path.split("/")[-1])
-                self.handle_get_client_detail(user_id)
-            except ValueError:
-                self.send_error_response(400, "Invalid Client ID format.")
-        elif path == "/api/exercises":
-            self.handle_get_exercises()
-        elif path == "/api/workout_blocks":
-            self.handle_get_workout_blocks()
-        elif path == "/api/routines":
-            self.handle_get_routines()
-        elif path == "/api/nutrition_plans":
-            self.handle_get_nutrition_plans(parsed_url.query)
-        elif path == "/api/daily_logs/calendar":
-            self.handle_get_daily_calendar(parsed_url.query)
-        elif path == "/api/trainer/config":
-            self.handle_get_trainer_config()
-        elif path == "/api/admin/trainers":
-            self.handle_admin_get_trainers()
-        elif path == "/api/assessment_config":
-            self.handle_get_assessment_config()
-        elif path == "/api/nutrition_config":
-            self.handle_get_nutrition_config()
-        elif path == "/api/foods":
-            self.handle_get_foods()
-        
-        # Route Web Dashboards
-        elif path == "/" or path == "/index.html":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "index.html"), "text/html")
-        elif path == "/admin" or path == "/admin/":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "admin", "index.html"), "text/html")
-        elif path == "/trainer" or path == "/trainer/":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "trainer", "index.html"), "text/html")
-        elif path == "/client" or path == "/client/":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "client", "client.html"), "text/html")
-        elif path == "/shared/style.css":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "shared", "style.css"), "text/css")
-        elif path == "/trainer/trainer.js":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "trainer", "trainer.js"), "application/javascript")
-        elif path == "/client/client.js":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "client", "client.js"), "application/javascript")
-        elif path == "/manifest.json":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "manifest.json"), "application/json")
-        elif path == "/service-worker.js":
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "service-worker.js"), "application/javascript")
-        elif path.startswith("/icons/"):
-            filename = path.split("/")[-1]
-            self.serve_local_file(os.path.join(BASE_DIR, "web", "icons", filename), "image/png")
-        else:
-            # Try serving normal static files
-            super().do_GET()
-
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        parsed_url = urllib.parse.urlparse(self.path)
-        path = parsed_url.path
-        
-        try:
-            data = json.loads(post_data.decode('utf-8'))
-        except json.JSONDecodeError:
-            self.send_error_response(400, "Malformed JSON payload.")
-            return
-
-        if path == "/api/auth":
-            self.handle_auth(data)
-        elif path == "/api/auth/register":
-            self.handle_register_trainer(data)
-        elif path == "/api/admin/verify":
-            self.handle_admin_verify(data)
-        elif path == "/api/admin/trainers":
-            self.handle_admin_create_trainer(data)
-        elif path == "/api/clients":
-            self.handle_create_client(data)
-        elif path == "/api/auth/login":
-            self.handle_login(data)
-        elif path == "/api/daily_logs":
-            self.handle_create_daily_log(data)
-        elif path == "/api/exercises":
-            self.handle_create_exercise(data)
-        elif path == "/api/workout_blocks":
-            self.handle_create_workout_block(data)
-        elif path == "/api/routines":
-            self.handle_create_routine(data)
-        elif path == "/api/routines/assign":
-            self.handle_assign_routine(data)
-        elif path == "/api/nutrition_plans":
-            self.handle_create_nutrition_plan(data)
-        elif path == "/api/nutrition_plans/assign":
-            self.handle_assign_nutrition_plan(data)
-        elif path == "/api/assessment_config":
-            self.handle_create_assessment_config(data)
-        elif path == "/api/nutrition_config":
-            self.handle_create_nutrition_config(data)
-        elif path == "/api/foods":
-            self.handle_create_food(data)
-        elif path == "/api/assessments":
-            self.handle_create_assessment(data)
-        else:
-            self.send_error_response(404, "Endpoint not found.")
-
-    def do_PUT(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        parsed_url = urllib.parse.urlparse(self.path)
-        path = parsed_url.path
-        try:
-            data = json.loads(post_data.decode('utf-8'))
-        except json.JSONDecodeError:
-            self.send_error_response(400, "Malformed JSON payload.")
-            return
-
-        if path == "/api/exercises":
-            self.handle_update_exercise(data)
-        elif path == "/api/workout_blocks":
-            self.handle_update_block(data)
-        elif path == "/api/routines":
-            self.handle_update_routine(data)
-        elif path == "/api/clients":
-            self.handle_update_client(data)
-        elif path == "/api/admin/trainers":
-            self.handle_admin_update_trainer(data)
-        elif path == "/api/nutrition_plans":
-            self.handle_update_nutrition_plan(data)
-        elif path == "/api/assessment_config":
-            self.handle_update_assessment_config(data)
-        elif path == "/api/nutrition_config":
-            self.handle_update_nutrition_config(data)
-        elif path == "/api/foods":
-            self.handle_update_food(data)
-        else:
-            self.send_error_response(404, "Endpoint not found.")
-
-    def do_DELETE(self):
-        content_length_str = self.headers.get('Content-Length')
-        content_length = int(content_length_str) if content_length_str else 0
-        post_data = self.rfile.read(content_length) if content_length > 0 else b""
-        parsed_url = urllib.parse.urlparse(self.path)
-        path = parsed_url.path
-        try:
-            data = json.loads(post_data.decode('utf-8')) if post_data else {}
-        except json.JSONDecodeError:
-            self.send_error_response(400, "Malformed JSON payload.")
-            return
-
-        if path == "/api/exercises":
-            self.handle_delete_exercise(data)
-        elif path == "/api/workout_blocks":
-            self.handle_delete_block(data)
-        elif path == "/api/routines":
-            self.handle_delete_routine(data)
-        elif path == "/api/clients":
-            self.handle_delete_client(data)
-        elif path == "/api/admin/trainers":
-            self.handle_admin_delete_trainer(data)
-        elif path == "/api/nutrition_plans":
-            self.handle_delete_nutrition_plan(data)
-        elif path == "/api/assessment_config":
-            self.handle_delete_assessment_config(data)
-        elif path == "/api/nutrition_config":
-            self.handle_delete_nutrition_config(data)
-        elif path == "/api/foods":
-            self.handle_delete_food(data)
-        else:
-            self.send_error_response(404, "Endpoint not found.")
+    def send_error_response(self, status_code, message):
+        self.send_json_response(status_code, {"success": False, "error": message})
 
     # --- API Handlers ---
     
@@ -1289,33 +1132,7 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         
         self.send_json_response(200, logs)
 
-    # --- Helper Methods ---
 
-    def serve_local_file(self, full_path, content_type):
-        if not os.path.exists(full_path):
-            self.send_error_response(404, f"File {os.path.basename(full_path)} not found.")
-            return
-            
-        self.send_response(200)
-        self.send_header("Content-Type", content_type)
-        
-        stat = os.stat(full_path)
-        self.send_header("Content-Length", str(stat.st_size))
-        self.end_headers()
-        
-        with open(full_path, 'rb') as f:
-            self.wfile.write(f.read())
-
-    def send_json_response(self, status_code, body):
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        json_bytes = json.dumps(body, ensure_ascii=False).encode('utf-8')
-        self.send_header("Content-Length", str(len(json_bytes)))
-        self.end_headers()
-        self.wfile.write(json_bytes)
-
-    def send_error_response(self, status_code, message):
-        self.send_json_response(status_code, {"success": False, "error": message})
 
     def handle_update_exercise(self, data):
         ex_id = data.get('id')
@@ -2136,31 +1953,418 @@ class FitnessHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         finally:
             conn.close()
 
-class ThreadingFitnessServer(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
-    daemon_threads = True
+from contextlib import asynccontextmanager
 
-    def handle_error(self, request, client_address):
-        import sys
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        if exc_type in (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) or (exc_type is OSError and exc_value.errno == 10053):
-            # Suppress normal disconnect tracebacks to keep console logs clean
-            pass
-        else:
-            super().handle_error(request, client_address)
-
-def run_server():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     init_master_db()
     migrate_existing_db_to_admin_tenant()
+    yield
 
-    with ThreadingFitnessServer(("", PORT), FitnessHTTPRequestHandler) as httpd:
-        print(f"Elite Fitness Local Server running on: http://localhost:{PORT}/")
-        print("Master Page & Router: http://localhost:8080/")
-        print("Trainer Dashboard: http://localhost:8080/trainer/")
-        print("Client Dashboard (Brayan): http://localhost:8080/client/?userId=1")
-        print("Client Dashboard (Maria): http://localhost:8080/client/?userId=2")
-        httpd.serve_forever()
+app = FastAPI(lifespan=lifespan)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    import time
+    start_time = time.time()
+    response = None
+    error_msg = ""
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        import traceback
+        error_msg = f"EXCEPTION: {str(e)}\n{traceback.format_exc()}"
+        raise e
+    finally:
+        process_time = (time.time() - start_time) * 1000
+        status_code = response.status_code if response else 500
+        log_line = f"{datetime.now()} | {request.method} | {request.url.path} | Query: {request.url.query} | Status: {status_code} | Time: {process_time:.2f}ms\n"
+        if error_msg:
+            log_line += f"{error_msg}\n"
+        try:
+            with open(os.path.join(BASE_DIR, "server_requests.log"), "a", encoding="utf-8") as f:
+                f.write(log_line)
+        except Exception:
+            pass
+    return response
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def make_api_response(handler: FitnessHTTPRequestHandler):
+    return Response(
+        content=handler.wfile.data,
+        status_code=handler._status_code,
+        media_type=handler._content_type
+    )
+
+# --- POST Endpoints ---
+
+@app.post("/api/auth")
+async def api_auth(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_auth(data)
+    return make_api_response(handler)
+
+@app.post("/api/auth/register")
+async def api_auth_register(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_register_trainer(data)
+    return make_api_response(handler)
+
+@app.post("/api/admin/verify")
+async def api_admin_verify(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_admin_verify(data)
+    return make_api_response(handler)
+
+@app.post("/api/admin/trainers")
+async def api_admin_create_trainer(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_admin_create_trainer(data)
+    return make_api_response(handler)
+
+@app.post("/api/clients")
+async def api_create_client(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_client(data)
+    return make_api_response(handler)
+
+@app.post("/api/daily_logs")
+async def api_create_daily_log(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_daily_log(data)
+    return make_api_response(handler)
+
+@app.post("/api/exercises")
+async def api_create_exercise(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_exercise(data)
+    return make_api_response(handler)
+
+@app.post("/api/workout_blocks")
+async def api_create_workout_block(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_workout_block(data)
+    return make_api_response(handler)
+
+@app.post("/api/routines")
+async def api_create_routine(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_routine(data)
+    return make_api_response(handler)
+
+@app.post("/api/routines/assign")
+async def api_assign_routine(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_assign_routine(data)
+    return make_api_response(handler)
+
+@app.post("/api/nutrition_plans")
+async def api_create_nutrition_plan(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_nutrition_plan(data)
+    return make_api_response(handler)
+
+@app.post("/api/nutrition_plans/assign")
+async def api_assign_nutrition_plan(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_assign_nutrition_plan(data)
+    return make_api_response(handler)
+
+@app.post("/api/assessment_config")
+async def api_create_assessment_config(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_assessment_config(data)
+    return make_api_response(handler)
+
+@app.post("/api/nutrition_config")
+async def api_create_nutrition_config(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_nutrition_config(data)
+    return make_api_response(handler)
+
+@app.post("/api/foods")
+async def api_create_food(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_food(data)
+    return make_api_response(handler)
+
+@app.post("/api/assessments")
+async def api_create_assessment(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_assessment(data)
+    return make_api_response(handler)
+
+# --- PUT Endpoints ---
+
+@app.put("/api/exercises")
+async def api_update_exercise(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_exercise(data)
+    return make_api_response(handler)
+
+@app.put("/api/workout_blocks")
+async def api_update_workout_block(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_block(data)
+    return make_api_response(handler)
+
+@app.put("/api/routines")
+async def api_update_routine(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_routine(data)
+    return make_api_response(handler)
+
+@app.put("/api/clients")
+async def api_update_client(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_client(data)
+    return make_api_response(handler)
+
+@app.put("/api/admin/trainers")
+async def api_admin_update_trainer(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_admin_update_trainer(data)
+    return make_api_response(handler)
+
+@app.put("/api/nutrition_plans")
+async def api_update_nutrition_plan(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_nutrition_plan(data)
+    return make_api_response(handler)
+
+@app.put("/api/assessment_config")
+async def api_update_assessment_config(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_assessment_config(data)
+    return make_api_response(handler)
+
+@app.put("/api/nutrition_config")
+async def api_update_nutrition_config(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_nutrition_config(data)
+    return make_api_response(handler)
+
+@app.put("/api/foods")
+async def api_update_food(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_food(data)
+    return make_api_response(handler)
+
+async def get_delete_data(request: Request):
+    val_id = request.query_params.get("id")
+    if val_id:
+        try:
+            val_id = int(val_id)
+        except ValueError:
+            pass
+        return {"id": val_id}
+    try:
+        return await request.json()
+    except Exception:
+        return {}
+
+# --- DELETE Endpoints ---
+
+@app.delete("/api/exercises")
+async def api_delete_exercise(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_exercise(data)
+    return make_api_response(handler)
+
+@app.delete("/api/workout_blocks")
+async def api_delete_workout_block(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_block(data)
+    return make_api_response(handler)
+
+@app.delete("/api/routines")
+async def api_delete_routine(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_routine(data)
+    return make_api_response(handler)
+
+@app.delete("/api/clients")
+async def api_delete_client(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_client(data)
+    return make_api_response(handler)
+
+@app.delete("/api/admin/trainers")
+async def api_admin_delete_trainer(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_admin_delete_trainer(data)
+    return make_api_response(handler)
+
+@app.delete("/api/nutrition_plans")
+async def api_delete_nutrition_plan(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_nutrition_plan(data)
+    return make_api_response(handler)
+
+@app.delete("/api/assessment_config")
+async def api_delete_assessment_config(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_assessment_config(data)
+    return make_api_response(handler)
+
+@app.delete("/api/nutrition_config")
+async def api_delete_nutrition_config(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_nutrition_config(data)
+    return make_api_response(handler)
+
+@app.delete("/api/foods")
+async def api_delete_food(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_food(data)
+    return make_api_response(handler)
+
+# --- GET Endpoints ---
+
+@app.get("/api/clients")
+async def api_get_clients(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_clients()
+    return make_api_response(handler)
+
+@app.get("/api/clients/{user_id}")
+async def api_get_client_detail(user_id: int, request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_client_detail(user_id)
+    return make_api_response(handler)
+
+@app.get("/api/exercises")
+async def api_get_exercises(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_exercises()
+    return make_api_response(handler)
+
+@app.get("/api/workout_blocks")
+async def api_get_workout_blocks(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_workout_blocks()
+    return make_api_response(handler)
+
+@app.get("/api/routines")
+async def api_get_routines(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_routines()
+    return make_api_response(handler)
+
+@app.get("/api/nutrition_plans")
+async def api_get_nutrition_plans(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_nutrition_plans(request.url.query)
+    return make_api_response(handler)
+
+@app.get("/api/daily_logs/calendar")
+async def api_get_daily_calendar(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_daily_calendar(request.url.query)
+    return make_api_response(handler)
+
+@app.get("/api/trainer/config")
+async def api_get_trainer_config(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_trainer_config()
+    return make_api_response(handler)
+
+@app.get("/api/admin/trainers")
+async def api_admin_get_trainers(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_admin_get_trainers()
+    return make_api_response(handler)
+
+@app.get("/api/assessment_config")
+async def api_get_assessment_config(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_assessment_config()
+    return make_api_response(handler)
+
+@app.get("/api/nutrition_config")
+async def api_get_nutrition_config(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_nutrition_config()
+    return make_api_response(handler)
+
+@app.get("/api/foods")
+async def api_get_foods(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_foods()
+    return make_api_response(handler)
+
+# --- UI HTML Views ---
+
+@app.get("/")
+@app.get("/index.html")
+async def read_root():
+    return FileResponse(os.path.join(BASE_DIR, "web", "index.html"), media_type="text/html")
+
+@app.get("/admin")
+@app.get("/admin/")
+async def read_admin():
+    return FileResponse(os.path.join(BASE_DIR, "web", "admin", "index.html"), media_type="text/html")
+
+@app.get("/trainer")
+@app.get("/trainer/")
+async def read_trainer():
+    return FileResponse(os.path.join(BASE_DIR, "web", "trainer", "index.html"), media_type="text/html")
+
+@app.get("/client")
+@app.get("/client/")
+async def read_client():
+    return FileResponse(os.path.join(BASE_DIR, "web", "client", "client.html"), media_type="text/html")
+
+# --- Static Files Mount ---
+
+app.mount("/", StaticFiles(directory=os.path.join(BASE_DIR, "web")), name="web")
 
 if __name__ == "__main__":
-    run_server()
+    import uvicorn
+    print(f"Elite Fitness Local Server running on: http://localhost:{PORT}/")
+    print("Master Page & Router: http://localhost:8080/")
+    print("Trainer Dashboard: http://localhost:8080/trainer/")
+    print("Client Dashboard: http://localhost:8080/client/?userId=1")
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
 

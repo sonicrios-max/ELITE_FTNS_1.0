@@ -3,7 +3,7 @@ services:
     name: elite-fitness-coaching
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python server.py
+    startCommand: uvicorn server:app --host 0.0.0.0 --port 8080
     envVars:
       - key: PERSISTENT_DIR
         value: /data

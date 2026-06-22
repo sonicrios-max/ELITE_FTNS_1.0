@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elite Fitness - Consola de Desarrollador</title>
-    <link rel="stylesheet" href="/shared/style.css?v=1.0.3">
+    <link rel="stylesheet" href="/shared/style.css?v=2.0.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Developer Terminal-inspired styling refinements */
@@ -597,7 +597,7 @@
                 return;
             }
             try {
-                const response = await fetch('/api/admin/trainers', {
+                const response = await fetch(`/api/admin/trainers?id=${id}`, {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
@@ -778,7 +778,7 @@
             }
             const coachNickname = document.getElementById("trainerSelector").value;
             try {
-                const response = await fetch('/api/clients', {
+                const response = await fetch(`/api/clients?id=${id}`, {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',

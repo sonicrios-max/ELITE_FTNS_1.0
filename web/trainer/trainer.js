@@ -1512,7 +1512,8 @@ async function deleteItem(endpoint, id, refreshFunction) {
     if(!confirm("¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer y borrará el elemento de todas las rutinas en las que esté asignado.")) return;
     
     try {
-        const response = await fetch(endpoint, {
+        const url = endpoint.includes('?') ? `${endpoint}&id=${id}` : `${endpoint}?id=${id}`;
+        const response = await fetch(url, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
@@ -2127,7 +2128,7 @@ async function deleteNutritionPlan(planId) {
     if (!confirm("¿Seguro que deseas eliminar este plan de nutrición?")) return;
     
     try {
-        const res = await fetch('/api/nutrition_plans', {
+        const res = await fetch(`/api/nutrition_plans?id=${planId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: planId })
@@ -2489,7 +2490,7 @@ async function deleteAssessmentConfig(id) {
     if (!confirm("¿Seguro que deseas eliminar permanentemente este campo? Las valoraciones existentes perderán este dato.")) return;
     
     try {
-        const res = await fetch('/api/assessment_config', {
+        const res = await fetch(`/api/assessment_config?id=${id}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
@@ -2668,7 +2669,7 @@ async function deleteNutritionConfig(id) {
     if (!confirm("¿Seguro que deseas eliminar permanentemente este campo? Las plantillas y dietas existentes perderán este dato.")) return;
     
     try {
-        const res = await fetch('/api/nutrition_config', {
+        const res = await fetch(`/api/nutrition_config?id=${id}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
@@ -2876,7 +2877,7 @@ async function deleteFood(id) {
     if (!confirm("¿Seguro que deseas eliminar este alimento de la biblioteca?")) return;
     
     try {
-        const res = await fetch('/api/foods', {
+        const res = await fetch(`/api/foods?id=${id}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })

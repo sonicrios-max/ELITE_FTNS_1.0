@@ -16,3 +16,9 @@ Desktop.ini
 .env
 .vscode/
 .gemini/
+
+# Server log files
+*.log
+
+# Backups folder
+backups/
