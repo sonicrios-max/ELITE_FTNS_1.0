@@ -362,13 +362,13 @@
     
     <!-- PWA Service Worker Registration -->
     <script>
+      /* DESHABILITADO TEMPORALMENTE
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js')
-            .then(reg => console.log('Service Worker registrado: ', reg.scope))
-            .catch(err => console.error('Error Service Worker: ', err));
-        });
+              .then(reg => console.log('Service Worker Registrado!', reg))
+              .catch(err => console.error('Error al registrar SW:', err));
       }
+      */
     </script>
 </body>
 </html>

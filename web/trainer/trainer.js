@@ -146,15 +146,29 @@ async function selectClient(userId) {
         calculateAndDisplayKPIs();
         renderAssessmentsTable();
         initOrUpdateCharts();
-        renderWorkoutPlans();
         renderNutritionPlans();
+        renderWorkoutPlans(); // AÑADIDO: cargar rutinas
         document.getElementById("profileHeaderCard").style.display = "block";
-        document.getElementById("kpiContainer").style.display = "grid";
+        document.getElementById("kpiContainer").style.display = "flex";
         document.getElementById("tabsCard").style.display = "block";
         
+        // Mobile Slide-in Panel
+        const mainPanel = document.getElementById("mainContentPanel");
+        if (mainPanel) {
+            mainPanel.classList.add("mobile-open");
+            if (window.innerWidth <= 1024) {
+                closeMobileSubPanel(); // Cierra los tabs para mostrar el menú del perfil
+            } else {
+                switchTab('tabFicha'); // En escritorio, siempre abre la primera pestaña por defecto
+            }
+        }
+        
         // Clear new assessment form if open
-        document.getElementById("newAssessmentFormContainer").style.display = "none";
-        document.getElementById("assessmentForm").reset();
+        const newFormContainer = document.getElementById("newAssessmentFormContainer");
+        if (newFormContainer) newFormContainer.style.display = "none";
+        
+        const formEl = document.getElementById("assessmentForm");
+        if (formEl) formEl.reset();
     } catch (err) {
         console.error(`Error loading client ${userId}:`, err);
     }
@@ -213,8 +227,8 @@ function calculateAndDisplayKPIs() {
     
     // 1. Fat %
     const fatPct = latest.body_fat_percentage || 0.0;
-    document.getElementById("kpiFatPct").innerText = `${fatPct.toFixed(1)}%`;
-    document.getElementById("kpiFatPctDesc").innerText = `Masa Grasa: ${(latest.fat_mass_kg || 0.0).toFixed(1)} kg`;
+    if (document.getElementById("kpiFatPct")) document.getElementById("kpiFatPct").innerText = `${fatPct.toFixed(1)}%`;
+    if (document.getElementById("kpiFatPctDesc")) document.getElementById("kpiFatPctDesc").innerText = `Masa Grasa: ${(latest.fat_mass_kg || 0.0).toFixed(1)} kg`;
     
     // 2. FFMI (Masa Libre de Grasa)
     // Formula: Lean Mass / (Height in m)^2
@@ -224,99 +238,136 @@ function calculateAndDisplayKPIs() {
     // Normalized FFMI = FFMI + 6.1 * (1.8 - Height)
     const normalizedFfmi = ffmi + 6.1 * (1.8 - heightM);
     
-    document.getElementById("kpiFFMI").innerText = normalizedFfmi.toFixed(1);
-    document.getElementById("kpiFFMIDesc").innerText = `Masa Magra: ${leanMassKg.toFixed(1)} kg`;
+    if (document.getElementById("kpiFFMI")) document.getElementById("kpiFFMI").innerText = normalizedFfmi.toFixed(1);
+    if (document.getElementById("kpiFFMIDesc")) document.getElementById("kpiFFMIDesc").innerText = `Masa Magra: ${leanMassKg.toFixed(1)} kg`;
     
     // 3. Waist to Height Ratio (WtHR)
     const abdomen = latest.abdomen || 0.0;
     const wthr = abdomen / latest.height_cm;
-    document.getElementById("kpiWtHR").innerText = wthr.toFixed(2);
+    if (document.getElementById("kpiWtHR")) document.getElementById("kpiWtHR").innerText = wthr.toFixed(2);
     
     let wthrDesc = "Nivel Óptimo";
     if (wthr > 0.5) wthrDesc = "Riesgo Cardiovascular";
-    document.getElementById("kpiWtHRDesc").innerText = wthrDesc;
+    if (document.getElementById("kpiWtHRDesc")) document.getElementById("kpiWtHRDesc").innerText = wthrDesc;
 }
 
 // Render Assessments Table (Dynamic based on active trainer settings)
 function renderAssessmentsTable() {
     const table = document.getElementById("assessmentHistoryTable");
+    const mobileContainer = document.getElementById("assessmentHistoryMobileContainer");
+    
     if (!table) return;
     
     const thead = table.querySelector("thead");
     const tbody = document.getElementById("assessmentHistoryBody");
     tbody.innerHTML = "";
+    if (mobileContainer) mobileContainer.innerHTML = "";
     
     const assessments = selectedUserFullData.assessments;
-    
-    // Get active config fields sorted by order_index
     const activeFields = globalAssessmentConfig.filter(f => f.is_active == 1 || f.is_active === true);
     
     // Build headers
     let headersHtml = `<tr><th>Fecha</th>`;
     activeFields.forEach(field => {
         if (field.db_column === 'body_fat_percentage') {
-            headersHtml += `<th>Grasa (%)</th><th>Pliegues (Suma)</th>`;
+            headersHtml += `<th>% Grasa</th><th>Pliegues (Suma)</th>`;
         } else if (field.db_column === 'weight_kg') {
             headersHtml += `<th>Peso (kg)</th><th>IMC</th>`;
         } else {
             headersHtml += `<th>${field.field_name}${field.unit ? ' (' + field.unit + ')' : ''}</th>`;
         }
     });
-    headersHtml += `</tr>`;
+    headersHtml += `<th>Acciones</th></tr>`;
     thead.innerHTML = headersHtml;
     
-    // Build rows
     if (!assessments || assessments.length === 0) {
         const colSpan = activeFields.reduce((acc, field) => {
-            if (field.db_column === 'body_fat_percentage') return acc + 2;
-            if (field.db_column === 'weight_kg') return acc + 2;
+            if (field.db_column === 'body_fat_percentage' || field.db_column === 'weight_kg') return acc + 2;
             return acc + 1;
-        }, 1);
+        }, 2); // 2 for Fecha + Acciones
         tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;">No hay registros de valoración.</td></tr>`;
+        if (mobileContainer) {
+            mobileContainer.innerHTML = `<div style="padding:20px; text-align:center; color:var(--color-text-secondary);">No hay historial registrado.</div>`;
+        }
         return;
     }
     
-    // Render in reverse chronological order (newest first)
     const sorted = [...assessments].reverse();
     
-    sorted.forEach(as => {
+    sorted.forEach((as, idx) => {
         let rowHtml = `<tr><td style="font-weight:700; color:var(--accent-cyan);">${as.date}</td>`;
+        let detailsHtml = '';
         
         activeFields.forEach(field => {
             if (field.db_column === 'body_fat_percentage') {
                 const fatPct = as.body_fat_percentage || 0;
                 const sumFolds = as.sum_folds || ((as.scapular || 0) + (as.triceps || 0) + (as.abdominal || 0) + (as.iliac || as.suprailiac || 0));
                 rowHtml += `<td><strong>${fatPct.toFixed(1)}%</strong></td><td>${sumFolds ? sumFolds.toFixed(1) + ' mm' : '-'}</td>`;
+                detailsHtml += `
+                    <div class="assessment-detail-row"><span class="detail-label">% Grasa</span><span class="detail-value">${fatPct.toFixed(1)}%</span></div>
+                    <div class="assessment-detail-row"><span class="detail-label">Suma Pliegues</span><span class="detail-value">${sumFolds ? sumFolds.toFixed(1) + ' mm' : '-'}</span></div>
+                `;
             } else if (field.db_column === 'weight_kg') {
                 const weight = as.weight_kg || 0;
                 const bmi = as.bmi || (weight / (((as.height_cm || 170) / 100.0) ** 2));
                 rowHtml += `<td>${weight} kg</td><td>${bmi.toFixed(1)}</td>`;
+                detailsHtml += `
+                    <div class="assessment-detail-row"><span class="detail-label">Peso</span><span class="detail-value">${weight} kg</span></div>
+                    <div class="assessment-detail-row"><span class="detail-label">IMC</span><span class="detail-value">${bmi.toFixed(1)}</span></div>
+                `;
             } else if (field.db_column === 'lean_mass_kg') {
                 const leanMass = as.lean_mass_kg || (as.weight_kg - (as.weight_kg * ((as.body_fat_percentage || 0) / 100.0)));
                 rowHtml += `<td>${leanMass.toFixed(1)} kg</td>`;
+                detailsHtml += `<div class="assessment-detail-row"><span class="detail-label">Masa Magra</span><span class="detail-value">${leanMass.toFixed(1)} kg</span></div>`;
             } else if (field.is_default && field.db_column) {
                 const val = as[field.db_column];
                 rowHtml += `<td>${val !== null && val !== undefined ? val : '-'}</td>`;
+                detailsHtml += `<div class="assessment-detail-row"><span class="detail-label">${field.field_name}</span><span class="detail-value">${val !== null && val !== undefined ? val + (field.unit ? ' ' + field.unit : '') : '-'}</span></div>`;
             } else {
                 let customVal = '-';
                 if (as.custom_data) {
                     try {
                         const parsed = typeof as.custom_data === 'string' ? JSON.parse(as.custom_data) : as.custom_data;
-                        if (parsed && parsed[field.field_name] !== undefined) {
-                            customVal = parsed[field.field_name];
-                        }
-                    } catch (e) {
-                        console.error(e);
-                    }
+                        if (parsed && parsed[field.field_name] !== undefined) customVal = parsed[field.field_name];
+                    } catch (e) {}
                 }
                 rowHtml += `<td>${customVal}</td>`;
+                detailsHtml += `<div class="assessment-detail-row"><span class="detail-label">${field.field_name}</span><span class="detail-value">${customVal}${customVal !== '-' && field.unit ? ' ' + field.unit : ''}</span></div>`;
             }
         });
         
-        rowHtml += `</tr>`;
-        const row = document.createElement("tr");
-        row.innerHTML = rowHtml;
-        tbody.appendChild(row);
+        rowHtml += `
+            <td style="display: flex; gap: 5px;">
+                <button class="btn-nav" style="color:var(--accent-cyan);" onclick="editAssessment(${as.id})" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn-nav" style="color:var(--accent-red);" onclick="deleteAssessment(${as.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        </tr>`;
+        tbody.innerHTML += rowHtml;
+        
+        if (mobileContainer) {
+            const card = document.createElement("div");
+            card.className = "mobile-assessment-card";
+            card.innerHTML = `
+                <div class="mobile-assessment-header" onclick="toggleAssessmentDetails(${idx})">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan);"></i>
+                        <span style="font-weight:700; color:var(--color-text-primary);">${as.date}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span class="badge-weight">${as.weight_kg ? as.weight_kg + ' kg' : '-'}</span>
+                        <i class="fa-solid fa-chevron-down chevron-icon" id="chevronIcon-${idx}"></i>
+                    </div>
+                </div>
+                <div class="mobile-assessment-details" id="assessmentDetails-${idx}" style="display:none;">
+                    ${detailsHtml}
+                    <div style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                        <button class="btn-nav" style="color:var(--accent-cyan); width:auto;" onclick="editAssessment(${as.id})"><i class="fa-solid fa-pen"></i> Editar</button>
+                        <button class="btn-nav" style="color:var(--accent-red); width:auto;" onclick="deleteAssessment(${as.id})"><i class="fa-solid fa-trash"></i> Eliminar</button>
+                    </div>
+                </div>
+            `;
+            mobileContainer.appendChild(card);
+        }
     });
 }
 
@@ -353,12 +404,12 @@ function renderWorkoutPlans() {
                 block.exercises.forEach(ex => {
                     exercisesHtml += `
                         <tr>
-                            <td class="exercise-name">${ex.exercise_name}</td>
-                            <td><span class="compliance-badge">${ex.sets_count} Series</span></td>
-                            <td><strong>${ex.reps_range}</strong></td>
-                            <td>RPE ${ex.rpe_target || 'N/A'}</td>
-                            <td>${ex.rest_seconds ? ex.rest_seconds + 's' : '-'}</td>
-                            <td>
+                            <td class="exercise-name" style="padding: 4px;">${ex.exercise_name}</td>
+                            <td style="padding: 4px;"><span class="compliance-badge" style="padding: 2px 4px;">${ex.sets_count} Series</span></td>
+                            <td style="padding: 4px;"><strong>${ex.reps_range}</strong></td>
+                            <td style="padding: 4px;">RPE ${ex.rpe_target || 'N/A'}</td>
+                            <td style="padding: 4px;">${ex.rest_seconds ? ex.rest_seconds + 's' : '-'}</td>
+                            <td style="padding: 4px;">
                                 ${ex.video_url ? `<a href="#" class="exercise-video-link" onclick="playVideo(event, '${ex.video_url}', this)"><i class="fa-solid fa-circle-play"></i> Ver Técnica</a>` : '-'}
                             </td>
                         </tr>
@@ -377,19 +428,21 @@ function renderWorkoutPlans() {
                 blocksHtml += `
                     <div style="margin-bottom: 20px; border-left: 3px solid var(--accent-cyan); padding-left: 12px; background: rgba(0,0,0,0.1); padding-top: 10px; padding-bottom: 10px; border-radius: 0 8px 8px 0;">
                         <h5 style="color: var(--accent-cyan); margin-bottom: 10px; font-size: 14px;">Bloque: ${block.name} <span style="color:var(--color-text-secondary); font-size:11px; font-weight:normal;">[${block.routine_class}]</span></h5>
-                        <table class="exercise-table">
-                            <thead>
-                                <tr>
-                                    <th>Ejercicio</th>
-                                    <th>Series</th>
-                                    <th>Rango Reps</th>
-                                    <th>Esfuerzo (RPE)</th>
-                                    <th>Descanso</th>
-                                    <th>Multimedia Propia</th>
-                                </tr>
-                            </thead>
-                            <tbody>${exercisesHtml}</tbody>
-                        </table>
+                        <div style="overflow-x: auto; width: 100%;">
+                            <table class="exercise-table" style="min-width: 400px; font-size: 10px;">
+                                <thead>
+                                    <tr>
+                                        <th style="padding: 4px;">Ejercicio</th>
+                                        <th style="padding: 4px;">Series</th>
+                                        <th style="padding: 4px;">Rango Reps</th>
+                                        <th style="padding: 4px;">Esfuerzo (RPE)</th>
+                                        <th style="padding: 4px;">Descanso</th>
+                                        <th style="padding: 4px;">Multimedia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${exercisesHtml}</tbody>
+                            </table>
+                        </div>
                     </div>
                 `;
             });
@@ -455,13 +508,15 @@ function renderNutritionPlans() {
     const targetLabel = activeTargetParts.length > 0 ? `Target: ${activeTargetParts.join(' | ')}` : '';
     
     container.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-            <div style="display:flex; align-items:center; gap: 15px;">
-                <h3>Plan: ${diet.title}</h3>
-                <button class="btn-nav" style="color: var(--accent-green);" onclick="editNutritionPlan(${diet.id}, false)"><i class="fa-solid fa-pen"></i> Editar Plan</button>
-                <button class="btn-nav" style="color: var(--accent-red);" onclick="deleteNutritionPlan(${diet.id})"><i class="fa-solid fa-trash"></i> Eliminar Plan</button>
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom: 15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <h3 style="margin:0;">Plan: ${diet.title}</h3>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn-nav" style="color: var(--accent-green); padding:5px 8px;" onclick="editNutritionPlan(${diet.id}, false)" title="Editar Plan"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn-nav" style="color: var(--accent-red); padding:5px 8px;" onclick="deleteNutritionPlan(${diet.id})" title="Eliminar Plan"><i class="fa-solid fa-trash"></i></button>
+                </div>
             </div>
-            ${targetLabel ? `<span class="compliance-badge" style="background:rgba(139,92,246,0.15); color:var(--accent-purple); border-color:rgba(139,92,246,0.3)">${targetLabel}</span>` : ''}
+            ${targetLabel ? `<div style="font-size:11px; background:rgba(139,92,246,0.15); color:var(--accent-purple); padding:5px; border-radius:4px; border:1px solid rgba(139,92,246,0.3); text-align:center;">${targetLabel}</div>` : ''}
         </div>
         <p style="color:var(--color-text-secondary); margin-bottom: 20px;">${diet.description || ''}</p>
     `;
@@ -844,6 +899,65 @@ async function submitNewAssessment(event) {
     }
 }
 
+async function deleteAssessment(id) {
+    if (!confirm("¿Eliminar esta valoración?")) return;
+    try {
+        const res = await fetch(`/api/assessments?id=${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (data.success) {
+            alert("Valoración eliminada.");
+            selectClient(activeUserId);
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error de red");
+    }
+}
+
+function editAssessment(id) {
+    const as = selectedUserFullData.assessments.find(a => a.id === id);
+    if (!as) return;
+    
+    const container = document.getElementById("newAssessmentFormContainer");
+    if (container.style.display === "none") {
+        container.style.display = "block";
+        renderAssessmentForm();
+    }
+    
+    // Core fields: Date and resting HR
+    if (document.getElementById("formDate")) document.getElementById("formDate").value = as.date;
+    if (document.getElementById("formFcRep")) document.getElementById("formFcRep").value = as.fc_rep || '';
+    
+    const activeFields = globalAssessmentConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    activeFields.forEach(field => {
+        if (field.db_column === 'body_fat_percentage') {
+            if (document.getElementById("formFoldTriceps")) document.getElementById("formFoldTriceps").value = as.triceps || '';
+            if (document.getElementById("formFoldScapular")) document.getElementById("formFoldScapular").value = as.scapular || '';
+            if (document.getElementById("formFoldIliac")) document.getElementById("formFoldIliac").value = as.iliac_fold || as.iliac || '';
+            if (document.getElementById("formFoldAbdominal")) document.getElementById("formFoldAbdominal").value = as.abdominal || '';
+        } else if (field.is_default && field.db_column) {
+            const inputEl = document.getElementById(`formField_${field.id}`);
+            if (inputEl && as[field.db_column] !== undefined) {
+                inputEl.value = as[field.db_column];
+            }
+        } else {
+            const inputEl = document.getElementById(`formField_${field.id}`);
+            if (inputEl && as.custom_data) {
+                try {
+                    const parsed = typeof as.custom_data === 'string' ? JSON.parse(as.custom_data) : as.custom_data;
+                    if (parsed[field.field_name] !== undefined) {
+                        inputEl.value = parsed[field.field_name];
+                    }
+                } catch (e) {}
+            }
+        }
+    });
+    
+    document.getElementById("newAssessmentFormContainer").scrollIntoView({ behavior: 'smooth' });
+}
+
 // Modal handling
 function openAddClientModal() {
     document.getElementById("addClientModal").style.display = "flex";
@@ -1168,18 +1282,18 @@ async function fetchGlobalRoutines() {
         container.innerHTML = '';
         
         routines.forEach(r => {
-            let daysHtml = r.days.map(d => `<span class="compliance-badge" style="background: rgba(245, 158, 11, 0.2); color: var(--accent-orange);">${d.day_name} (${d.blocks.length} blq - ${d.total_exercises} ej)</span>`).join(' ');
+            let daysHtml = r.days.map(d => `<span class="compliance-badge" style="background: rgba(245, 158, 11, 0.2); color: var(--accent-orange); display: inline-block; margin-bottom: 5px;">${d.day_name} (${d.blocks.length} blq - ${d.total_exercises} ej)</span>`).join(' ');
             container.innerHTML += `
-                <div class="workout-day-card" style="margin-bottom: 10px;">
-                    <div style="display:flex; justify-content:space-between;">
-                        <h4>${r.title}</h4>
+                <div class="workout-day-card" style="margin-bottom: 10px; padding: 12px; background: rgba(0,0,0,0.15);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 8px;">
+                        <h4 style="margin: 0; font-size: 14px;">${r.title}</h4>
                         <div style="display:flex; gap: 5px;">
-                            <button class="btn-primary" style="padding: 4px 10px; font-size: 12px;" onclick="assignRoutinePrompt(${r.id}, '${r.title}')"><i class="fa-solid fa-user-plus"></i> Asignar</button>
-                            <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="editRoutine(${r.id})"><i class="fa-solid fa-pen"></i></button>
-                            <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteRoutine(${r.id})"><i class="fa-solid fa-trash"></i></button>
+                            <button class="btn-primary" style="padding: 4px 8px; font-size: 11px;" onclick="assignRoutinePrompt(${r.id}, '${r.title}')"><i class="fa-solid fa-user-plus"></i> Asignar</button>
+                            <button class="btn-nav" style="padding: 4px 8px; font-size: 11px; color: var(--accent-cyan);" onclick="editRoutine(${r.id})"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn-nav" style="padding: 4px 8px; font-size: 11px; color: var(--accent-red);" onclick="deleteRoutine(${r.id})"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
-                    <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 10px;">${r.description || ''}</p>
+                    <p style="color: var(--color-text-secondary); font-size: 12px; margin-bottom: 10px; margin-top:0;">${r.description || ''}</p>
                     <div>${daysHtml}</div>
                 </div>
             `;
@@ -1389,19 +1503,19 @@ async function renderDailyCalendar() {
         if (log) {
             // Day has data
             grid.innerHTML += `
-                <div style="background: rgba(14, 165, 233, 0.2); ${borderStyle} border-radius: 8px; padding: 10px; cursor: pointer; transition: 0.2s;" 
+                <div style="background: rgba(14, 165, 233, 0.2); ${borderStyle} border-radius: 8px; padding: 5px; cursor: pointer; transition: 0.2s; display:flex; flex-direction:column; align-items:center;" 
                      onmouseover="this.style.background='rgba(14, 165, 233, 0.4)'" 
                      onmouseout="this.style.background='rgba(14, 165, 233, 0.2)'"
                      onclick='showDayDetails(${JSON.stringify(log)})'>
-                    <div style="font-weight:bold; color: white;">${d}</div>
-                    <div style="font-size: 10px; color: var(--accent-cyan);"><i class="fa-solid fa-check"></i> Listo</div>
+                    <div style="font-weight:bold; color: white; font-size:12px;">${d}</div>
+                    <div style="font-size: 12px; color: var(--accent-cyan); margin-top:2px;"><i class="fa-solid fa-check"></i></div>
                 </div>
             `;
         } else {
             // Empty day
             grid.innerHTML += `
-                <div style="background: rgba(255, 255, 255, 0.05); ${borderStyle} border-radius: 8px; padding: 10px; opacity: 0.5;">
-                    <div style="font-weight:bold;">${d}</div>
+                <div style="background: rgba(255, 255, 255, 0.05); ${borderStyle} border-radius: 8px; padding: 5px; opacity: 0.5; display:flex; align-items:center; justify-content:center;">
+                    <div style="font-weight:bold; font-size:12px;">${d}</div>
                 </div>
             `;
         }
@@ -2161,15 +2275,15 @@ async function fetchGlobalNutritionPlans() {
         globalNutritionPlansCache.forEach(plan => {
             tbody.innerHTML += `
                 <tr>
-                    <td>${plan.id}</td>
-                    <td style="font-weight: bold; color: var(--accent-green);">${plan.title}</td>
-                    <td>${plan.description || '-'}</td>
-                    <td>${plan.target_calories || 0} kcal</td>
-                    <td>${plan.target_protein || 0}g / ${plan.target_carbs || 0}g / ${plan.target_fat || 0}g</td>
-                    <td style="display: flex; gap: 5px;">
-                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="assignGlobalNutritionPlan(${plan.id})"><i class="fa-solid fa-share-nodes"></i> Asignar</button>
-                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-green);" onclick="editNutritionPlan(${plan.id}, true)" title="Editar"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteNutritionPlan(${plan.id})"><i class="fa-solid fa-trash"></i></button>
+                    <td style="padding: 4px;">${plan.id}</td>
+                    <td style="font-weight: bold; color: var(--accent-green); padding: 4px;">${plan.title}</td>
+                    <td style="padding: 4px;">${plan.description || '-'}</td>
+                    <td style="padding: 4px;">${plan.target_calories || 0} kcal</td>
+                    <td style="padding: 4px;">${plan.target_protein || 0}g / ${plan.target_carbs || 0}g / ${plan.target_fat || 0}g</td>
+                    <td style="display: flex; gap: 5px; padding: 4px;">
+                        <button class="btn-nav" style="padding: 4px 8px; font-size: 11px; color: var(--accent-cyan);" onclick="assignGlobalNutritionPlan(${plan.id})"><i class="fa-solid fa-share-nodes"></i> Asignar</button>
+                        <button class="btn-nav" style="padding: 4px 8px; font-size: 11px; color: var(--accent-green);" onclick="editNutritionPlan(${plan.id}, true)" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-nav" style="padding: 4px 8px; font-size: 11px; color: var(--accent-red);" onclick="deleteNutritionPlan(${plan.id})"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 </tr>
             `;
@@ -2744,8 +2858,8 @@ function renderFoodsTable() {
     globalFoodLibrary.forEach(food => {
         let rowHtml = `
             <tr>
-                <td>${food.id}</td>
-                <td style="font-weight: bold; color: var(--accent-green);">${food.name}</td>
+                <td style="padding: 4px;">${food.id}</td>
+                <td style="font-weight: bold; color: var(--accent-green); padding: 4px;">${food.name}</td>
         `;
         
         activeFields.forEach(field => {
@@ -2755,13 +2869,13 @@ function renderFoodsTable() {
             } else {
                 val = food.custom_data && food.custom_data[field.field_name] !== undefined ? food.custom_data[field.field_name] : '-';
             }
-            rowHtml += `<td>${val}</td>`;
+            rowHtml += `<td style="padding: 4px;">${val}</td>`;
         });
         
         rowHtml += `
-                <td style="display: flex; gap: 5px;">
-                    <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-green);" onclick="editFood(${food.id})" title="Editar"><i class="fa-solid fa-pen"></i></button>
-                    <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteFood(${food.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                <td style="display: flex; gap: 5px; padding: 4px;">
+                    <button class="btn-nav" style="padding: 4px 8px; font-size: 11px; color: var(--accent-green);" onclick="editFood(${food.id})" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn-nav" style="padding: 4px 8px; font-size: 11px; color: var(--accent-red);" onclick="deleteFood(${food.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
                 </td>
             </tr>
         `;
@@ -2923,5 +3037,78 @@ function scaleFoodFields(foodRow, food) {
             }
         }
     });
+}
+
+// ==========================================
+// MOBILE NATIVE EXPERIENCE HANDLERS
+// ==========================================
+
+function closeMobileSlidePanel() {
+    const panel = document.getElementById("mainContentPanel");
+    if (panel) {
+        panel.classList.remove("mobile-open");
+    }
+}
+
+function closeMobileSubPanel() {
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    tabBtns.forEach(btn => btn.classList.remove("active"));
+    
+    const panels = document.querySelectorAll(".tab-panel");
+    panels.forEach(p => p.classList.remove("active"));
+}
+
+function toggleAssessmentDetails(index) {
+    const details = document.getElementById(`assessmentDetails-${index}`);
+    const chevron = document.getElementById(`chevronIcon-${index}`);
+    if (!details) return;
+    
+    if (details.style.display === "none") {
+        details.style.display = "flex";
+        if (chevron) chevron.style.transform = "rotate(180deg)";
+    } else {
+        details.style.display = "none";
+        if (chevron) chevron.style.transform = "rotate(0deg)";
+    }
+}
+
+function handleBottomNav(viewId) {
+    // Hide mobile details panel if it was open
+    closeMobileSlidePanel();
+    
+    // Call the original desktop view switcher
+    if (typeof showGlobalView === 'function') {
+        showGlobalView(viewId);
+    }
+    
+    // Update bottom nav active state
+    document.querySelectorAll('.bottom-nav-item').forEach(btn => btn.classList.remove('active'));
+    let botNavId = '';
+    if (viewId === 'clients') botNavId = 'botNavClients';
+    else if (viewId === 'assessment') botNavId = 'botNavAssessment';
+    else if (viewId === 'training') botNavId = 'botNavTraining';
+    else if (viewId === 'nutrition') botNavId = 'botNavNutrition';
+    
+    if (botNavId) {
+        const botBtn = document.getElementById(botNavId);
+        if (botBtn) botBtn.classList.add('active');
+    }
+}
+
+function handleFabClick() {
+    const clientsView = document.getElementById("clientsView");
+    const trainingLibView = document.getElementById("trainingLibView");
+    const nutritionLibView = document.getElementById("nutritionLibView");
+    const assessmentLibView = document.getElementById("assessmentLibView");
+
+    if (clientsView && clientsView.style.display !== 'none' && clientsView.style.display !== '') {
+        if (typeof openAddClientModal === 'function') openAddClientModal();
+    } else if (trainingLibView && trainingLibView.style.display !== 'none') {
+        if (typeof openExerciseModal === 'function') openExerciseModal();
+    } else if (nutritionLibView && nutritionLibView.style.display !== 'none') {
+        if (typeof openNutritionModal === 'function') openNutritionModal(true);
+    } else if (assessmentLibView && assessmentLibView.style.display !== 'none') {
+        if (typeof openAssessmentConfigModal === 'function') openAssessmentConfigModal();
+    }
 }
 

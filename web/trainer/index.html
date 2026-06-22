@@ -67,6 +67,19 @@
         </div>
     </header>
 
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <nav class="bottom-nav">
+        <a href="#" onclick="handleBottomNav('clients')" class="bottom-nav-item active" id="botNavClients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+        <a href="#" onclick="handleBottomNav('assessment')" class="bottom-nav-item" id="botNavAssessment"><i class="fa-solid fa-ruler-combined"></i><span>Métricas</span></a>
+        <a href="#" onclick="handleBottomNav('training')" class="bottom-nav-item" id="botNavTraining"><i class="fa-solid fa-dumbbell"></i><span>Rutinas</span></a>
+        <a href="#" onclick="handleBottomNav('nutrition')" class="bottom-nav-item" id="botNavNutrition"><i class="fa-solid fa-apple-whole"></i><span>Dieta</span></a>
+    </nav>
+    
+    <!-- MOBILE FAB (Floating Action Button) -->
+    <button class="fab-btn" onclick="handleFabClick()" id="mobileFab">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+
     <!-- VISTA 1: CLIENTES -->
     <div class="container" id="clientsView">
         <div class="grid-dashboard">
@@ -86,61 +99,39 @@
             </div>
 
             <!-- Main Panel: Selected Client details -->
-            <div class="main-content">
-                <!-- Profile Header Details -->
-                <div class="glass-card" id="profileHeaderCard" style="display: none;">
-                    <div class="client-profile-header">
-                        <div class="profile-meta">
-                            <h2 id="clientFullName">Nombre del Cliente</h2>
-                            <p id="clientEmailPhone">email@example.com | +300 000 0000</p>
-                            
-                            <div class="profile-grid-summary">
-                                <div class="summary-stat-box">
-                                    <span>Edad</span>
-                                    <strong id="clientAge">-</strong>
-                                </div>
-                                <div class="summary-stat-box">
-                                    <span>Estatura</span>
-                                    <strong id="clientHeight">-</strong>
-                                </div>
-                                <div class="summary-stat-box">
-                                    <span>Grupo Sanguíneo</span>
-                                    <strong id="clientBlood">-</strong>
-                                </div>
-                                <div class="summary-stat-box">
-                                    <span>Disponibilidad</span>
-                                    <strong id="clientSchedule">-</strong>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-                            <div class="compliance-badge" id="clientStatusBadge">ACTIVO</div>
-                            <button class="btn-primary" onclick="exportToPDF()" style="background: linear-gradient(135deg, var(--accent-orange), var(--accent-red)); box-shadow: 0 0 10px rgba(245, 158, 11, 0.3); padding: 8px 15px; font-size: 13px;"><i class="fa-solid fa-file-pdf"></i> Descargar PDF</button>
-                        </div>
+            <div class="main-content" id="mainContentPanel">
+                <button class="mobile-back-btn" onclick="closeMobileSlidePanel()"><i class="fa-solid fa-arrow-left"></i> Volver a la lista</button>
+                <!-- Profile Header Details & Mini KPIs -->
+                <div class="glass-card" id="profileHeaderCard" style="display: none; padding: 15px; text-align: center;">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                        <h2 id="clientFullName" style="font-size: 20px; margin: 0; line-height: 1.2;">Nombre del Cliente</h2>
+                        <div class="compliance-badge" id="clientStatusBadge" style="font-size: 10px; padding: 2px 8px;">ACTIVO</div>
+                        <p id="clientEmailPhone" style="font-size: 11px; color: var(--color-text-secondary); margin: 0;">email@example.com | +300 000 0000</p>
                     </div>
                     
-                    <div style="margin-top: 15px; display: flex; gap: 20px; font-size: 13px; color: var(--color-text-secondary);">
-                        <div><strong>Alergias:</strong> <span id="clientAllergies">-</span></div>
-                        <div><strong>Medicamentos:</strong> <span id="clientMedications">-</span></div>
+                    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 15px; font-size: 11px;">
+                        <div><strong style="color:var(--color-text-muted);">Edad:</strong> <span id="clientAge">-</span></div>
+                        <div><strong style="color:var(--color-text-muted);">Estatura:</strong> <span id="clientHeight">-</span></div>
+                        <div><strong style="color:var(--color-text-muted);">Sangre:</strong> <span id="clientBlood">-</span></div>
+                        <div><strong style="color:var(--color-text-muted);">Alergias:</strong> <span id="clientAllergies">-</span></div>
+                        <div><strong style="color:var(--color-text-muted);">Meds:</strong> <span id="clientMedications">-</span></div>
+                        <div><strong style="color:var(--color-text-muted);">Disp:</strong> <span id="clientSchedule">-</span></div>
                     </div>
-                </div>
 
-                <!-- Client KPIs Summary row -->
-                <div class="kpis-grid" id="kpiContainer" style="display: none;">
-                    <div class="glass-card kpi-card">
-                        <span class="kpi-title">Masa Libre Grasa (FFMI)</span>
-                        <span class="kpi-value cyan" id="kpiFFMI">0.0</span>
-                        <span class="kpi-desc" id="kpiFFMIDesc">Músculo relativo</span>
-                    </div>
-                    <div class="glass-card kpi-card">
-                        <span class="kpi-title">Grasa Corporal (%)</span>
-                        <span class="kpi-value purple" id="kpiFatPct">0.0%</span>
-                        <span class="kpi-desc" id="kpiFatPctDesc">Método Faulkner</span>
-                    </div>
-                    <div class="glass-card kpi-card">
-                        <span class="kpi-title">Relación Cintura-Altura</span>
-                        <span class="kpi-value green" id="kpiWtHR">0.00</span>
-                        <span class="kpi-desc" id="kpiWtHRDesc">Salud cardiovascular</span>
+                    <!-- Mini KPIs inline -->
+                    <div id="kpiContainer" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
+                        <div style="display:flex; flex-direction:column; background:rgba(0,0,0,0.2); padding:5px 10px; border-radius:6px; border:1px solid rgba(243,202,76,0.1);">
+                            <span style="font-size:9px; text-transform:uppercase; color:var(--color-text-muted);">Masa Libre Grasa</span>
+                            <span id="kpiFFMI" style="font-size:14px; font-weight:bold; color:var(--accent-cyan);">0.0</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; background:rgba(0,0,0,0.2); padding:5px 10px; border-radius:6px; border:1px solid rgba(243,202,76,0.1);">
+                            <span style="font-size:9px; text-transform:uppercase; color:var(--color-text-muted);">Grasa Corporal</span>
+                            <span id="kpiFatPct" style="font-size:14px; font-weight:bold; color:var(--accent-purple);">0.0%</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; background:rgba(0,0,0,0.2); padding:5px 10px; border-radius:6px; border:1px solid rgba(243,202,76,0.1);">
+                            <span style="font-size:9px; text-transform:uppercase; color:var(--color-text-muted);">Cintura/Altura</span>
+                            <span id="kpiWtHR" style="font-size:14px; font-weight:bold; color:var(--accent-green);">0.00</span>
+                        </div>
                     </div>
                 </div>
 
@@ -149,12 +140,13 @@
                     <div class="tabs-container">
                         <button class="tab-btn active" onclick="switchTab('tabFicha')"><i class="fa-solid fa-address-book"></i> Ficha Antropométrica</button>
                         <button class="tab-btn" onclick="switchTab('tabSeguimiento')"><i class="fa-solid fa-chart-line"></i> Trazabilidad Diaria</button>
-                        <button class="tab-btn" onclick="switchTab('tabRutinas')"><i class="fa-solid fa-calendar-days"></i> Rutinas de Fuerza</button>
+                        <button class="tab-btn" onclick="switchTab('tabRutinas')"><i class="fa-solid fa-calendar-days"></i> Rutina</button>
                         <button class="tab-btn" onclick="switchTab('tabNutricion')"><i class="fa-solid fa-plate-wheat"></i> Nutrición Fit</button>
                     </div>
 
                     <!-- TAB 1: FICHA ANTROPOMETRICA FORM & RECORDS -->
                     <div class="tab-panel active" id="tabFicha">
+                        <button class="mobile-sub-back-btn" onclick="closeMobileSubPanel()"><i class="fa-solid fa-arrow-left"></i> Volver a Detalles</button>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <h3>Historial de Evaluaciones Física</h3>
                             <button class="btn-primary" onclick="toggleNewAssessmentForm()"><i class="fa-solid fa-plus"></i> Nueva Evaluación</button>
@@ -173,21 +165,19 @@
                                     <button type="submit" class="btn-primary">Guardar Evaluación</button>
                                 </div>
                             </form>
-                        </div>
-
+                        </div> <!-- Cierre del newAssessmentFormContainer -->
+                        
                         <!-- Historical Table -->
-                        <div style="overflow-x: auto;">
+                        <div class="desktop-history-container" style="overflow-x: auto;">
                             <table class="exercise-table" id="assessmentHistoryTable">
                                 <thead>
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Peso (kg)</th>
                                         <th>IMC</th>
-                                        <th>Grasa (%)</th>
-                                        <th>Abdomen (cm)</th>
-                                        <th>Bíceps D (cm)</th>
-                                        <th>Masa Magra (kg)</th>
-                                        <th>Pliegues (Suma)</th>
+                                        <th>% Grasa</th>
+                                        <th>Masa Muscular</th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="assessmentHistoryBody">
@@ -195,10 +185,16 @@
                                 </tbody>
                             </table>
                         </div>
+                        
+                        <!-- Mobile Accordion Date-based History List -->
+                        <div class="mobile-history-container" id="assessmentHistoryMobileContainer">
+                            <!-- Loaded dynamically by trainer.js -->
+                        </div>
                     </div>
 
                     <!-- TAB 2: DAILY PROGRESS CHARTS -->
                     <div class="tab-panel" id="tabSeguimiento">
+                        <button class="mobile-sub-back-btn" onclick="closeMobileSubPanel()"><i class="fa-solid fa-arrow-left"></i> Volver a Detalles</button>
                         <h3>Trazabilidad Diaria del Cliente</h3>
                         <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Datos sincronizados desde el podómetro, sueño y sensores del smartphone.</p>
                         <div class="calendar-dashboard glass-card" style="margin-bottom: 20px;">
@@ -245,6 +241,7 @@
 
                     <!-- TAB 3: WORKOUT PLANS & EXERCISES -->
                     <div class="tab-panel" id="tabRutinas">
+                        <button class="mobile-sub-back-btn" onclick="closeMobileSubPanel()"><i class="fa-solid fa-arrow-left"></i> Volver a Detalles</button>
                         <div id="workoutPlanContainer">
                             <!-- Loaded dynamically -->
                         </div>
@@ -252,6 +249,7 @@
 
                     <!-- TAB 4: DIETS & MEAL PLANS -->
                     <div class="tab-panel" id="tabNutricion">
+                        <button class="mobile-sub-back-btn" onclick="closeMobileSubPanel()"><i class="fa-solid fa-arrow-left"></i> Volver a Detalles</button>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <h3>Plan de Nutrición Actual</h3>
                             <button class="btn-primary" onclick="promptAssignNutritionToClient()"><i class="fa-solid fa-plus"></i> Asignar Plan</button>
@@ -270,9 +268,9 @@
     <!-- VISTA 2: LIBRERÍA DE ENTRENAMIENTO -->
     <div class="container" id="trainingLibView" style="display: none;">
         <div class="glass-card" style="margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2><i class="fa-solid fa-dumbbell" style="color: var(--accent-cyan);"></i> Librería Global de Ejercicios</h2>
-                <button class="btn-primary" onclick="openExerciseModal()"><i class="fa-solid fa-plus"></i> Nuevo Ejercicio</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 15px;"><i class="fa-solid fa-dumbbell" style="color: var(--accent-cyan);"></i> Librería Global de Ejercicios</h3>
+                <button class="btn-primary" style="padding: 6px 12px; font-size: 11px;" onclick="openExerciseModal()"><i class="fa-solid fa-plus"></i> Nuevo Ejercicio</button>
             </div>
             <div style="overflow-x: auto;">
                 <table class="exercise-table">
@@ -294,9 +292,9 @@
         </div>
 
         <div class="glass-card" style="margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2><i class="fa-solid fa-layer-group" style="color: var(--accent-cyan);"></i> Bloques / Grupos Musculares</h2>
-                <button class="btn-primary" onclick="openBlockModal()"><i class="fa-solid fa-plus"></i> Nuevo Bloque</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 15px;"><i class="fa-solid fa-layer-group" style="color: var(--accent-cyan);"></i> Bloques / Grupos Musculares</h3>
+                <button class="btn-primary" style="padding: 6px 12px; font-size: 11px;" onclick="openBlockModal()"><i class="fa-solid fa-plus"></i> Nuevo Bloque</button>
             </div>
             <div id="globalBlocksList">
                 <!-- Llenado dinámico -->
@@ -304,9 +302,9 @@
         </div>
 
         <div class="glass-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2><i class="fa-solid fa-calendar-days" style="color: var(--accent-orange);"></i> Plantillas de Rutinas (Globales)</h2>
-                <button class="btn-primary" onclick="openRoutineModal()"><i class="fa-solid fa-plus"></i> Nueva Plantilla de Rutina</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 15px;"><i class="fa-solid fa-calendar-days" style="color: var(--accent-orange);"></i> Plantillas de Rutinas (Globales)</h3>
+                <button class="btn-primary" style="padding: 6px 12px; font-size: 11px;" onclick="openRoutineModal()"><i class="fa-solid fa-plus"></i> Nueva Plantilla de Rutina</button>
             </div>
             <div id="globalRoutinesList">
                 <!-- Llenado dinámico -->
@@ -317,15 +315,16 @@
     <!-- VISTA 3: LIBRERÍA DE NUTRICIÓN -->
     <div class="container" id="nutritionLibView" style="display: none;">
         <div class="glass-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2><i class="fa-solid fa-apple-whole" style="color: var(--accent-green);"></i> Plantillas de Nutrición (Globales)</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 15px;"><i class="fa-solid fa-apple-whole" style="color: var(--accent-green);"></i> Plantillas de Nutrición (Globales)</h3>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn-nav" onclick="showGlobalView('nutrition_config')"><i class="fa-solid fa-sliders"></i> Configurar Campos</button>
-                    <button class="btn-primary" onclick="openNutritionModal(true)"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
+                    <button class="btn-nav" style="padding: 6px 10px; font-size: 11px;" onclick="showGlobalView('nutrition_config')"><i class="fa-solid fa-sliders"></i> Configurar Campos</button>
+                    <button class="btn-primary" style="padding: 6px 12px; font-size: 11px;" onclick="openNutritionModal(true)"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
                 </div>
             </div>
             
-            <table class="data-table" style="width: 100%;">
+            <div style="overflow-x: auto; width: 100%;">
+            <table class="data-table" style="width: 100%; min-width: 600px; font-size: 11px;">
                 <thead>
                     <tr>
                         <th style="width: 50px; text-align: left;">ID</th>
@@ -340,15 +339,17 @@
                     <!-- Llenado dinámico -->
                 </tbody>
             </table>
+            </div>
         </div>
 
         <div class="glass-card" style="margin-top: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2><i class="fa-solid fa-carrot" style="color: var(--accent-green);"></i> Biblioteca de Alimentos / Ingredientes</h2>
-                <button class="btn-primary" style="background: var(--accent-green);" onclick="openFoodModal()"><i class="fa-solid fa-plus"></i> Nuevo Alimento</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 15px;"><i class="fa-solid fa-carrot" style="color: var(--accent-green);"></i> Biblioteca de Alimentos / Ingredientes</h3>
+                <button class="btn-primary" style="background: var(--accent-green); padding: 6px 12px; font-size: 11px;" onclick="openFoodModal()"><i class="fa-solid fa-plus"></i> Nuevo Alimento</button>
             </div>
             
-            <table class="data-table" style="width: 100%;">
+            <div style="overflow-x: auto; width: 100%;">
+            <table class="data-table" style="width: 100%; min-width: 600px; font-size: 11px;">
                 <thead>
                     <tr id="globalFoodsHeader">
                         <!-- Llenado dinámico -->
@@ -358,6 +359,7 @@
                     <!-- Llenado dinámico -->
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 
@@ -791,17 +793,31 @@
         </div>
     </div>
 
+    <!-- Day Detail Modal -->
+    <div id="dayDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 400px; max-width: 90%; text-align: center; position: relative;">
+            <button onclick="document.getElementById('dayDetailModal').style.display='none'" style="position: absolute; top: 10px; right: 15px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">&times;</button>
+            <h3 style="color: var(--accent-cyan); margin-bottom: 15px;"><i class="fa-solid fa-calendar-day"></i> <span id="dayDetailDate">Fecha</span></h3>
+            <div id="dayDetailContent" style="display: flex; flex-direction: column; gap: 10px; text-align: left;">
+                <!-- Content injected here -->
+            </div>
+            <div style="margin-top: 20px;">
+                <button class="btn-primary" onclick="document.getElementById('dayDetailModal').style.display='none'">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/trainer/trainer.js?v=2.0.0"></script>
     
     <!-- PWA Service Worker Registration -->
     <script>
+      /* DESHABILITADO TEMPORALMENTE
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js')
-            .then(reg => console.log('Service Worker registrado: ', reg.scope))
-            .catch(err => console.error('Error Service Worker: ', err));
-        });
+              .then(reg => console.log('Service Worker Registrado!', reg))
+              .catch(err => console.error('Error al registrar SW:', err));
       }
+      */
     </script>
 </body>
 </html>

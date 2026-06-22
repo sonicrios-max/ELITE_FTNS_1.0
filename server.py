@@ -869,6 +869,24 @@ class FitnessHTTPRequestHandler(object):
         finally:
             conn.close()
 
+    def handle_delete_assessment(self, data):
+        assessment_id = data.get("id")
+        if not assessment_id:
+            self.send_error_response(400, "Missing assessment id.")
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.execute("DELETE FROM anthropometric_assessments WHERE id = ?", (assessment_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "message": "Assessment deleted."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
     def handle_create_daily_log(self, data):
         user_id = data.get("user_id")
         date = data.get("date")
@@ -2196,6 +2214,13 @@ async def get_delete_data(request: Request):
         return {}
 
 # --- DELETE Endpoints ---
+
+@app.delete("/api/assessments")
+async def api_delete_assessment(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_assessment(data)
+    return make_api_response(handler)
 
 @app.delete("/api/exercises")
 async def api_delete_exercise(request: Request):
