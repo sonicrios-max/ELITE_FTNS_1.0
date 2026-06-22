@@ -2336,23 +2336,23 @@ async def api_get_foods(request: Request):
 
 # --- UI HTML Views ---
 
-@app.get("/")
-@app.get("/index.html")
+@app.api_route("/", methods=["GET", "HEAD"])
+@app.api_route("/index.html", methods=["GET", "HEAD"])
 async def read_root():
     return FileResponse(os.path.join(BASE_DIR, "web", "index.html"), media_type="text/html")
 
-@app.get("/admin")
-@app.get("/admin/")
+@app.api_route("/admin", methods=["GET", "HEAD"])
+@app.api_route("/admin/", methods=["GET", "HEAD"])
 async def read_admin():
     return FileResponse(os.path.join(BASE_DIR, "web", "admin", "index.html"), media_type="text/html")
 
-@app.get("/trainer")
-@app.get("/trainer/")
+@app.api_route("/trainer", methods=["GET", "HEAD"])
+@app.api_route("/trainer/", methods=["GET", "HEAD"])
 async def read_trainer():
     return FileResponse(os.path.join(BASE_DIR, "web", "trainer", "index.html"), media_type="text/html")
 
-@app.get("/client")
-@app.get("/client/")
+@app.api_route("/client", methods=["GET", "HEAD"])
+@app.api_route("/client/", methods=["GET", "HEAD"])
 async def read_client():
     return FileResponse(os.path.join(BASE_DIR, "web", "client", "client.html"), media_type="text/html")
 
