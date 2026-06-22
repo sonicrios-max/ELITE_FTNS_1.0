@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elite Coaching - Panel Maestro</title>
+    <title>Elite Coaching - Portal Maestro</title>
     <link rel="stylesheet" href="/shared/style.css?v=2.0.0">
     <!-- FontAwesome for premium fitness icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -119,7 +119,7 @@
     <header>
         <div class="logo">
             <i class="fa-solid fa-dumbbell logo-icon"></i>
-            <span>ELITE COACHING - RUTAS MAESTRAS</span>
+            <span>ELITE COACHING</span>
         </div>
         <div style="display: flex; gap: 15px; align-items: center;">
             <a href="/admin/" class="btn-nav" style="border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; font-weight: bold; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-terminal"></i> Consola Dev</a>
@@ -215,7 +215,7 @@
                     document.title = `${config.name} - Portal Maestro`;
                     const logoSpan = document.querySelector('.logo span');
                     if (logoSpan) {
-                        logoSpan.innerText = config.name.toUpperCase();
+                        logoSpan.innerText = `ELITE COACHING | ${config.name.toUpperCase()}`;
                     }
                 }
             } catch (err) {

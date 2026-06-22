@@ -23,7 +23,7 @@
         };
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal del Entrenador - Elite Fitness</title>
+    <title>Portal del Entrenador - Elite Coaching</title>
     <link rel="stylesheet" href="/shared/style.css?v=2.0.0">
     <!-- Chart.js for beautiful interactive analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -51,16 +51,18 @@
     </script>
 
     <header>
-        <div class="logo">
+        <div class="logo" style="display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-dumbbell logo-icon"></i>
-            <span>ELITE COACH</span>
+            <span>ELITE COACHING</span>
+            <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" style="color: #ef4444; margin-left: 10px; cursor: pointer; text-decoration: none; font-size: inherit; font-family: inherit; font-weight: inherit;" title="Salir">
+                <i class="fa-solid fa-right-from-bracket"></i> SALIR
+            </a>
         </div>
         <div class="nav-links">
             <a href="#" onclick="showGlobalView('clients')" class="btn-nav active" id="navClients"><i class="fa-solid fa-users"></i> Clientes</a>
             <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment"><i class="fa-solid fa-ruler-combined"></i> Valoraciones</a>
             <a href="#" onclick="showGlobalView('training')" class="btn-nav" id="navTraining"><i class="fa-solid fa-dumbbell"></i> Entrenamiento</a>
             <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Nutrición</a>
-            <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" class="btn-nav"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
         </div>
         <div>
             <button class="btn-primary" onclick="openAddClientModal()"><i class="fa-solid fa-user-plus"></i> Nuevo Cliente</button>
@@ -212,6 +214,17 @@
                             </div>
                             <div id="calendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center;">
                                 <!-- Llenado dinámicamente -->
+                            </div>
+                        </div>
+                        
+                        <!-- Panel de Detalles del Día (Inicialmente oculto) -->
+                        <div id="dayDetailPanel" class="glass-card" style="display: none; margin-bottom: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="color: var(--accent-cyan);"><i class="fa-solid fa-clipboard-check"></i> Detalles: <span id="dayDetailDate"></span></h4>
+                                <button class="btn-nav" onclick="document.getElementById('dayDetailPanel').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div id="dayDetailContent" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                <!-- Cargado dinámicamente -->
                             </div>
                         </div>
                         

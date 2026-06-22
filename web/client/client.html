@@ -23,7 +23,7 @@
         };
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Progreso - Elite Fitness Client</title>
+    <title>Mi Progreso - Elite Coaching Client</title>
     <link rel="stylesheet" href="/shared/style.css?v=2.0.0">
     <!-- Chart.js for progress graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -55,13 +55,18 @@
     </script>
 
     <header>
-        <div class="logo">
+        <div class="logo" style="display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-dumbbell logo-icon"></i>
-            <span>ELITE PORTAL CLiENTE</span>
+            <span>ELITE COACHING</span>
+            <a href="/" onclick="sessionStorage.removeItem('clientAuth_' + (new URLSearchParams(window.location.search).get('userId') || '1'))" style="color: #ef4444; margin-left: 10px; cursor: pointer; text-decoration: none; font-size: inherit; font-family: inherit; font-weight: inherit;" title="Salir">
+                <i class="fa-solid fa-right-from-bracket"></i> SALIR
+            </a>
         </div>
         <div class="nav-links">
-            <span class="btn-nav active" style="cursor:default;"><i class="fa-solid fa-house-user"></i> Panel de Control</span>
-            <a href="/" onclick="sessionStorage.removeItem('clientAuth_' + (new URLSearchParams(window.location.search).get('userId') || '1'))" class="btn-nav"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
+            <a href="#" class="btn-nav active" onclick="switchGlobalTab('clientHomeView', this)"><i class="fa-solid fa-house-user"></i> Inicio</a>
+            <a href="#" class="btn-nav" onclick="switchGlobalTab('clientWorkoutView', this)"><i class="fa-solid fa-dumbbell"></i> Rutina</a>
+            <a href="#" class="btn-nav" onclick="switchGlobalTab('clientNutritionView', this)"><i class="fa-solid fa-carrot"></i> Dieta</a>
+            <a href="#" class="btn-nav" onclick="switchGlobalTab('clientProgressView', this)"><i class="fa-solid fa-chart-line"></i> Progreso</a>
         </div>
         <div class="header-right-group" style="display: flex; align-items: center; gap: 15px;">
             <span id="clientNameHeader" style="font-weight:700; font-size:14px; color:var(--accent-cyan);">Cargando...</span>
@@ -69,148 +74,182 @@
         </div>
     </header>
 
-    <div class="container">
-        <div class="grid-dashboard">
-            <!-- Sidebar: Log Daily Metrics Form -->
-            <div class="sidebar-list glass-card">
-                <div class="list-title" style="color:var(--accent-cyan);">
-                    <span><i class="fa-solid fa-pen-to-square"></i> Registrar Hoy</span>
+    <!-- VIEW 1: HOME (Dashboard, Form, KPIs) -->
+    <div class="container global-tab-content active" id="clientHomeView" style="max-width: 800px; margin: 0 auto; display: block; padding-bottom: 80px;">
+        
+        <!-- KPIs -->
+        <div id="mainIndicatorsBanner" class="glass-card" style="margin-bottom: 20px; padding: 15px;">
+            <h4 style="font-size: 13px; color: var(--accent-gold); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fa-solid fa-chart-pie"></i> Mis Indicadores Actuales</span>
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center;">
+                <div class="summary-stat-box" style="padding: 8px; width: 100%;">
+                    <span style="font-size: 10px; display: block;">Peso Actual</span>
+                    <strong id="clientKpiWeight" style="font-size: 14px; color: var(--accent-cyan);">- kg</strong>
                 </div>
-                
-                <form id="dailyLogForm" onsubmit="submitDailyLog(event)">
-                    <div class="form-group">
-                        <label>Peso de Hoy (kg)</label>
-                        <input type="number" step="0.1" id="logWeight" placeholder="Ej. 73.0">
-                    </div>
-                    <div class="form-group">
-                        <label>Pasos Caminados</label>
-                        <input type="number" id="logSteps" placeholder="Ej. 10450">
-                    </div>
-                    <div class="form-group">
-                        <label>Horas de Sueño</label>
-                        <input type="number" step="0.1" id="logSleep" placeholder="Ej. 7.5">
-                    </div>
-                    <div class="form-group">
-                        <label>Calidad de Sueño (1-10)</label>
-                        <input type="range" id="logSleepQuality" min="1" max="10" value="8" style="padding:0;">
-                    </div>
-                    <div class="form-group">
-                        <label>Adherencia Dieta (1-10)</label>
-                        <input type="range" id="logDietAdherence" min="1" max="10" value="9" style="padding:0;">
-                    </div>
-                    <div class="form-group">
-                        <label>Nivel de Energía (1-5)</label>
-                        <select id="logEnergy">
-                            <option value="5">5 - Excelente</option>
-                            <option value="4" selected>4 - Muy Buena</option>
-                            <option value="3">3 - Normal</option>
-                            <option value="2">2 - Cansado</option>
-                            <option value="1">1 - Agotado</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Salud Digestiva (1-5)</label>
-                        <select id="logDigestion">
-                            <option value="5" selected>5 - Excelente (Sin pesadez)</option>
-                            <option value="4">4 - Buena</option>
-                            <option value="3">3 - Regular</option>
-                            <option value="2">2 - Inflamado</option>
-                            <option value="1">1 - Mala digestión</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Frecuencia Cardíaca Reposo (si aplica)</label>
-                        <input type="number" id="logRhr" placeholder="Ej. 62">
-                    </div>
-                    <div class="form-group">
-                        <label>Notas / Sensaciones</label>
-                        <textarea id="logNotes" rows="2" placeholder="¿Cómo te sentiste hoy?"></textarea>
-                    </div>
-                    
-                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Registro Diario
-                    </button>
-                </form>
-            </div>
-
-            <!-- Main Panel: Client metrics, Diet, Training -->
-            <div class="main-content">
-                
-                <!-- Quick Metric Banner -->
-                <div class="glass-card water-tracker-widget" style="padding: 20px;">
-                    <div>
-                        <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary); display: block; margin-bottom: 2px;">Rastreador de Hidratación</span>
-                        <span class="water-progress-text" id="waterProgressLabel">0 ml / 2500 ml</span>
-                    </div>
-                    <div class="water-btns">
-                        <button class="btn-water-add" onclick="addWater(250)">+250 ml <i class="fa-solid fa-glass-water"></i></button>
-                        <button class="btn-water-add" onclick="addWater(500)">+500 ml <i class="fa-solid fa-bottle-water"></i></button>
-                    </div>
+                <div class="summary-stat-box" style="padding: 8px; width: 100%;">
+                    <span style="font-size: 10px; display: block;">% Grasa</span>
+                    <strong id="clientKpiFat" style="font-size: 14px; color: var(--accent-purple);">- %</strong>
                 </div>
-
-                <!-- KPIs -->
-                <div class="kpis-grid">
-                    <div class="glass-card kpi-card">
-                        <span class="kpi-title">Mi Peso Actual</span>
-                        <span class="kpi-value cyan" id="clientKpiWeight">- kg</span>
-                        <span class="kpi-desc" id="clientKpiWeightDesc">Último peso registrado</span>
-                    </div>
-                    <div class="glass-card kpi-card">
-                        <span class="kpi-title">Mi Porcentaje Grasa</span>
-                        <span class="kpi-value purple" id="clientKpiFat">- %</span>
-                        <span class="kpi-desc" id="clientKpiFatDesc">Adipometría Faulkner</span>
-                    </div>
-                    <div class="glass-card kpi-card">
-                        <span class="kpi-title">Meta Calórica Diaria</span>
-                        <span class="kpi-value green" id="clientKpiCalories">- Kcal</span>
-                        <span class="kpi-desc" id="clientKpiMacrosDesc">Proteína / Carbos / Grasa</span>
-                    </div>
+                <div class="summary-stat-box" style="padding: 8px; width: 100%;">
+                    <span style="font-size: 10px; display: block;">Meta Calórica</span>
+                    <strong id="clientKpiCalories" style="font-size: 14px; color: var(--accent-green);">- Kcal</strong>
                 </div>
-
-                <!-- Tabs Card -->
-                <div class="glass-card">
-                    <div class="tabs-container">
-                        <button class="tab-btn active" onclick="switchTab('tabRutinas')"><i class="fa-solid fa-dumbbell"></i> Mi Rutina Activa</button>
-                        <button class="tab-btn" onclick="switchTab('tabNutricion')"><i class="fa-solid fa-carrot"></i> Mi Plan de Nutrición</button>
-                        <button class="tab-btn" onclick="switchTab('tabEstadisticas')"><i class="fa-solid fa-chart-line"></i> Gráficos de Progreso</button>
-                    </div>
-
-                    <!-- TAB 1: ACTIVE ROUTINE -->
-                    <div class="tab-panel active" id="tabRutinas">
-                        <div id="workoutPlanContainer">
-                            <!-- Loaded dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- TAB 2: ACTIVE NUTRITION -->
-                    <div class="tab-panel" id="tabNutricion">
-                        <div id="nutritionPlanContainer">
-                            <!-- Loaded dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- TAB 3: STATISTICS & CHARTS -->
-                    <div class="tab-panel" id="tabEstadisticas">
-                        <h3>Mi Evolución Histórica</h3>
-                        <p style="color:var(--color-text-secondary); margin-bottom: 20px;">Monitorea tus cambios corporales y tus registros de actividad.</p>
-                        
-                        <div class="charts-grid">
-                            <div class="glass-card chart-card">
-                                <h3>Mi Historial de Peso</h3>
-                                <canvas id="chartClientWeight"></canvas>
-                            </div>
-                            <div class="glass-card chart-card">
-                                <h3>Mis Pasos Diarios</h3>
-                                <canvas id="chartClientSteps"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-
-
             </div>
         </div>
+
+        <!-- Latest Assessment Banner -->
+        <div id="latestAssessmentBanner" class="glass-card" style="display: none; margin-bottom: 20px; padding: 15px;">
+            <h4 style="font-size: 13px; color: var(--accent-cyan); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fa-solid fa-user-doctor"></i> Mi Última Valoración</span>
+                <span id="assessmentDateLabel" style="color: var(--color-text-secondary); font-size: 11px; font-weight: normal;"></span>
+            </h4>
+            <div id="latestAssessmentGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                <!-- Dynamic content will be injected here -->
+            </div>
+        </div>
+
+        <!-- Quick Metric Banner -->
+        <div class="glass-card water-tracker-widget" style="padding: 20px; margin-bottom: 20px;">
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary); display: block; margin-bottom: 2px;">Rastreador de Hidratación</span>
+                <span class="water-progress-text" id="waterProgressLabel">0 ml / 2500 ml</span>
+            </div>
+            <div class="water-btns">
+                <button class="btn-water-add" onclick="addWater(250)">+250 ml <i class="fa-solid fa-glass-water"></i></button>
+                <button class="btn-water-add" onclick="addWater(500)">+500 ml <i class="fa-solid fa-bottle-water"></i></button>
+            </div>
+        </div>
+
+        <!-- Sidebar: Log Daily Metrics Form -->
+        <div class="glass-card">
+            <div class="list-title" style="color:var(--accent-cyan); margin-bottom: 15px;">
+                <span><i class="fa-solid fa-pen-to-square"></i> Registrar Hoy</span>
+            </div>
+            
+            <form id="dailyLogForm" onsubmit="submitDailyLog(event)">
+                <div class="form-group">
+                    <label>Peso de Hoy (kg)</label>
+                    <input type="number" step="0.1" id="logWeight" placeholder="Ej. 73.0">
+                </div>
+                <div class="form-group">
+                    <label>Pasos Caminados</label>
+                    <input type="number" id="logSteps" placeholder="Ej. 10450">
+                </div>
+                <div class="form-group">
+                    <label>Horas de Sueño</label>
+                    <input type="number" step="0.1" id="logSleep" placeholder="Ej. 7.5">
+                </div>
+                <div class="form-group">
+                    <label>Calidad de Sueño (1-10)</label>
+                    <input type="range" id="logSleepQuality" min="1" max="10" value="8" style="padding:0;">
+                </div>
+                <div class="form-group">
+                    <label>Adherencia Dieta (1-10)</label>
+                    <input type="range" id="logDietAdherence" min="1" max="10" value="9" style="padding:0;">
+                </div>
+                <div class="form-group">
+                    <label>Nivel de Energía (1-5)</label>
+                    <select id="logEnergy">
+                        <option value="5">5 - Excelente</option>
+                        <option value="4" selected>4 - Muy Buena</option>
+                        <option value="3">3 - Normal</option>
+                        <option value="2">2 - Cansado</option>
+                        <option value="1">1 - Agotado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Salud Digestiva (1-5)</label>
+                    <select id="logDigestion">
+                        <option value="5" selected>5 - Excelente (Sin pesadez)</option>
+                        <option value="4">4 - Buena</option>
+                        <option value="3">3 - Regular</option>
+                        <option value="2">2 - Inflamado</option>
+                        <option value="1">1 - Mala digestión</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Frecuencia Cardíaca Reposo (si aplica)</label>
+                    <input type="number" id="logRhr" placeholder="Ej. 62">
+                </div>
+                <div class="form-group">
+                    <label>Notas / Sensaciones</label>
+                    <textarea id="logNotes" rows="2" placeholder="¿Cómo te sentiste hoy?"></textarea>
+                </div>
+                
+                <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Registro Diario
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- VIEW 2: WORKOUT -->
+    <div class="container global-tab-content" id="clientWorkoutView" style="display: none; max-width: 800px; margin: 0 auto; padding-bottom: 80px;">
+        <div id="workoutPlanContainer">
+            <!-- Loaded dynamically -->
+        </div>
+    </div>
+
+    <!-- VIEW 3: NUTRITION -->
+    <div class="container global-tab-content" id="clientNutritionView" style="display: none; max-width: 800px; margin: 0 auto; padding-bottom: 80px;">
+        <div id="nutritionPlanContainer">
+            <!-- Loaded dynamically -->
+        </div>
+    </div>
+
+    <!-- VIEW 4: PROGRESS -->
+    <div class="container global-tab-content" id="clientProgressView" style="display: none; max-width: 800px; margin: 0 auto; padding-bottom: 80px;">
+        <h3 style="margin-bottom: 5px;">Mi Evolución Histórica</h3>
+        <p style="color:var(--color-text-secondary); margin-bottom: 20px;">Monitorea tus cambios corporales y tus registros de actividad.</p>
+        
+        <div class="calendar-dashboard glass-card" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="color: var(--accent-cyan);"><i class="fa-regular fa-calendar"></i> Registro Diario</h4>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="btn-nav" onclick="changeClientCalendarMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                    <span id="clientCalendarMonthLabel" style="font-weight: bold; min-width: 100px; text-align: center; color: var(--accent-cyan);"></span>
+                    <button class="btn-nav" onclick="changeClientCalendarMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+            <!-- Days of week header -->
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; margin-bottom: 5px; font-weight: bold; color: var(--color-text-secondary); font-size: 11px;">
+                <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+            </div>
+            <div id="clientCalendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center;">
+                <!-- Dinámico -->
+            </div>
+        </div>
+
+        <!-- Panel de Detalles del Día -->
+        <div id="clientDayDetailPanel" class="glass-card" style="display: none; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="color: var(--accent-cyan);"><i class="fa-solid fa-clipboard-check"></i> Detalles: <span id="clientDayDetailDate"></span></h4>
+                <button class="btn-nav" onclick="document.getElementById('clientDayDetailPanel').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="clientDayDetailContent" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <!-- Dinámico -->
+            </div>
+        </div>
+
+        <div class="charts-grid" style="grid-template-columns: 1fr;">
+            <div class="glass-card chart-card" style="margin-bottom: 20px;">
+                <h3>Mi Historial de Peso</h3>
+                <canvas id="chartClientWeight"></canvas>
+            </div>
+            <div class="glass-card chart-card" style="margin-bottom: 20px;">
+                <h3>Mis Pasos Diarios</h3>
+                <canvas id="chartClientSteps"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <div class="bottom-nav">
+        <a href="#" class="bottom-nav-item active" onclick="switchGlobalTab('clientHomeView', this)"><i class="fa-solid fa-house-user"></i><span>Inicio</span></a>
+        <a href="#" class="bottom-nav-item" onclick="switchGlobalTab('clientWorkoutView', this)"><i class="fa-solid fa-dumbbell"></i><span>Rutina</span></a>
+        <a href="#" class="bottom-nav-item" onclick="switchGlobalTab('clientNutritionView', this)"><i class="fa-solid fa-carrot"></i><span>Dieta</span></a>
+        <a href="#" class="bottom-nav-item" onclick="switchGlobalTab('clientProgressView', this)"><i class="fa-solid fa-chart-line"></i><span>Progreso</span></a>
     </div>
 
     <script src="/client/client.js?v=2.0.0"></script>

@@ -332,8 +332,8 @@ header {
 /* KPIs grid */
 .kpis-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
 }
 
 .kpi-card {
@@ -342,22 +342,23 @@ header {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: 10px;
+    border-radius: 8px;
 }
 
 .kpi-title {
-    font-size: 12px;
+    font-size: 10px;
     text-transform: uppercase;
     color: var(--color-text-secondary);
-    margin-bottom: 10px;
+    margin-bottom: 4px;
     letter-spacing: 0.5px;
 }
 
 .kpi-value {
-    font-size: 32px;
+    font-size: 18px;
     font-weight: 800;
     color: var(--color-text-primary);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .kpi-value.cyan { color: var(--accent-cyan); text-shadow: var(--shadow-neon-gold); }
@@ -449,18 +450,18 @@ header {
 .workout-day-card {
     background: rgba(255, 255, 255, 0.01);
     border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 15px;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
 }
 
 .workout-day-card h4 {
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--accent-cyan);
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     border-left: 3px solid var(--accent-cyan);
-    padding-left: 10px;
+    padding-left: 8px;
 }
 
 .exercise-table {
@@ -626,16 +627,16 @@ select option {
 .diet-meal-box {
     background: rgba(255, 255, 255, 0.01);
     border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 15px;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
 }
 
 .diet-meal-box h4 {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--accent-gold);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -657,10 +658,10 @@ select option {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 14px;
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 8px;
+    font-size: 12px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
 }
 
 .food-name {
@@ -1042,8 +1043,8 @@ select option {
         -webkit-backdrop-filter: blur(12px);
         border-top: 1px solid rgba(255, 255, 255, 0.08);
         z-index: 99999;
-        padding: 10px 0;
-        padding-bottom: env(safe-area-inset-bottom, 10px);
+        padding: 12px 0;
+        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 15px); /* Extra space for mobile gesture bar */
         box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
     }
     
@@ -1055,14 +1056,14 @@ select option {
         justify-content: center;
         color: var(--color-text-muted);
         text-decoration: none;
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         transition: all 0.2s ease;
     }
     
     .bottom-nav-item i {
-        font-size: 18px;
-        margin-bottom: 3px;
+        font-size: 22px;
+        margin-bottom: 4px;
     }
     
     .bottom-nav-item.active {
@@ -1161,6 +1162,7 @@ select option {
         align-self: flex-start;
         cursor: pointer;
     }
+
 }
 
 /* Food item row editor styling (Nutrition Modal) */

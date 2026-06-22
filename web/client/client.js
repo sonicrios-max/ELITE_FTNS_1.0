@@ -27,9 +27,7 @@
                     document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
                 }
                 const logoSpan = document.querySelector('.logo span');
-                if (logoSpan) {
-                    logoSpan.innerText = config.name.toUpperCase();
-                }
+                // The logo will be updated in displayClientHeader with the client's name
             }
         } catch (e) {
             console.error("Error loading theme config:", e);
@@ -90,6 +88,7 @@ async function loadClientData() {
         renderWorkoutPlans();
         renderNutritionPlans();
         initOrUpdateCharts();
+        renderClientDailyCalendar();
         setupHydrationWidget();
 
     } catch (err) {
@@ -101,6 +100,7 @@ async function loadClientData() {
 function displayClientHeader() {
     const user = clientFullData.profile;
     document.getElementById("clientNameHeader").innerText = `${user.first_name} ${user.last_name}`;
+    // The logo stays as ELITE COACHING to make room for the logout button
 }
 
 function populateKPIs() {
@@ -111,37 +111,101 @@ function populateKPIs() {
     if (assessments.length > 0) {
         const latest = assessments[assessments.length - 1];
         document.getElementById("clientKpiWeight").innerText = `${latest.weight_kg || 0} kg`;
-        document.getElementById("clientKpiWeightDesc").innerText = `Registrado el: ${latest.date}`;
         
         // 2. Fat KPI
         const fatPct = latest.body_fat_percentage !== null && latest.body_fat_percentage !== undefined ? latest.body_fat_percentage : 0.0;
         const leanMass = latest.lean_mass_kg !== null && latest.lean_mass_kg !== undefined ? latest.lean_mass_kg : ((latest.weight_kg || 0) - ((latest.weight_kg || 0) * (fatPct / 100.0)));
         document.getElementById("clientKpiFat").innerText = `${fatPct.toFixed(1)}%`;
-        document.getElementById("clientKpiFatDesc").innerText = `Masa magra: ${leanMass.toFixed(1)} kg`;
+        
+        // Populate Latest Assessment Banner dynamically
+        document.getElementById("latestAssessmentBanner").style.display = "block";
+        document.getElementById("assessmentDateLabel").innerText = latest.date;
+        
+        const grid = document.getElementById("latestAssessmentGrid");
+        grid.innerHTML = "";
+        
+        const displayKeys = [
+            { key: 'weight_kg', label: 'Peso', color: 'var(--accent-cyan)', unit: 'kg' },
+            { key: 'bmi', label: 'IMC', color: 'var(--accent-purple)', unit: '' },
+            { key: 'body_fat_percentage', label: '% Grasa', color: 'var(--accent-orange)', unit: '%' },
+            { key: 'lean_mass_kg', label: 'Músculo', color: 'var(--accent-green)', unit: 'kg' },
+            { key: 'muscle_mass_pct', label: '% Músculo', color: 'var(--accent-green)', unit: '%' },
+            { key: 'body_water_pct', label: '% Agua', color: '#3b82f6', unit: '%' },
+            { key: 'visceral_fat_rating', label: 'Grasa Visceral', color: '#ef4444', unit: '' },
+            { key: 'bone_mass_kg', label: 'Masa Ósea', color: '#f3f4f6', unit: 'kg' },
+            { key: 'basal_metabolic_rate_kcal', label: 'TMB', color: '#f59e0b', unit: 'kcal' },
+            { key: 'fc_rep', label: 'FC Reposo', color: '#ef4444', unit: 'bpm' },
+            { key: 'fc_max', label: 'FC Máx', color: '#ef4444', unit: 'bpm' },
+            { key: 'neck', label: 'Cuello', color: '#d1d5db', unit: 'cm' },
+            { key: 'chest', label: 'Pecho', color: '#d1d5db', unit: 'cm' },
+            { key: 'shoulder', label: 'Hombro', color: '#d1d5db', unit: 'cm' },
+            { key: 'abdomen', label: 'Abdomen', color: '#d1d5db', unit: 'cm' },
+            { key: 'iliac', label: 'Iliaco', color: '#d1d5db', unit: 'cm' },
+            { key: 'trochanter', label: 'Cadera', color: '#d1d5db', unit: 'cm' },
+            { key: 'right_thigh', label: 'Muslo Der', color: '#d1d5db', unit: 'cm' },
+            { key: 'left_thigh', label: 'Muslo Izq', color: '#d1d5db', unit: 'cm' },
+            { key: 'right_calf', label: 'Pantorrilla Der', color: '#d1d5db', unit: 'cm' },
+            { key: 'left_calf', label: 'Pantorrilla Izq', color: '#d1d5db', unit: 'cm' },
+            { key: 'right_bicep', label: 'Bíceps Der', color: '#d1d5db', unit: 'cm' },
+            { key: 'left_bicep', label: 'Bíceps Izq', color: '#d1d5db', unit: 'cm' },
+            { key: 'right_forearm', label: 'Antebrazo Der', color: '#d1d5db', unit: 'cm' },
+            { key: 'left_forearm', label: 'Antebrazo Izq', color: '#d1d5db', unit: 'cm' },
+            { key: 'scapular', label: 'Pl. Escapular', color: '#9ca3af', unit: 'mm' },
+            { key: 'triceps', label: 'Pl. Tríceps', color: '#9ca3af', unit: 'mm' },
+            { key: 'abdominal', label: 'Pl. Abdominal', color: '#9ca3af', unit: 'mm' },
+            { key: 'suprailiac', label: 'Pl. Suprailiaco', color: '#9ca3af', unit: 'mm' }
+        ];
+
+        displayKeys.forEach(item => {
+            let val = latest[item.key];
+            if (val !== null && val !== undefined && val !== "") {
+                if (typeof val === 'number') val = val.toFixed(1).replace('.0', '');
+                
+                const box = document.createElement("div");
+                box.className = "summary-stat-box";
+                box.style.padding = "8px";
+                box.style.width = "100%";
+                box.innerHTML = `
+                    <span style="font-size: 10px; display: block;">${item.label}</span>
+                    <strong style="font-size: 14px; color: ${item.color};">${val} ${item.unit}</strong>
+                `;
+                grid.appendChild(box);
+            }
+        });
+        
+        // Handle custom_data
+        if (latest.custom_data) {
+            try {
+                const custom = JSON.parse(latest.custom_data);
+                for (const [k, v] of Object.entries(custom)) {
+                    if (v !== null && v !== "") {
+                        const box = document.createElement("div");
+                        box.className = "summary-stat-box";
+                        box.style.padding = "8px";
+                        box.style.width = "100%";
+                        box.innerHTML = `
+                            <span style="font-size: 10px; display: block; text-transform: capitalize;">${k.replace(/_/g, ' ')}</span>
+                            <strong style="font-size: 14px; color: var(--color-text-primary);">${v}</strong>
+                        `;
+                        grid.appendChild(box);
+                    }
+                }
+            } catch(e) {}
+        }
+        
     } else {
         document.getElementById("clientKpiWeight").innerText = "-";
         document.getElementById("clientKpiFat").innerText = "-";
+        document.getElementById("latestAssessmentBanner").style.display = "none";
     }
     
     // 3. Nutrition KPI
     if (diet) {
         const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
         const hasCal = activeFields.some(f => f.db_column === 'calories_kcal');
-        const hasPro = activeFields.some(f => f.db_column === 'protein_g');
-        const hasCarb = activeFields.some(f => f.db_column === 'carbs_g');
-        const hasFat = activeFields.some(f => f.db_column === 'fat_g');
-        
         document.getElementById("clientKpiCalories").innerText = hasCal ? `${diet.target_calories || 0} Kcal` : '- Kcal';
-        
-        let macrosParts = [];
-        if (hasPro) macrosParts.push(`P: ${diet.target_protein || 0}g`);
-        if (hasCarb) macrosParts.push(`C: ${diet.target_carbs || 0}g`);
-        if (hasFat) macrosParts.push(`G: ${diet.target_fat || 0}g`);
-        
-        document.getElementById("clientKpiMacrosDesc").innerText = macrosParts.length > 0 ? macrosParts.join(' | ') : 'Sin macros visibles';
     } else {
         document.getElementById("clientKpiCalories").innerText = "-";
-        document.getElementById("clientKpiMacrosDesc").innerText = "-";
     }
 }
 
@@ -264,16 +328,16 @@ function renderWorkoutPlans() {
                 block.exercises.forEach(ex => {
                     exercisesHtml += `
                         <tr>
-                            <td>
-                                <input type="checkbox" id="check-${ex.id}" style="width: 18px; height: 18px; cursor: pointer;">
+                            <td style="padding: 4px;">
+                                <input type="checkbox" id="check-${ex.id}" style="width: 14px; height: 14px; cursor: pointer;">
                             </td>
-                            <td class="exercise-name">${ex.exercise_name}</td>
-                            <td><span class="compliance-badge">${ex.sets_count} Series</span></td>
-                            <td><strong>${ex.reps_range}</strong></td>
-                            <td>RPE ${ex.rpe_target || 'N/A'}</td>
-                            <td>${ex.rest_seconds ? `${ex.rest_seconds}s` : '-'}</td>
-                            <td>
-                                ${ex.video_url ? `<a href="#" class="exercise-video-link" onclick="playVideo(event, '${ex.video_url}', this)"><i class="fa-solid fa-circle-play"></i> Técnica</a>` : '-'}
+                            <td class="exercise-name" style="padding: 4px; font-size: 11px;">${ex.exercise_name}</td>
+                            <td style="padding: 4px;"><span class="compliance-badge" style="font-size: 10px; padding: 2px 6px;">${ex.sets_count} Series</span></td>
+                            <td style="padding: 4px;"><strong>${ex.reps_range}</strong></td>
+                            <td style="padding: 4px;">RPE ${ex.rpe_target || 'N/A'}</td>
+                            <td style="padding: 4px;">${ex.rest_seconds ? `${ex.rest_seconds}s` : '-'}</td>
+                            <td style="padding: 4px;">
+                                ${ex.video_url ? `<a href="#" class="exercise-video-link" onclick="playVideo(event, '${ex.video_url}', this)" style="font-size: 11px;"><i class="fa-solid fa-circle-play"></i> Técnica</a>` : '-'}
                             </td>
                         </tr>
                         <tr id="video-row-${ex.id}" style="display:none;">
@@ -290,24 +354,26 @@ function renderWorkoutPlans() {
                 });
                 
                 blocksHtml += `
-                    <div style="margin-bottom: 20px; border-left: 3px solid var(--accent-cyan); padding-left: 12px; background: rgba(0,0,0,0.1); padding-top: 10px; padding-bottom: 10px; border-radius: 0 8px 8px 0;">
-                        <h5 style="color: var(--accent-cyan); margin-bottom: 10px; font-size: 14px;">Bloque: ${block.name} <span style="color:var(--color-text-secondary); font-size:11px; font-weight:normal;">[${block.routine_class}]</span></h5>
-                        <table class="exercise-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px;">Hecho</th>
-                                    <th>Ejercicio</th>
-                                    <th>Series</th>
-                                    <th>Reps</th>
-                                    <th>RPE</th>
-                                    <th>Descanso</th>
-                                    <th>Multimedia</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${exercisesHtml}
-                            </tbody>
-                        </table>
+                    <div style="margin-bottom: 10px; border-left: 2px solid var(--accent-cyan); padding-left: 8px; background: rgba(0,0,0,0.1); padding-top: 8px; padding-bottom: 8px; border-radius: 0 4px 4px 0;">
+                        <h5 style="color: var(--accent-cyan); margin-bottom: 5px; font-size: 12px; margin-top: 0;">${block.name} <span style="color:var(--color-text-secondary); font-size:10px; font-weight:normal;">[${block.routine_class}]</span></h5>
+                        <div style="overflow-x: auto; width: 100%;">
+                            <table class="exercise-table" style="font-size: 11px; white-space: nowrap;">
+                                <thead>
+                                    <tr>
+                                        <th style="padding: 4px; width: 30px;">Done</th>
+                                        <th style="padding: 4px;">Ejercicio</th>
+                                        <th style="padding: 4px;">Series</th>
+                                        <th style="padding: 4px;">Reps</th>
+                                        <th style="padding: 4px;">RPE</th>
+                                        <th style="padding: 4px;">Descanso</th>
+                                        <th style="padding: 4px;">Video</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${exercisesHtml}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 `;
             });
@@ -527,20 +593,120 @@ function initOrUpdateCharts() {
 
 
 
-// Tab switcher
-function switchTab(tabId) {
-    activeTab = tabId;
-    const tabBtns = document.querySelectorAll(".tab-btn");
-    tabBtns.forEach(btn => btn.classList.remove("active"));
+// Global Tab Switcher (matches Trainer UI)
+function switchGlobalTab(tabId, element) {
+    // Hide all global views
+    document.querySelectorAll('.global-tab-content').forEach(el => {
+        el.style.display = 'none';
+        el.classList.remove('active');
+    });
     
-    const panels = document.querySelectorAll(".tab-panel");
-    panels.forEach(p => p.classList.remove("active"));
+    // Remove active from nav links and bottom nav items
+    document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.btn-nav').forEach(el => el.classList.remove('active'));
     
-    document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add("active");
-    document.getElementById(tabId).classList.add("active");
+    // Show selected view
+    const view = document.getElementById(tabId);
+    if (view) {
+        view.style.display = 'block';
+        view.classList.add('active');
+    }
+    
+    // Highlight active nav item
+    if (element) {
+        element.classList.add('active');
+    }
 }
 
 function exportToPDF() {
     window.print();
 }
 
+// ==========================================
+// Interactive Calendar for Client Progress
+// ==========================================
+let currentClientCalendarDate = new Date();
+
+function changeClientCalendarMonth(offset) {
+    currentClientCalendarDate.setMonth(currentClientCalendarDate.getMonth() + offset);
+    renderClientDailyCalendar();
+}
+
+function renderClientDailyCalendar() {
+    const month = currentClientCalendarDate.getMonth();
+    const year = currentClientCalendarDate.getFullYear();
+    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    
+    document.getElementById('clientCalendarMonthLabel').innerText = `${monthNames[month]} ${year}`;
+    
+    const logs = clientFullData.daily_logs || [];
+    const logsMap = {};
+    logs.forEach(l => { logsMap[l.date] = l; });
+    
+    const grid = document.getElementById('clientCalendarGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    for (let i = 0; i < firstDay; i++) {
+        grid.innerHTML += `<div style="padding: 10px;"></div>`;
+    }
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const log = logsMap[dateStr];
+        
+        const isToday = (new Date().toISOString().split('T')[0] === dateStr);
+        let borderStyle = isToday ? 'border: 1px solid var(--accent-cyan);' : 'border: 1px solid transparent;';
+        
+        if (log) {
+            grid.innerHTML += `
+                <div style="background: rgba(14, 165, 233, 0.2); ${borderStyle} border-radius: 6px; padding: 5px; cursor: pointer; transition: 0.2s; display:flex; flex-direction:column; align-items:center;" 
+                     onmouseover="this.style.background='rgba(14, 165, 233, 0.4)'" 
+                     onmouseout="this.style.background='rgba(14, 165, 233, 0.2)'"
+                     onclick='showClientDayDetails(${JSON.stringify(log)})'>
+                    <div style="font-weight:bold; color: white; font-size:12px;">${d}</div>
+                    <div style="font-size: 11px; color: var(--accent-cyan); margin-top:2px;"><i class="fa-solid fa-check"></i></div>
+                </div>
+            `;
+        } else {
+            grid.innerHTML += `
+                <div style="background: rgba(255, 255, 255, 0.05); ${borderStyle} border-radius: 6px; padding: 5px; opacity: 0.5; display:flex; align-items:center; justify-content:center;">
+                    <div style="font-weight:bold; font-size:12px;">${d}</div>
+                </div>
+            `;
+        }
+    }
+}
+
+function showClientDayDetails(log) {
+    document.getElementById('clientDayDetailPanel').style.display = 'block';
+    document.getElementById('clientDayDetailDate').innerText = log.date;
+    
+    const content = document.getElementById('clientDayDetailContent');
+    content.innerHTML = `
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Peso</span>
+            <strong>${log.weight_kg ? log.weight_kg + ' kg' : '-'}</strong>
+        </div>
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Actividad</span>
+            <strong>${log.steps_count ? log.steps_count + ' pasos' : '-'}</strong>
+        </div>
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Descanso</span>
+            <strong>${log.sleep_hours ? log.sleep_hours + ' hrs (Calidad: ' + log.sleep_quality + '/10)' : '-'}</strong>
+        </div>
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Hidratación</span>
+            <strong>${log.water_intake_ml ? log.water_intake_ml + ' ml' : '-'}</strong>
+        </div>
+        <div class="summary-stat-box" style="width: 100%;">
+            <span>Adherencia Dieta</span>
+            <strong>${log.diet_adherence ? log.diet_adherence + ' / 10' : '-'}</strong>
+        </div>
+        ${log.notes ? `<div style="width: 100%; margin-top: 5px; color: var(--color-text-secondary); font-size: 13px;"><em>"${log.notes}"</em></div>` : ''}
+    `;
+}

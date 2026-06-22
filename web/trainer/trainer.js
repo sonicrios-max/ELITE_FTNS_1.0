@@ -27,9 +27,7 @@
                     document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
                 }
                 const logoSpan = document.querySelector('.logo span');
-                if (logoSpan) {
-                    logoSpan.innerText = config.name.toUpperCase();
-                }
+                // Logo text stays as ELITE COACHING to leave room for the logout button
             }
         } catch (e) {
             console.error("Error loading theme config:", e);
@@ -1523,6 +1521,7 @@ async function renderDailyCalendar() {
 }
 
 function showDayDetails(log) {
+    document.getElementById('dayDetailPanel').style.display = 'block';
     document.getElementById('dayDetailDate').innerText = log.date;
     
     const content = document.getElementById('dayDetailContent');

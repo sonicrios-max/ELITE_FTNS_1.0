@@ -47,3 +47,9 @@ Estas ideas fueron propuestas para mejorar la inteligencia, automatización y co
   * Permitir al entrenador definir fórmulas con sintaxis simple (ej. `(Pecho - Cintura) / Altura`).
   * El sistema evaluará estas fórmulas dinámicamente usando eval seguro (o un parser matemático) para generar gráficas de progreso personalizadas.
   * **Advertencias de Dependencia**: Si el entrenador intenta ocultar/eliminar un campo de la ficha base (ej. Peso) que está siendo utilizado en un indicador (ej. BMI o Fórmula Personalizada), el sistema lanzará una advertencia previniendo la ruptura de la lógica.
+
+## 8. Ajuste de Breakpoints para Modo Horizontal (Landscape) en Dispositivos Muy Anchos
+* **Problema**: El modo horizontal (landscape) se adaptó al cambiar el breakpoint CSS/JS a `1024px`, lo que funciona perfecto en dispositivos como el iPhone 15 Pro Max o iPhone 12. Sin embargo, en dispositivos inusualmente anchos o largos como el Motorola Edge 50 Fusion, el ancho de pantalla horizontal supera los `1024px`, causando que la aplicación revierta al diseño web (escritorio) en lugar de mostrar la app móvil.
+* **Solución Propuesta**: 
+  * Investigar y posiblemente aumentar el breakpoint principal para móviles a `1200px` o superior si se detectan este tipo de resoluciones en móviles.
+  * Implementar el uso directo de media queries combinadas con la orientación física, ej: `@media (max-width: 1200px) and (orientation: landscape), (max-width: 1024px)` para forzar explícitamente el layout móvil basándose en la orientación.
