@@ -1034,12 +1034,14 @@ function showGlobalView(viewName) {
     document.getElementById('nutritionLibView').style.display = 'none';
     document.getElementById('assessmentLibView').style.display = 'none';
     document.getElementById('nutritionConfigLibView').style.display = 'none';
+    if(document.getElementById('settingsView')) document.getElementById('settingsView').style.display = 'none';
     
     // Deactivate nav links
     document.getElementById('navClients').classList.remove('active');
     document.getElementById('navTraining').classList.remove('active');
     document.getElementById('navNutrition').classList.remove('active');
     document.getElementById('navAssessment').classList.remove('active');
+    if(document.getElementById('navSettings')) document.getElementById('navSettings').classList.remove('active');
     
     if (viewName === 'clients') {
         document.getElementById('clientsView').style.display = 'block';
@@ -1063,6 +1065,10 @@ function showGlobalView(viewName) {
         document.getElementById('nutritionConfigLibView').style.display = 'block';
         document.getElementById('navNutrition').classList.add('active');
         fetchNutritionConfig();
+    } else if (viewName === 'settings') {
+        if(document.getElementById('settingsView')) document.getElementById('settingsView').style.display = 'block';
+        if(document.getElementById('navSettings')) document.getElementById('navSettings').classList.add('active');
+        renderSettingsClientsList();
     }
 }
 
@@ -2066,7 +2072,11 @@ function addFoodItemToMeal(mId, prefillItem = null) {
     foodRow.style.marginBottom = "5px";
     foodRow.className = "food-item-row";
     
-    let html = `<input type="text" class="food-name" placeholder="Alimento" list="defaultFoodsList" value="${prefillItem ? prefillItem.food_name : ''}" required style="flex: 2; font-size: 11px; min-width: 120px;">`;
+    let html = `
+    <div class="food-autocomplete-wrapper" style="position: relative; flex: 2; min-width: 120px; display: flex; flex-direction: column;">
+        <input type="text" class="food-name" placeholder="Alimento" value="${prefillItem ? prefillItem.food_name : ''}" required style="width: 100%; font-size: 11px; margin: 0; box-sizing: border-box;" autocomplete="off">
+        <div class="food-suggestions-dropdown" style="display: none; position: absolute; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
+    </div>`;
     
     const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
     activeFields.forEach(field => {
@@ -2092,9 +2102,120 @@ function addFoodItemToMeal(mId, prefillItem = null) {
     
     // Bind autocomplete & auto-calculation
     const nameInput = foodRow.querySelector('.food-name');
+    const dropdown = foodRow.querySelector('.food-suggestions-dropdown');
+    const wrapper = foodRow.querySelector('.food-autocomplete-wrapper');
+    let currentFocus = -1;
+    
+    const showSuggestions = (query = '') => {
+        const filtered = globalFoodLibrary.filter(food => 
+            food.name.toLowerCase().includes(query.toLowerCase())
+        );
+        dropdown.innerHTML = '';
+        currentFocus = -1;
+        if (filtered.length === 0) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        filtered.forEach((food, index) => {
+            const item = document.createElement('div');
+            item.className = 'food-suggestion-item';
+            item.style.padding = '8px 10px';
+            item.style.cursor = 'pointer';
+            item.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+            item.style.fontSize = '12px';
+            item.style.color = 'var(--color-text-primary)';
+            item.innerText = food.name;
+            item.dataset.index = index;
+            
+            item.addEventListener('mouseenter', () => {
+                removeActiveSuggestions();
+                currentFocus = index;
+                addActiveSuggestion(item);
+            });
+            
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectFoodItem(food);
+            });
+            
+            dropdown.appendChild(item);
+        });
+        dropdown.style.display = 'block';
+    };
+    
+    const selectFoodItem = (food) => {
+        nameInput.value = food.name;
+        foodRow.dataset.selectedFood = food.name;
+        
+        const weightInput = foodRow.querySelector('.food-field[data-id="1"]');
+        if (weightInput) {
+            if (!weightInput.value) {
+                weightInput.value = food.weight_g;
+            }
+        }
+        scaleFoodFields(foodRow, food);
+        dropdown.style.display = 'none';
+    };
+    
+    const addActiveSuggestion = (x) => {
+        if (!x) return false;
+        x.style.background = 'rgba(243, 202, 76, 0.15)';
+    };
+    
+    const removeActiveSuggestions = () => {
+        const items = dropdown.getElementsByClassName('food-suggestion-item');
+        for (let i = 0; i < items.length; i++) {
+            items[i].style.background = 'transparent';
+        }
+    };
+    
+    const setActive = (items) => {
+        if (!items) return false;
+        removeActiveSuggestions();
+        if (currentFocus >= items.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = items.length - 1;
+        addActiveSuggestion(items[currentFocus]);
+        if (items[currentFocus]) {
+            items[currentFocus].scrollIntoView({ block: 'nearest' });
+        }
+    };
+    
+    nameInput.addEventListener('keydown', (e) => {
+        const items = dropdown.getElementsByClassName('food-suggestion-item');
+        if (dropdown.style.display === 'none' || items.length === 0) return;
+        
+        if (e.keyCode === 40) { // Arrow down
+            currentFocus++;
+            setActive(items);
+        } else if (e.keyCode === 38) { // Arrow up
+            currentFocus--;
+            setActive(items);
+        } else if (e.keyCode === 13) { // Enter
+            e.preventDefault();
+            if (currentFocus > -1) {
+                if (items[currentFocus]) {
+                    const selectedName = items[currentFocus].innerText;
+                    const food = globalFoodLibrary.find(f => f.name === selectedName);
+                    if (food) selectFoodItem(food);
+                }
+            }
+        }
+    });
+    
+    nameInput.addEventListener('focus', () => {
+        showSuggestions(nameInput.value);
+    });
+    
+    nameInput.addEventListener('click', () => {
+        showSuggestions(nameInput.value);
+    });
+    
     nameInput.addEventListener('input', (e) => {
-        const val = e.target.value.trim();
-        const matchedFood = globalFoodLibrary.find(f => f.name.toLowerCase() === val.toLowerCase());
+        const val = e.target.value;
+        showSuggestions(val);
+        
+        const matchedFood = globalFoodLibrary.find(f => f.name.toLowerCase() === val.trim().toLowerCase());
         if (matchedFood) {
             foodRow.dataset.selectedFood = matchedFood.name;
             const weightInput = foodRow.querySelector('.food-field[data-id="1"]');
@@ -2105,6 +2226,12 @@ function addFoodItemToMeal(mId, prefillItem = null) {
             }
             scaleFoodFields(foodRow, matchedFood);
         }
+    });
+    
+    nameInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            dropdown.style.display = 'none';
+        }, 200);
     });
     
     const weightInput = foodRow.querySelector('.food-field[data-id="1"]');
@@ -3110,6 +3237,191 @@ function handleFabClick() {
         if (typeof openNutritionModal === 'function') openNutritionModal(true);
     } else if (assessmentLibView && assessmentLibView.style.display !== 'none') {
         if (typeof openAssessmentConfigModal === 'function') openAssessmentConfigModal();
+    }
+}
+
+// ==========================================
+// NEW: Settings & Client Management Logic
+// ==========================================
+
+let globalClientsForSettings = [];
+
+async function renderSettingsClientsList() {
+    try {
+        const res = await fetch('/api/clients', {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('settingsClientsTableBody');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        
+        let clientsList = [];
+        if (Array.isArray(data)) {
+            clientsList = data;
+        } else if (data && data.success && Array.isArray(data.clients)) {
+            clientsList = data.clients;
+        }
+        
+        globalClientsForSettings = clientsList;
+        if (globalClientsForSettings.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--color-text-secondary);padding:20px;">No hay clientes registrados.</td></tr>';
+            return;
+        }
+        
+        globalClientsForSettings.forEach(client => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>#${client.id}</td>
+                <td><div style="font-weight: 500; color: #fff;">${client.first_name} ${client.last_name}</div></td>
+                <td><div style="color: var(--accent-cyan); font-size: 13px;">@${client.nickname}</div><div style="color: var(--color-text-secondary); font-size: 12px;">${client.email}</div></td>
+                <td>
+                    <button class="btn-icon" onclick="openEditClientModal(${client.id})" title="Editar Perfil" style="color: var(--accent-cyan); margin-right: 8px;"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn-icon" onclick="openResetClientPasswordModal(${client.id}, '${client.first_name} ${client.last_name}')" title="Resetear Contraseña" style="color: #f59e0b; margin-right: 8px;"><i class="fa-solid fa-key"></i></button>
+                    <button class="btn-icon" onclick="deleteClientConfig(${client.id})" title="Eliminar Cliente" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error('Error fetching clients for settings:', error);
+    }
+}
+
+function openEditClientModal(clientId) {
+    const client = globalClientsForSettings.find(c => c.id === clientId);
+    if (!client) return;
+    
+    document.getElementById('editClientId').value = client.id;
+    document.getElementById('editClientFirstName').value = client.first_name || '';
+    document.getElementById('editClientLastName').value = client.last_name || '';
+    document.getElementById('editClientEmail').value = client.email || '';
+    document.getElementById('editClientNickname').value = client.nickname || '';
+    document.getElementById('editClientHeight').value = client.height_cm || 170;
+    document.getElementById('editClientPhone').value = client.phone || '';
+    document.getElementById('editClientAllergies').value = client.allergies || '';
+    document.getElementById('editClientMedications').value = client.medications || '';
+    
+    document.getElementById('editClientModal').style.display = 'flex';
+}
+
+function closeEditClientModal() {
+    document.getElementById('editClientModal').style.display = 'none';
+}
+
+async function submitEditClient(e) {
+    e.preventDefault();
+    const clientId = document.getElementById('editClientId').value;
+    
+    const payload = {
+        id: clientId,
+        first_name: document.getElementById('editClientFirstName').value,
+        last_name: document.getElementById('editClientLastName').value,
+        email: document.getElementById('editClientEmail').value,
+        nickname: document.getElementById('editClientNickname').value,
+        height_cm: document.getElementById('editClientHeight').value,
+        phone: document.getElementById('editClientPhone').value,
+        allergies: document.getElementById('editClientAllergies').value,
+        medications: document.getElementById('editClientMedications').value
+    };
+    
+    try {
+        const res = await fetch('/api/clients', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeEditClientModal();
+            renderSettingsClientsList();
+            if (typeof renderClientList === 'function') renderClientList();
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error actualizando cliente.");
+    }
+}
+
+function openResetClientPasswordModal(clientId, clientName) {
+    document.getElementById('resetClientId').value = clientId;
+    document.getElementById('resetClientName').textContent = clientName;
+    document.getElementById('resetClientNewPassword').value = '';
+    document.getElementById('resetClientPasswordModal').style.display = 'flex';
+}
+
+function closeResetClientPasswordModal() {
+    document.getElementById('resetClientPasswordModal').style.display = 'none';
+}
+
+async function submitResetClientPassword(e) {
+    e.preventDefault();
+    const clientId = document.getElementById('resetClientId').value;
+    const client = globalClientsForSettings.find(c => c.id == clientId);
+    if (!client) return;
+    
+    const newPassword = document.getElementById('resetClientNewPassword').value;
+    if (!newPassword) {
+        alert("La contraseña no puede estar vacía.");
+        return;
+    }
+    
+    const payload = {
+        id: client.id,
+        first_name: client.first_name,
+        last_name: client.last_name,
+        email: client.email,
+        password: newPassword
+    };
+    
+    try {
+        const res = await fetch('/api/clients', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("Contraseña actualizada con éxito.");
+            closeResetClientPasswordModal();
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error cambiando contraseña.");
+    }
+}
+
+async function deleteClientConfig(id) {
+    if (!confirm('¿Estás SEGURO de eliminar este cliente de forma permanente? Se borrarán todos sus datos y progresos.')) return;
+    try {
+        const res = await fetch('/api/clients?id=' + id, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.success) {
+            renderSettingsClientsList();
+            if (typeof renderClientList === 'function') renderClientList();
+            if (typeof currentClientId !== 'undefined' && currentClientId == id) {
+                currentClientId = null;
+                const mainContent = document.getElementById("mainContent");
+                if (mainContent) {
+                    mainContent.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color: var(--color-text-secondary);">
+                            <i class="fa-solid fa-user-check" style="font-size: 40px; margin-bottom: 20px; opacity:0.3;"></i>
+                            <p>Selecciona un cliente de la lista para ver sus detalles</p>
+                        </div>`;
+                }
+            }
+        } else {
+            alert('Error eliminando: ' + (data.error || 'Desconocido'));
+        }
+    } catch (error) {
+        console.error('Error in deleteClientConfig:', error);
     }
 }
 

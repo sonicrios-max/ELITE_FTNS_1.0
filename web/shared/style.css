@@ -167,6 +167,33 @@ header {
     border-color: rgba(243, 202, 76, 0.2);
 }
 
+.btn-icon {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--color-text-secondary);
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: var(--transition-smooth);
+    padding: 0;
+}
+
+.btn-icon:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.btn-icon:active {
+    transform: translateY(0);
+}
+
+
 .btn-primary {
     background: var(--accent-gold);
     border: none;
@@ -1045,8 +1072,8 @@ select option {
         -webkit-backdrop-filter: blur(12px);
         border-top: 1px solid rgba(255, 255, 255, 0.08);
         z-index: 990;
-        padding: 12px 0;
-        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 15px); /* Extra space for mobile gesture bar */
+        padding: 12px 0 24px 0;
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); /* Extra space for mobile gesture bar */
         box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
     }
     

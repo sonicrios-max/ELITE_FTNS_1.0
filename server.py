@@ -539,7 +539,7 @@ class FitnessHTTPRequestHandler(object):
         conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT id, first_name, last_name, email, phone FROM users WHERE id != 0 ORDER BY id ASC")
+        cursor.execute("SELECT id, first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, nickname FROM users WHERE id != 0 ORDER BY id ASC")
         rows = cursor.fetchall()
         
         clients = []
@@ -1473,31 +1473,83 @@ class FitnessHTTPRequestHandler(object):
 
     def handle_update_client(self, data):
         client_id = data.get("id")
-        first_name = data.get("first_name")
-        last_name = data.get("last_name")
-        email = data.get("email")
-        phone = data.get("phone")
-        birthdate = data.get("birthdate")
-        height_cm = data.get("height_cm", 170.0)
-        blood_type = data.get("blood_type", "O+")
-        allergies = data.get("allergies", "Ninguna")
-        medications = data.get("medications", "Ninguno")
-        nickname = data.get("nickname")
-        password = data.get("password")
-
-        if not client_id or not first_name or not last_name or not email:
-            self.send_error_response(400, "ID, nombre, apellido y correo son requeridos.")
+        if not client_id:
+            self.send_error_response(400, "ID del cliente es requerido.")
             return
 
         conn = self.get_db_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         try:
+            # 1. Fetch current client data to perform a partial/merged update
+            cursor.execute("SELECT * FROM users WHERE id = ?", (client_id,))
+            row = cursor.fetchone()
+            if not row:
+                self.send_error_response(404, "Cliente no encontrado.")
+                conn.close()
+                return
+            
+            current_client = dict(row)
+            
+            # 2. Merge inputs: if a field isn't present in 'data' payload, fallback to database value
+            first_name = data.get("first_name")
+            if first_name is None:
+                first_name = current_client.get("first_name")
+                
+            last_name = data.get("last_name")
+            if last_name is None:
+                last_name = current_client.get("last_name")
+                
+            email = data.get("email")
+            if email is None:
+                email = current_client.get("email")
+                
+            phone = data.get("phone")
+            if phone is None:
+                phone = current_client.get("phone")
+                
+            birthdate = data.get("birthdate")
+            if birthdate is None:
+                birthdate = current_client.get("birthdate")
+                
+            height_cm = data.get("height_cm")
+            if height_cm is None:
+                height_cm = current_client.get("height_cm", 170.0)
+                
+            blood_type = data.get("blood_type")
+            if blood_type is None:
+                blood_type = current_client.get("blood_type", "O+")
+                
+            allergies = data.get("allergies")
+            if allergies is None:
+                allergies = current_client.get("allergies", "Ninguna")
+                
+            medications = data.get("medications")
+            if medications is None:
+                medications = current_client.get("medications", "Ninguno")
+                
+            nickname = data.get("nickname")
+            if nickname is None:
+                nickname = current_client.get("nickname")
+                
+            # If username/nickname is updated, ensure it's not taken by another user
             if nickname:
                 cursor.execute("SELECT id FROM users WHERE LOWER(nickname) = ? AND id != ?", (nickname.lower(), client_id))
                 if cursor.fetchone():
                     self.send_json_response(200, {"success": False, "error": f"El nombre de usuario '{nickname}' ya está registrado."})
+                    conn.close()
                     return
-            
+
+            raw_password = data.get("password")
+            if raw_password is not None and str(raw_password).strip() != "":
+                # Encrypt if it's a new plain password
+                if not str(raw_password).startswith("$2b$"):
+                    password = get_password_hash(str(raw_password))
+                else:
+                    password = raw_password
+            else:
+                password = current_client.get("password")
+
             cursor.execute("""
                 UPDATE users SET
                     first_name = ?, last_name = ?, email = ?, phone = ?, birthdate = ?,

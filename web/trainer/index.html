@@ -22,9 +22,9 @@
             return false;
         };
     </script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Portal del Entrenador - Elite Coaching</title>
-    <link rel="stylesheet" href="/shared/style.css?v=2.0.0">
+    <link rel="stylesheet" href="/shared/style.css?v=2.0.6">
     <!-- Chart.js for beautiful interactive analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for clean premium icons -->
@@ -63,6 +63,7 @@
             <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment"><i class="fa-solid fa-ruler-combined"></i> Valoraciones</a>
             <a href="#" onclick="showGlobalView('training')" class="btn-nav" id="navTraining"><i class="fa-solid fa-dumbbell"></i> Entrenamiento</a>
             <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Nutrición</a>
+            <a href="#" onclick="showGlobalView('settings')" class="btn-nav" id="navSettings"><i class="fa-solid fa-gear"></i> Ajustes</a>
         </div>
         <div>
             <button class="btn-primary" onclick="openAddClientModal()"><i class="fa-solid fa-user-plus"></i> Nuevo Cliente</button>
@@ -75,6 +76,7 @@
         <a href="#" onclick="handleBottomNav('assessment')" class="bottom-nav-item" id="botNavAssessment"><i class="fa-solid fa-ruler-combined"></i><span>Métricas</span></a>
         <a href="#" onclick="handleBottomNav('training')" class="bottom-nav-item" id="botNavTraining"><i class="fa-solid fa-dumbbell"></i><span>Rutinas</span></a>
         <a href="#" onclick="handleBottomNav('nutrition')" class="bottom-nav-item" id="botNavNutrition"><i class="fa-solid fa-apple-whole"></i><span>Dieta</span></a>
+        <a href="#" onclick="handleBottomNav('settings')" class="bottom-nav-item" id="botNavSettings"><i class="fa-solid fa-gear"></i><span>Ajustes</span></a>
     </nav>
     
     <!-- MOBILE FAB (Floating Action Button) -->
@@ -432,6 +434,104 @@
                     <!-- Llenado dinámico -->
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- VISTA 6: AJUSTES Y USUARIOS -->
+    <div class="container" id="settingsView" style="display: none;">
+        <div class="glass-card">
+            <h2><i class="fa-solid fa-gear" style="color: var(--accent-cyan);"></i> Ajustes y Gestión de Usuarios</h2>
+            <p style="color: var(--color-text-secondary); margin-bottom: 20px;">
+                Administra a tus clientes registrados. Puedes modificar sus perfiles, reestablecer sus contraseñas o eliminarlos del sistema.
+            </p>
+            <div style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                <table class="data-table" style="width: 100%; min-width: 600px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; width: 60px;">ID</th>
+                            <th style="text-align: left;">Nombre Completo</th>
+                            <th style="text-align: left; width: 220px;">Usuario / Email</th>
+                            <th style="width: 150px; text-align: left;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="settingsClientsTableBody">
+                        <!-- Llenado dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Client Modal -->
+    <div id="editClientModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 550px; max-width: 95%;">
+            <h3 style="color: var(--accent-cyan); margin-bottom: 15px;"><i class="fa-solid fa-user-pen"></i> Editar Cliente</h3>
+            <form onsubmit="submitEditClient(event)">
+                <input type="hidden" id="editClientId">
+                <div style="max-height: 400px; overflow-y: auto; padding-right: 12px; margin-bottom: 15px;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nombre(s)</label>
+                            <input type="text" id="editClientFirstName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Apellido(s)</label>
+                            <input type="text" id="editClientLastName" required>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="editClientEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nombre de Usuario (Nickname)</label>
+                            <input type="text" id="editClientNickname" required>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Estatura Inicial (cm)</label>
+                            <input type="number" step="0.1" id="editClientHeight" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Teléfono</label>
+                            <input type="text" id="editClientPhone">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Alergias</label>
+                        <input type="text" id="editClientAllergies">
+                    </div>
+                    <div class="form-group">
+                        <label>Medicamentos</label>
+                        <input type="text" id="editClientMedications">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn-nav" onclick="closeEditClientModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div id="resetClientPasswordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 400px; max-width: 95%;">
+            <h3 style="color: #f59e0b; margin-bottom: 15px;"><i class="fa-solid fa-key"></i> Reestablecer Contraseña</h3>
+            <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 15px;">Estás a punto de forzar una nueva contraseña para <strong id="resetClientName" style="color: #fff;"></strong>.</p>
+            <form onsubmit="submitResetClientPassword(event)">
+                <input type="hidden" id="resetClientId">
+                <div class="form-group">
+                    <label>Nueva Contraseña</label>
+                    <input type="password" id="resetClientNewPassword" required minlength="6">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn-nav" onclick="closeResetClientPasswordModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary" style="background: #f59e0b;">Guardar</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -820,7 +920,7 @@
         </div>
     </div>
 
-    <script src="/trainer/trainer.js?v=2.0.0"></script>
+    <script src="/trainer/trainer.js?v=2.0.6"></script>
     
     <!-- PWA Service Worker Registration -->
     <script>
