@@ -11,6 +11,8 @@
         if (typeof url === 'string' && url.includes('/api/')) {
             options.headers = options.headers || {};
             options.headers['X-Trainer-Id'] = trainerId;
+    const token = localStorage.getItem('jwtToken');
+    if(token) options.headers['Authorization'] = 'Bearer ' + token;
         }
         return originalFetch(url, options);
     };

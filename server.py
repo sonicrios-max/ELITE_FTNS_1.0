@@ -1,4 +1,6 @@
 import json
+import bcrypt
+import jwt
 import sqlite3
 import os
 import urllib.parse
@@ -13,6 +15,22 @@ from fastapi.middleware.cors import CORSMiddleware
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("PORT", 8080))
+SECRET_KEY = os.environ.get("JWT_SECRET", "super-secret-key-1234")
+
+def verify_password(plain_password, hashed_password):
+    if not hashed_password.startswith("$2b$"):
+        return plain_password == hashed_password
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
+
+def get_password_hash(password):
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def create_access_token(data: dict):
+    return jwt.encode(data, SECRET_KEY, algorithm="HS256")
+
 
 # For production/PaaS hosting with persistent volumes (like Render or Railway),
 # we can define a PERSISTENT_DIR env var pointing to the mounted disk directory.
@@ -68,7 +86,7 @@ def init_master_db():
     if not cursor.fetchone():
         cursor.execute("""
             INSERT INTO trainers (name, nickname, email, password, theme_color)
-            VALUES ('Elite Coach Admin', 'admin', 'admin@elitecoach.local', 'admin', '#f3ca4c')
+            VALUES ('Elite Coach Admin', 'admin', 'admin@elitecoach.local', '{get_password_hash("admin")}', '#f3ca4c')
         """)
         print("Master DB: Seeded default trainer 'admin' / 'admin'.")
     conn.commit()
@@ -94,7 +112,7 @@ def initialize_tenant_db(trainer_nickname):
         if not cursor.fetchone():
             cursor.execute("""
                 INSERT INTO users (id, first_name, last_name, email, height_cm, nickname, password)
-                VALUES (0, 'Sistema', 'Plantillas', 'sistema@elitecoach.local', 0, 'sistema', '123456')
+                VALUES (0, 'Sistema', 'Plantillas', 'sistema@elitecoach.local', 0, 'sistema', '{get_password_hash("123456")}')
             """)
             conn.commit()
             
@@ -164,7 +182,7 @@ def check_and_migrate_db(db_path):
             users = cursor.fetchall()
             for u_id, email, nick in users:
                 new_nick = email.split('@')[0].lower()
-                new_pass = "123456"
+                new_pass = get_password_hash("123456")
                 
                 cursor.execute("SELECT id FROM users WHERE nickname = ? AND id != ?", (new_nick, u_id))
                 if cursor.fetchone():
@@ -180,7 +198,7 @@ def check_and_migrate_db(db_path):
             print("Migration: Creating System User (ID 0) for Global Templates...")
             cursor.execute("""
                 INSERT INTO users (id, first_name, last_name, email, height_cm, nickname, password)
-                VALUES (0, 'Sistema', 'Plantillas', 'sistema@elitecoach.local', 0, 'sistema', '123456')
+                VALUES (0, 'Sistema', 'Plantillas', 'sistema@elitecoach.local', 0, 'sistema', '{get_password_hash("123456")}')
             """)
             conn.commit()
 
@@ -340,6 +358,22 @@ class FitnessHTTPRequestHandler(object):
         self._status_code = 200
         self._content_type = "application/json; charset=utf-8"
 
+    def verify_jwt(self):
+        auth_header = self.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            self.send_error_response(401, "Unauthorized: Missing token")
+            return False
+        token = auth_header.split(" ")[1]
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            return True
+        except jwt.ExpiredSignatureError:
+            self.send_error_response(401, "Unauthorized: Token expired")
+            return False
+        except jwt.InvalidTokenError:
+            self.send_error_response(401, "Unauthorized: Invalid token")
+            return False
+
     def get_request_trainer(self):
         if self._trainer_id:
             return self._trainer_id
@@ -383,17 +417,21 @@ class FitnessHTTPRequestHandler(object):
         if auth_type == "trainer":
             conn = sqlite3.connect(MASTER_DB_PATH)
             cursor = conn.cursor()
-            cursor.execute("SELECT id, name, theme_color FROM trainers WHERE LOWER(nickname) = ? AND password = ?", (nickname, password))
+            cursor.execute("SELECT id, name, theme_color, password FROM trainers WHERE LOWER(nickname) = ?", (nickname,))
             row = cursor.fetchone()
+            if row and not verify_password(password, row[3]):
+                row = None
             conn.close()
             
             if row:
+                token = create_access_token({"sub": nickname, "type": "trainer"})
                 self.send_json_response(200, {
                     "success": True, 
                     "type": "trainer",
                     "nickname": nickname,
                     "name": row[1],
-                    "themeColor": row[2]
+                    "themeColor": row[2],
+                    "token": token
                 })
             else:
                 self.send_json_response(200, {
@@ -409,16 +447,20 @@ class FitnessHTTPRequestHandler(object):
                 return
             conn = self.get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT id, first_name, last_name FROM users WHERE LOWER(nickname) = ? AND password = ?", (nickname, password))
+            cursor.execute("SELECT id, first_name, last_name, password FROM users WHERE LOWER(nickname) = ?", (nickname,))
             row = cursor.fetchone()
+            if row and not verify_password(password, row[3]):
+                row = None
             conn.close()
             
             if row:
+                token = create_access_token({"sub": nickname, "type": "client", "user_id": row[0]})
                 self.send_json_response(200, {
                     "success": True, 
                     "type": "client",
                     "userId": row[0],
-                    "name": f"{row[1]} {row[2]}"
+                    "name": f"{row[1]} {row[2]}",
+                    "token": token
                 })
             else:
                 self.send_json_response(200, {
@@ -442,10 +484,11 @@ class FitnessHTTPRequestHandler(object):
         conn = sqlite3.connect(MASTER_DB_PATH)
         cursor = conn.cursor()
         try:
+            hashed_pwd = get_password_hash(password)
             cursor.execute("""
                 INSERT INTO trainers (name, nickname, email, password, theme_color)
                 VALUES (?, ?, ?, ?, ?)
-            """, (name, nickname, email, password, theme_color))
+            """, (name, nickname, email, hashed_pwd, theme_color))
             conn.commit()
             
             # Dynamically initialize their isolated SQLite DB!
@@ -655,10 +698,11 @@ class FitnessHTTPRequestHandler(object):
             return
             
         try:
+            hashed_pwd = get_password_hash(password)
             cursor.execute("""
                 INSERT INTO users (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule, nickname, password)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule, nickname, password))
+            """, (first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, availability_schedule, nickname, hashed_pwd))
             client_id = cursor.lastrowid
             
             # Seed default workout & nutrition plan skeleton for new client
@@ -1273,6 +1317,40 @@ class FitnessHTTPRequestHandler(object):
     def check_admin_auth(self):
         passcode = self.headers.get("X-Admin-Passcode")
         return passcode == "dev123"
+
+    def handle_admin_reset_password(self, data):
+        target_type = data.get('target_type')
+        target_id = data.get('target_id')
+        new_password = data.get('new_password')
+        trainer_nick = data.get('trainer_nick')
+        
+        if not target_type or not target_id or not new_password:
+            self.send_error_response(400, 'Missing fields')
+            return
+            
+        hashed_pwd = get_password_hash(new_password)
+        
+        if target_type == 'trainer':
+            conn = sqlite3.connect(MASTER_DB_PATH)
+            cur = conn.cursor()
+            cur.execute('UPDATE trainers SET password = ? WHERE id = ?', (hashed_pwd, target_id))
+            conn.commit()
+            conn.close()
+        elif target_type == 'client':
+            if not trainer_nick:
+                self.send_error_response(400, 'Missing trainer_nick for client reset')
+                return
+            db_path = get_tenant_db_path(trainer_nick)
+            conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            cur.execute('UPDATE users SET password = ? WHERE id = ?', (hashed_pwd, target_id))
+            conn.commit()
+            conn.close()
+        else:
+            self.send_error_response(400, 'Invalid target_type')
+            return
+            
+        self.send_json_response(200, {'success': True, 'message': 'Password reset successfully'})
 
     def handle_admin_verify(self, data):
         passcode = data.get("passcode")
@@ -2035,6 +2113,15 @@ async def api_auth_register(request: Request):
     data = await request.json()
     handler = FitnessHTTPRequestHandler(request)
     handler.handle_register_trainer(data)
+    return make_api_response(handler)
+
+@app.post("/api/admin/reset_password")
+async def api_admin_reset_password(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    if not handler.verify_jwt():
+        return make_api_response(handler)
+    handler.handle_admin_reset_password(data)
     return make_api_response(handler)
 
 @app.post("/api/admin/verify")

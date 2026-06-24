@@ -284,6 +284,7 @@ header {
     display: flex;
     flex-direction: column;
     gap: 30px;
+    min-width: 0;
 }
 
 .client-profile-header {
@@ -440,6 +441,7 @@ header {
     display: none;
     flex-direction: column;
     gap: 20px;
+    min-width: 0;
 }
 
 .tab-panel.active {
@@ -1042,7 +1044,7 @@ select option {
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border-top: 1px solid rgba(255, 255, 255, 0.08);
-        z-index: 99999;
+        z-index: 990;
         padding: 12px 0;
         padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 15px); /* Extra space for mobile gesture bar */
         box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
@@ -1090,7 +1092,7 @@ select option {
         font-size: 24px;
         border: none;
         box-shadow: 0 4px 15px rgba(243, 202, 76, 0.4);
-        z-index: 9998;
+        z-index: 990;
         cursor: pointer;
     }
     
@@ -1378,4 +1380,20 @@ select option {
         background: #f8fafc !important;
         border-bottom: 1px solid #e2e8f0 !important;
     }
+}
+
+
+/* Fix para evitar el rebote de scroll (scroll bleed) en modales */
+div[id*='Modal'], .modal-overlay, .admin-modal {
+    overscroll-behavior: contain;
+}
+
+/* Bloquear scroll de body al abrir modales */
+body:has(div[id*='Modal'][style*='display: flex']), 
+body:has(div[id*='Modal'][style*='display: block']), 
+body:has(.modal-overlay[style*='display: flex']), 
+body:has(.modal-overlay[style*='display: block']), 
+body:has(.admin-modal[style*='display: flex']), 
+body:has(.admin-modal[style*='display: block']) { 
+    overflow: hidden !important;
 }

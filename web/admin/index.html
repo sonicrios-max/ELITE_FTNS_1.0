@@ -439,6 +439,42 @@
             }
         }
 
+        
+        async function resetPassword(type, id, nickname) {
+            const newPass = prompt('Ingresa la nueva contraseña para este usuario:');
+            if (!newPass) return;
+            
+            let trainer_nick = null;
+            if (type === 'client') {
+                trainer_nick = document.getElementById('trainerSelector').value;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/reset_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Passcode': adminPasscode,
+                        'Authorization': 'Bearer ' + localStorage.getItem('jwtToken')
+                    },
+                    body: JSON.stringify({
+                        target_type: type,
+                        target_id: id,
+                        new_password: newPass,
+                        trainer_nick: trainer_nick
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Contraseña actualizada correctamente.');
+                } else {
+                    alert(result.error || 'Error al restablecer contraseña.');
+                }
+            } catch (err) {
+                alert('Error de conexión.');
+            }
+        }
+
         // --- TRAINERS LOGIC ---
 
         async function loadTrainers() {
@@ -479,6 +515,7 @@
                     <td><span class="compliance-badge">${t.subscription_status}</span></td>
                     <td>
                         <button class="btn-edit" onclick="openTrainerModal(${t.id})"><i class="fa-solid fa-edit"></i> Editar</button>
+                        <button class="btn-edit" onclick="resetPassword('trainer', ${t.id}, '${t.nickname}')" style="background: rgba(16, 185, 129, 0.15); color: var(--dev-green); border-color: rgba(16, 185, 129, 0.3);"><i class="fa-solid fa-key"></i> Reset Clave</button>
                         ${!isSystem ? `<button class="btn-danger" onclick="deleteTrainer(${t.id}, '${t.nickname}')"><i class="fa-solid fa-trash"></i> Eliminar</button>` : ''}
                     </td>
                 `;
@@ -663,6 +700,7 @@
                         <td><code>${c.password || '-'}</code></td>
                         <td>
                             <button class="btn-edit" onclick="openClientModal(${c.id})"><i class="fa-solid fa-edit"></i> Editar</button>
+                            <button class="btn-edit" onclick="resetPassword('client', ${c.id}, null)" style="background: rgba(16, 185, 129, 0.15); color: var(--dev-green); border-color: rgba(16, 185, 129, 0.3);"><i class="fa-solid fa-key"></i> Reset Clave</button>
                             <button class="btn-danger" onclick="deleteClient(${c.id}, '${c.first_name} ${c.last_name}')"><i class="fa-solid fa-trash"></i> Eliminar</button>
                         </td>
                     `;
