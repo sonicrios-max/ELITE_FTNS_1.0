@@ -69,7 +69,31 @@ Ayer completamos e implementamos la libertad total del entrenador para configura
 * El entrenador puede crear planes (Desayunos, almuerzos, cenas, cantidades, calorías, proteínas, carbohidratos, grasas).
 * Se habilitaron las **Plantillas Globales de Nutrición** asignables a cualquier cliente con un solo clic.
 
-### 🚀 Último Commit y Despliegue
+### 🚀 Despliegues Previos (Fase 1)
 Todo el código fue subido a GitHub y desplegado en Render bajo el commit:
 * **Hash:** `bbe1818`
 * **Mensaje:** *Feat: Complete phase 1 features (Anthropometric assessments & Global nutrition plans)*
+
+---
+
+## 🛠️ Chat 3: Sincronización de Checklist Diario, Selector Unificado de Rutina y Correcciones Estéticas en Móviles
+**ID del Chat:** `1f025135-649a-45f5-a316-d16530d845ac`
+
+En esta sesión unificamos y robustecimos la experiencia móvil (ajustando capas y visibilidad de modales) e integramos la bitácora diaria e interactiva del cliente.
+
+### 1. Desarrollo Técnico e Implementaciones
+* **Sincronización de Checklist en Base de Datos**:
+  - Se añadieron las columnas `completed_exercises` y `completed_meals` a la tabla `daily_logs` en `server.py` para almacenar en formato JSON los checklists completados.
+  - Se implementó en el backend la unión parcial de datos usando `sqlite3.Row`, permitiendo guardar peso, hidratación o checklists en momentos independientes del día sin sobreescribir datos previos.
+* **Unificación en "Cambiar Rutina"**:
+  - Se removió el flujo separado de desasignación y asignación de planes. Se unificaron bajo un solo botón **"Cambiar Rutina"** en la pestaña de Rutinas del Entrenador.
+  - El modal correspondiente fue rediseñado para listar las plantillas de rutinas globales como tarjetas interactivas clickables e incluye un input de búsqueda que realiza filtrado de similitud dinámico. Al guardar cambios, el backend desasigna la rutina activa previa del cliente (si tenía una) y le asocia el nuevo plan en una sola transacción.
+* **Fix de Modales y Capas (Z-Index)**:
+  - Se identificó que el panel deslizable de la ficha del cliente en móvil tiene un `z-index: 10000`. Todos los modales del entrenador (añadir cliente, editar, cambiar rutina, etc.) se elevaron a `z-index: 20000 !important` en `style.css` y archivos javascript para evitar que queden ocultos por debajo.
+* **Solución de Colisión de IDs en Trazabilidad**:
+  - Se eliminó el bloque en línea `dayDetailPanel` del HTML para evitar la colisión de los identificadores `dayDetailDate` y `dayDetailContent` con el modal emergente `dayDetailModal`. Ahora la inyección de datos de trazabilidad se realiza de forma limpia y exclusiva dentro del modal emergente, garantizando su visualización correcta en web y en dispositivos móviles.
+
+### 🚀 Último Commit y Despliegue de Versión 2.0.3
+* **Mensaje del Commit:** *Feat & Fix: Implement checklists, unified routine changer with search, mobile z-index modals and day detail modal fix*
+* **Despliegue:** Subido a la rama `main` en GitHub, gatillando el despliegue automático en Render.
+

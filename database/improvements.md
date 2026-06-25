@@ -53,3 +53,13 @@ Estas ideas fueron propuestas para mejorar la inteligencia, automatización y co
 * **Solución Propuesta**: 
   * Investigar y posiblemente aumentar el breakpoint principal para móviles a `1200px` o superior si se detectan este tipo de resoluciones en móviles.
   * Implementar el uso directo de media queries combinadas con la orientación física, ej: `@media (max-width: 1200px) and (orientation: landscape), (max-width: 1024px)` para forzar explícitamente el layout móvil basándose en la orientación.
+
+## 9. Implementaciones Realizadas (Versión v2.0.3)
+* **Checklists de Trazabilidad Diaria en Base de Datos**:
+  - **Estructura**: Se implementaron y migraron las columnas `completed_exercises` (TEXT) y `completed_meals` (TEXT) en la tabla `daily_logs` para almacenar de forma serializada (en formato JSON) los IDs de ejercicios y alimentos completados diariamente por el cliente.
+  - **Lógica**: Se desarrolló en `server.py` la persistencia parcial mediante el uso de `sqlite3.Row`, permitiendo combinar el estado de checklists con registros previos sin sobreescrituras accidentales de datos de peso u horas de sueño del mismo día.
+* **Fix Global de Capas (Z-Index en Modales)**:
+  - **Resolución**: Se determinó que el panel deslizable lateral de la ficha de cliente en móviles (`.main-content.mobile-open`) usa un `z-index: 10000`. Todos los modales del entrenador (añadir cliente, editar perfil, cambiar rutina, etc.) fueron ajustados globalmente en `style.css` y archivos de javascript a un `z-index: 20000 !important` para asegurar que siempre floten por encima en pantallas móviles.
+* **Unificación de Modales de Trazabilidad**:
+  - Se eliminó el bloque duplicado `dayDetailPanel` del HTML para evitar colisiones de IDs y asegurar que la trazabilidad diaria se despliegue de manera única en el modal emergente `dayDetailModal`.
+

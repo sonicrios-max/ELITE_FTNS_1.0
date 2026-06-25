@@ -9,10 +9,11 @@ Este archivo explica el funcionamiento de cada componente del sistema y los paso
 El proyecto está organizado de la siguiente manera:
 - `database/`: Directorio que contiene el almacenamiento de datos.
   - [schema.sql](file:///c:/Users/sonic/OneDrive/Escritorio/PR/database/schema.sql): Declaraciones DDL de creación de tablas.
-  - `fitness.db`: Archivo de base de datos SQLite persistente (autogenerado).
+  - `master.db`: Base de datos maestra de inicio de sesión de entrenadores (autogenerada).
+  - `tenants/`: Directorio con las bases de datos SQLite individuales de cada entrenador, ej. `trainer_admin.db`, `trainer_carlos.gomez.db`, etc. (autogenerados).
 - `web/`: Archivos del frontend.
   - `shared/`: Archivos CSS compartidos.
-    - [style.css](file:///c:/Users/sonic/OneDrive/Escritorio/PR/web/shared/style.css): Hoja de estilos con diseño *dark glassmorphism*.
+    - [style.css](file:///c:/Users/sonic/OneDrive/Escritorio/PR/web/shared/style.css): Hoja de estilos con diseño *dark glassmorphism* y reglas fijas de z-index de modales.
   - `trainer/`: Portal de administración del Entrenador.
     - [index.html](file:///c:/Users/sonic/OneDrive/Escritorio/PR/web/trainer/index.html)
     - [trainer.js](file:///c:/Users/sonic/OneDrive/Escritorio/PR/web/trainer/trainer.js)
@@ -49,13 +50,13 @@ Si deseas reiniciar la base de datos o inicializarla desde cero, sigue estos com
    ```bash
    python scripts/init_db.py
    ```
-   *Esto leerá el archivo `database/schema.sql` y creará las tablas necesarias en `database/fitness.db`.*
+   *Esto leerá el archivo `database/schema.sql` y creará las tablas necesarias en `database/master.db` y carpetas de inquilinos.*
 
 2. **Cargar los Datos Históricos del Excel de Brayan**:
    ```bash
    python scripts/parse_and_seed.py
    ```
-   *Este script lee el archivo `Brayan Guerrero (1).xlsx`, calcula las métricas antropométricas iniciales e inserta a Brayan Guerrero como el Cliente ID 1.*
+   *Este script lee el archivo `Brayan Guerrero (1).xlsx`, calcula las métricas antropométricas iniciales e inserta a Brayan Guerrero como el Cliente ID 1 en la base de datos del administrador.*
 
 3. **Cargar Programas de Entrenamiento, Nutrición y Logs Diarios**:
    ```bash
@@ -89,15 +90,17 @@ Los usuarios generados en la base de datos para pruebas son los siguientes (todo
 Abre tu navegador de internet favorito e introduce las siguientes URLs:
 
 ### A. Portal del Entrenador: [http://localhost:8080/trainer/](http://localhost:8080/trainer/)
-- **Visualización**: Verás una barra lateral con los clientes (Brayan, Maria y Carlos). Al hacer clic en uno, se cargará su perfil.
-- **Gráficas**: En la pestaña "Trazabilidad Diaria", interactúa con los gráficos que cruzan la actividad de pasos, el peso diario, y la relación sueño vs. apego a la dieta.
-- **Modelo 3D Interactivo**: En el panel inferior verás el maniquí virtual 3D que gira continuamente. Al cambiar la evaluación en la lista desplegable de fechas, el modelo cambiará su grosor corporal (cintura, pecho, etc.) de forma proporcional a los datos antropométricos registrados.
-- **Registrar Nuevas Evaluaciones**: Haz clic en el botón "Nueva Evaluación" en la pestaña "Ficha Antropométrica" para añadir un registro de pliegues (adipometría) y circunferencias. Verás cómo se actualizan instantáneamente los KPIs de FFMI y Porcentaje de Grasa Faulkner.
+- **Visualización**: Al entrar, verás una pantalla de bienvenida limpia. Selecciona un cliente de la barra lateral izquierda para cargar su ficha antropométrica, gráficos, rutinas y trazabilidad diaria.
+- **Gráficas**: En la pestaña "Trazabilidad Diaria", interactúa con los gráficos de pasos, peso y sueño vs. apego a la dieta.
+- **Detalle Diario del Calendario**: Haz clic sobre cualquier día registrado en el calendario mensual para abrir una ventana emergente premium. Esta ventana muestra el peso, actividad, hidratación, notas y los **checklists de ejercicios y comidas completados** por el cliente de manera limpia.
+- **Cambiar Rutina**: En la pestaña de "Rutina", haz clic en **"Cambiar Rutina"** para abrir el buscador interactivo. Puedes buscar plantillas globales de entrenamiento escribiendo en el cuadro de búsqueda para filtrar la lista instantáneamente. Selecciona una tarjeta de rutina y presiona **"Guardar Cambios"**; el sistema reemplazará automáticamente la rutina activa del cliente por la seleccionada.
+- **Modelo 3D Interactivo**: En el panel inferior de la ficha del cliente verás el maniquí virtual 3D que gira continuamente. Al cambiar la evaluación en la lista desplegable de fechas, el modelo cambiará su grosor corporal (cintura, pecho, etc.) proporcionalmente.
+- **Registrar Nuevas Evaluaciones**: Haz clic en "Nueva Evaluación" en la pestaña "Ficha Antropométrica" para añadir registros físicos. Verás cómo se actualizan instantáneamente los KPIs de FFMI y Porcentaje de Grasa Faulkner.
 
 ### B. Portal del Cliente (Brayan): [http://localhost:8080/client/?userId=1](http://localhost:8080/client/?userId=1)
-- **Registro de Hoy**: En la barra izquierda, rellena tu peso, pasos dados y calidad de sueño. Al hacer clic en "Guardar Registro Diario", se añadirá a la base de datos y actualizará los gráficos.
-- **Botón de Hidratación**: Haz clic en los botones de vaso o botella de agua. Verás cómo incrementa tu hidratación en la base de datos en tiempo real.
-- **Rutina**: En "Mi Rutina Activa", marca los ejercicios completados en el gimnasio y haz clic en "Ver Técnica" para ver el video instructivo propio.
+- **Registro de Hoy**: Rellena tu peso, pasos dados y sueño en la barra lateral. Los sliders de calidad de sueño y apego a la dieta se actualizan numéricamente en vivo al deslizarlos. Al hacer clic en "Guardar Registro Diario", se añadirá a la base de datos y actualizará los gráficos.
+- **Botón de Hidratación**: Haz clic en los botones de vaso o botella de agua para incrementar tu hidratación en tiempo real.
+- **Rutina y Alimentación con Checklists**: En "Mi Rutina Activa" y "Nutrición Fit", marca los ejercicios completados en el gimnasio y los alimentos consumidos a través de los checkboxes interactivos. El estado de cumplimiento se guarda y sincroniza síncronamente al backend al instante. Haz clic en "Ver Técnica" en cualquier ejercicio para ver su video instructivo.
 
 ---
 
