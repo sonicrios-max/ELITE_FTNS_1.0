@@ -1413,6 +1413,7 @@ select option {
 /* Fix para evitar el rebote de scroll (scroll bleed) en modales */
 div[id*='Modal'], .modal-overlay, .admin-modal {
     overscroll-behavior: contain;
+    z-index: 30000 !important;
 }
 
 /* Bloquear scroll de body al abrir modales */
@@ -1424,3 +1425,23 @@ body:has(.admin-modal[style*='display: flex']),
 body:has(.admin-modal[style*='display: block']) { 
     overflow: hidden !important;
 }
+
+/* Forzar que todos los modales se muestren sobre el panel deslizable de la ficha del cliente en móvil (z-index: 10000) */
+#editClientModal,
+#resetClientPasswordModal,
+#addClientModal,
+#addExerciseModal,
+#addBlockModal,
+#addRoutineModal,
+#addNutritionModal,
+#dayDetailModal,
+#assessmentConfigModal,
+#nutritionConfigModal,
+#foodModal,
+#assignRoutineModal,
+#assignNutritionModal,
+#assignNutritionToClientModal,
+#assignRoutineToClientModal {
+    z-index: 20000 !important;
+}
+

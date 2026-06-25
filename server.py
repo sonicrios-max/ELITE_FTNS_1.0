@@ -119,13 +119,59 @@ def initialize_tenant_db(trainer_nickname):
         # Seed default exercises
         cursor.execute("SELECT id FROM exercises")
         if not cursor.fetchone():
-            cursor.execute("""
-                INSERT INTO exercises (id, name, description, routine_class, primary_muscle, equipment)
-                VALUES 
-                (1, 'Flexiones de Pecho (Pushups)', 'Ejercicio de empuje básico para pectoral y tríceps.', 'Fullbody', 'Pectoral', 'Ninguno'),
-                (2, 'Sentadillas Libres (Squats)', 'Ejercicio básico de empuje de pierna enfocado en cuádriceps.', 'Fullbody', 'Cuádriceps', 'Ninguno')
-            """)
-            conn.commit()
+            copied = False
+            if trainer_nickname != 'admin':
+                admin_db_path = os.path.join(TENANTS_DIR, "trainer_admin.db")
+                if os.path.exists(admin_db_path):
+                    try:
+                        admin_conn = sqlite3.connect(admin_db_path)
+                        admin_cursor = admin_conn.cursor()
+                        admin_cursor.execute("SELECT name, description, routine_class, primary_muscle, secondary_muscles, equipment, video_url, image_url FROM exercises")
+                        admin_exercises = admin_cursor.fetchall()
+                        admin_conn.close()
+                        
+                        if admin_exercises:
+                            cursor.executemany("""
+                                INSERT INTO exercises (name, description, routine_class, primary_muscle, secondary_muscles, equipment, video_url, image_url)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """, admin_exercises)
+                            conn.commit()
+                            copied = True
+                            print(f"Copied exercises from admin to tenant database '{trainer_nickname}'.")
+                    except Exception as ex:
+                        print(f"Error copying exercises from admin to tenant '{trainer_nickname}': {ex}")
+
+            if not copied:
+                cursor.execute("""
+                    INSERT INTO exercises (id, name, description, routine_class, primary_muscle, equipment)
+                    VALUES 
+                    (1, 'Flexiones de Pecho (Pushups)', 'Ejercicio de empuje básico para pectoral y tríceps.', 'Fullbody', 'Pectoral', 'Ninguno'),
+                    (2, 'Sentadillas Libres (Squats)', 'Ejercicio básico de empuje de pierna enfocado en cuádriceps.', 'Fullbody', 'Cuádriceps', 'Ninguno')
+                """)
+                conn.commit()
+
+        # Copy foods from admin as well
+        if trainer_nickname != 'admin':
+            admin_db_path = os.path.join(TENANTS_DIR, "trainer_admin.db")
+            if os.path.exists(admin_db_path):
+                try:
+                    admin_conn = sqlite3.connect(admin_db_path)
+                    admin_cursor = admin_conn.cursor()
+                    admin_cursor.execute("SELECT name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data FROM food_library")
+                    admin_foods = admin_cursor.fetchall()
+                    admin_conn.close()
+                    
+                    if admin_foods:
+                        # Clear default foods to copy admin foods cleanly
+                        cursor.execute("DELETE FROM food_library")
+                        cursor.executemany("""
+                            INSERT OR IGNORE INTO food_library (name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, admin_foods)
+                        conn.commit()
+                        print(f"Copied food library from admin to tenant database '{trainer_nickname}'.")
+                except Exception as ex:
+                    print(f"Error copying foods from admin to tenant '{trainer_nickname}': {ex}")
             
         print(f"Tenant database '{trainer_nickname}' initialized successfully.")
     except Exception as e:
@@ -317,6 +363,18 @@ def check_and_migrate_db(db_path):
                 INSERT INTO food_library (name, weight_g, calories_kcal, protein_g, carbs_g, fat_g)
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', food_defaults)
+            conn.commit()
+            
+        # Migration: Add completed_exercises and completed_meals to daily_logs
+        cursor.execute("PRAGMA table_info(daily_logs)")
+        daily_log_columns = [row[1] for row in cursor.fetchall()]
+        if "completed_exercises" not in daily_log_columns:
+            print("Migration: Adding column 'completed_exercises' to 'daily_logs' table...")
+            cursor.execute("ALTER TABLE daily_logs ADD COLUMN completed_exercises TEXT DEFAULT '[]'")
+            conn.commit()
+        if "completed_meals" not in daily_log_columns:
+            print("Migration: Adding column 'completed_meals' to 'daily_logs' table...")
+            cursor.execute("ALTER TABLE daily_logs ADD COLUMN completed_meals TEXT DEFAULT '[]'")
             conn.commit()
             
     except Exception as e:
@@ -940,7 +998,13 @@ class FitnessHTTPRequestHandler(object):
             return
             
         conn = self.get_db_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
+        
+        # Check if completed_exercises exists in table
+        cursor.execute("PRAGMA table_info(daily_logs)")
+        cols = [r[1] for r in cursor.fetchall()]
+        has_checklist = "completed_exercises" in cols
         
         # Read existing log to preserve variables not sent in partial updates
         cursor.execute("SELECT * FROM daily_logs WHERE user_id = ? AND date = ?", (user_id, date))
@@ -948,44 +1012,68 @@ class FitnessHTTPRequestHandler(object):
         
         # Build merged object
         if existing:
-            # columns: id, user_id, date, weight_kg, steps_count, sleep_hours, sleep_quality, water_intake_ml, energy_level, digestion_status, diet_adherence, resting_hr, hrv, notes
             merged = {
-                "weight_kg": data.get("weight_kg") if data.get("weight_kg") is not None else existing[3],
-                "steps_count": data.get("steps_count") if data.get("steps_count") is not None else existing[4],
-                "sleep_hours": data.get("sleep_hours") if data.get("sleep_hours") is not None else existing[5],
-                "sleep_quality": data.get("sleep_quality") if data.get("sleep_quality") is not None else existing[6],
-                "water_intake_ml": data.get("water_intake_ml") if data.get("water_intake_ml") is not None else existing[7],
-                "energy_level": data.get("energy_level") if data.get("energy_level") is not None else existing[8],
-                "digestion_status": data.get("digestion_status") if data.get("digestion_status") is not None else existing[9],
-                "diet_adherence": data.get("diet_adherence") if data.get("diet_adherence") is not None else existing[10],
-                "resting_hr": data.get("resting_hr") if data.get("resting_hr") is not None else existing[11],
-                "hrv": data.get("hrv") if data.get("hrv") is not None else existing[12],
-                "notes": data.get("notes") if data.get("notes") is not None else existing[13]
+                "weight_kg": data.get("weight_kg") if data.get("weight_kg") is not None else existing["weight_kg"],
+                "steps_count": data.get("steps_count") if data.get("steps_count") is not None else existing["steps_count"],
+                "sleep_hours": data.get("sleep_hours") if data.get("sleep_hours") is not None else existing["sleep_hours"],
+                "sleep_quality": data.get("sleep_quality") if data.get("sleep_quality") is not None else existing["sleep_quality"],
+                "water_intake_ml": data.get("water_intake_ml") if data.get("water_intake_ml") is not None else existing["water_intake_ml"],
+                "energy_level": data.get("energy_level") if data.get("energy_level") is not None else existing["energy_level"],
+                "digestion_status": data.get("digestion_status") if data.get("digestion_status") is not None else existing["digestion_status"],
+                "diet_adherence": data.get("diet_adherence") if data.get("diet_adherence") is not None else existing["diet_adherence"],
+                "resting_hr": data.get("resting_hr") if data.get("resting_hr") is not None else existing["resting_hr"],
+                "hrv": data.get("hrv") if data.get("hrv") is not None else existing["hrv"],
+                "notes": data.get("notes") if data.get("notes") is not None else existing["notes"],
             }
-            cursor.execute("""
+            if has_checklist:
+                merged["completed_exercises"] = data.get("completed_exercises") if data.get("completed_exercises") is not None else existing["completed_exercises"]
+                merged["completed_meals"] = data.get("completed_meals") if data.get("completed_meals") is not None else existing["completed_meals"]
+            
+            update_sql = """
                 UPDATE daily_logs SET
                     weight_kg = ?, steps_count = ?, sleep_hours = ?, sleep_quality = ?,
                     water_intake_ml = ?, energy_level = ?, digestion_status = ?,
                     diet_adherence = ?, resting_hr = ?, hrv = ?, notes = ?
-                WHERE user_id = ? AND date = ?
-            """, (
+            """
+            params = [
                 merged["weight_kg"], merged["steps_count"], merged["sleep_hours"], merged["sleep_quality"],
                 merged["water_intake_ml"], merged["energy_level"], merged["digestion_status"],
-                merged["diet_adherence"], merged["resting_hr"], merged["hrv"], merged["notes"],
-                user_id, date
-            ))
+                merged["diet_adherence"], merged["resting_hr"], merged["hrv"], merged["notes"]
+            ]
+            if has_checklist:
+                update_sql += ", completed_exercises = ?, completed_meals = ?"
+                params.extend([merged["completed_exercises"], merged["completed_meals"]])
+            
+            update_sql += " WHERE user_id = ? AND date = ?"
+            params.extend([user_id, date])
+            cursor.execute(update_sql, params)
         else:
-            cursor.execute("""
-                INSERT INTO daily_logs (
-                    user_id, date, weight_kg, steps_count, sleep_hours, sleep_quality,
-                    water_intake_ml, energy_level, digestion_status, diet_adherence, resting_hr, hrv, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                user_id, date,
-                data.get("weight_kg"), data.get("steps_count"), data.get("sleep_hours"), data.get("sleep_quality"),
-                data.get("water_intake_ml", 0), data.get("energy_level"), data.get("digestion_status"),
-                data.get("diet_adherence"), data.get("resting_hr"), data.get("hrv"), data.get("notes")
-            ))
+            if has_checklist:
+                cursor.execute("""
+                    INSERT INTO daily_logs (
+                        user_id, date, weight_kg, steps_count, sleep_hours, sleep_quality,
+                        water_intake_ml, energy_level, digestion_status, diet_adherence, resting_hr, hrv, notes,
+                        completed_exercises, completed_meals
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    user_id, date,
+                    data.get("weight_kg"), data.get("steps_count"), data.get("sleep_hours"), data.get("sleep_quality"),
+                    data.get("water_intake_ml", 0), data.get("energy_level"), data.get("digestion_status"),
+                    data.get("diet_adherence"), data.get("resting_hr"), data.get("hrv"), data.get("notes"),
+                    data.get("completed_exercises", "[]"), data.get("completed_meals", "[]")
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO daily_logs (
+                        user_id, date, weight_kg, steps_count, sleep_hours, sleep_quality,
+                        water_intake_ml, energy_level, digestion_status, diet_adherence, resting_hr, hrv, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    user_id, date,
+                    data.get("weight_kg"), data.get("steps_count"), data.get("sleep_hours"), data.get("sleep_quality"),
+                    data.get("water_intake_ml", 0), data.get("energy_level"), data.get("digestion_status"),
+                    data.get("diet_adherence"), data.get("resting_hr"), data.get("hrv"), data.get("notes")
+                ))
             
         try:
             conn.commit()

@@ -73,10 +73,7 @@ async function loadClientsList() {
         usersData = await response.json();
         renderClientList();
         
-        // Select first client by default
-        if (usersData.length > 0) {
-            selectClient(usersData[0].id);
-        }
+        // Do not automatically select first client on load
     } catch (err) {
         console.error("Error fetching clients list:", err);
         document.getElementById("clientList").innerHTML = `
@@ -150,6 +147,10 @@ async function selectClient(userId) {
         initOrUpdateCharts();
         renderNutritionPlans();
         renderWorkoutPlans(); // AÑADIDO: cargar rutinas
+        
+        const placeholder = document.getElementById("selectClientPlaceholder");
+        if (placeholder) placeholder.style.display = "none";
+        
         document.getElementById("profileHeaderCard").style.display = "block";
         document.getElementById("kpiContainer").style.display = "flex";
         document.getElementById("tabsCard").style.display = "block";
@@ -853,7 +854,7 @@ async function submitNewAssessment(event) {
     const payload = {
         user_id: activeUserId,
         date,
-        fc_rep,
+        fc_rep: fcRep,
         height_cm: selectedUserFullData?.profile?.height_cm || 170,
         custom_data: {}
     };
@@ -1008,6 +1009,8 @@ async function submitNewClient(event) {
         
         if (result.success) {
             alert("Cliente registrado exitosamente.");
+            const form = document.getElementById("addClientForm");
+            if (form) form.reset();
             closeAddClientModal();
             // Reload sidebar list and select the new user
             await loadClientsList();
@@ -1529,9 +1532,81 @@ async function renderDailyCalendar() {
 }
 
 function showDayDetails(log) {
-    document.getElementById('dayDetailPanel').style.display = 'block';
     document.getElementById('dayDetailDate').innerText = log.date;
     
+    let completedExListHtml = "";
+    let completedMealsListHtml = "";
+    
+    try {
+        const completedExs = typeof log.completed_exercises === 'string' ? JSON.parse(log.completed_exercises) : (log.completed_exercises || []);
+        if (Array.isArray(completedExs) && completedExs.length > 0) {
+            const names = completedExs.map(exId => {
+                let exerciseName = null;
+                if (selectedUserFullData && selectedUserFullData.workout_plan) {
+                    selectedUserFullData.workout_plan.days.forEach(day => {
+                        if (day.blocks) {
+                            day.blocks.forEach(block => {
+                                const found = block.exercises.find(ex => ex.id == exId || ex.exercise_id == exId);
+                                if (found) exerciseName = found.exercise_name;
+                            });
+                        }
+                    });
+                }
+                return exerciseName || `Ejercicio #${exId}`;
+            });
+            completedExListHtml = `
+                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-cyan); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-dumbbell"></i> Ejercicios Completados (${completedExs.length})</span>
+                    <ul style="margin: 0; padding-left: 15px; font-size: 12px; color: var(--color-text-primary); line-height: 1.4;">
+                        ${names.map(name => `<li>${name}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            completedExListHtml = `
+                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-cyan); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-dumbbell"></i> Ejercicios Completados (0)</span>
+                    <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary); font-style: italic;">Ninguno completado</p>
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.error("Error parsing completed_exercises:", e);
+    }
+    
+    try {
+        const completedMeals = typeof log.completed_meals === 'string' ? JSON.parse(log.completed_meals) : (log.completed_meals || []);
+        if (Array.isArray(completedMeals) && completedMeals.length > 0) {
+            const names = completedMeals.map(foodId => {
+                let foodName = null;
+                if (selectedUserFullData && selectedUserFullData.nutrition_plan) {
+                    selectedUserFullData.nutrition_plan.meals.forEach(meal => {
+                        const found = meal.items.find(food => food.id == foodId);
+                        if (found) foodName = food.food_name;
+                    });
+                }
+                return foodName || `Alimento #${foodId}`;
+            });
+            completedMealsListHtml = `
+                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-green); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-apple-whole"></i> Alimentos Consumidos (${completedMeals.length})</span>
+                    <ul style="margin: 0; padding-left: 15px; font-size: 12px; color: var(--color-text-primary); line-height: 1.4;">
+                        ${names.map(name => `<li>${name}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            completedMealsListHtml = `
+                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-green); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-apple-whole"></i> Alimentos Consumidos (0)</span>
+                    <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary); font-style: italic;">Ninguno completado</p>
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.error("Error parsing completed_meals:", e);
+    }
+
     const content = document.getElementById('dayDetailContent');
     content.innerHTML = `
         <div class="summary-stat-box" style="width: 100%;">
@@ -1554,6 +1629,8 @@ function showDayDetails(log) {
             <span>Adherencia Dieta</span>
             <strong>${log.diet_adherence ? log.diet_adherence + ' / 10' : '-'}</strong>
         </div>
+        ${completedExListHtml}
+        ${completedMealsListHtml}
         ${log.notes ? `<div style="width: 100%; margin-top: 5px; color: var(--color-text-secondary); font-size: 13px;"><em>"${log.notes}"</em></div>` : ''}
     `;
     
@@ -1578,7 +1655,7 @@ function assignRoutinePrompt(planId, title) {
     let optionsHtml = usersData.map(u => `<option value="${u.id}">${u.first_name} ${u.last_name}</option>`).join('');
     
     const dialogHtml = `
-        <div id="assignRoutineModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; justify-content: center; align-items: center;">
+        <div id="assignRoutineModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; display: flex; justify-content: center; align-items: center;">
             <div class="glass-card" style="width: 400px; padding: 25px; border-radius: 12px; background: #1a1a1a; color: white;">
                 <h3 style="margin-bottom: 15px; color: var(--accent-cyan);">Asignar Plantilla</h3>
                 <p style="margin-bottom: 20px; font-size: 14px; color: #ccc;">Selecciona el cliente al que deseas asignarle la plantilla <strong>"${title}"</strong>. Esto reemplazará su rutina activa actual.</p>
@@ -2428,7 +2505,7 @@ function assignGlobalNutritionPlan(planId) {
     const clientHtml = usersData.map(u => `<option value="${u.id}">${u.first_name} ${u.last_name}</option>`).join('');
     
     const modalHtml = `
-        <div id="assignNutritionModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div id="assignNutritionModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
             <div class="glass-card" style="width: 400px; max-width: 95%;">
                 <h3 style="color: var(--accent-green); margin-bottom: 15px;"><i class="fa-solid fa-share-nodes"></i> Asignar Plantilla a Cliente</h3>
                 <p style="margin-bottom: 15px; color: var(--color-text-secondary);">Selecciona el cliente al que deseas asignarle la plantilla <strong>${plan.title}</strong>.</p>
@@ -2507,7 +2584,7 @@ function showAssignNutritionToClientModal(clientName) {
     }
     
     const modalHtml = `
-        <div id="assignNutritionToClientModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div id="assignNutritionToClientModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
             <div class="glass-card" style="width: 450px; max-width: 95%; padding: 25px;">
                 <h3 style="color: var(--accent-green); margin-bottom: 15px;"><i class="fa-solid fa-apple-whole"></i> Asignar Plan a ${clientName}</h3>
                 <p style="margin-bottom: 20px; color: var(--color-text-secondary); font-size: 14px;">Selecciona una plantilla global existente para asignársela a este cliente, o crea un plan personalizado desde cero.</p>
@@ -3406,22 +3483,161 @@ async function deleteClientConfig(id) {
         if (data.success) {
             renderSettingsClientsList();
             if (typeof renderClientList === 'function') renderClientList();
-            if (typeof currentClientId !== 'undefined' && currentClientId == id) {
-                currentClientId = null;
-                const mainContent = document.getElementById("mainContent");
-                if (mainContent) {
-                    mainContent.innerHTML = `
-                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color: var(--color-text-secondary);">
-                            <i class="fa-solid fa-user-check" style="font-size: 40px; margin-bottom: 20px; opacity:0.3;"></i>
-                            <p>Selecciona un cliente de la lista para ver sus detalles</p>
-                        </div>`;
-                }
+            if (activeUserId == id) {
+                activeUserId = null;
+                const placeholder = document.getElementById("selectClientPlaceholder");
+                if (placeholder) placeholder.style.display = "flex";
+                document.getElementById("profileHeaderCard").style.display = "none";
+                document.getElementById("kpiContainer").style.display = "none";
+                document.getElementById("tabsCard").style.display = "none";
             }
         } else {
             alert('Error eliminando: ' + (data.error || 'Desconocido'));
         }
     } catch (error) {
         console.error('Error in deleteClientConfig:', error);
+    }
+}
+
+// --- Routine Assignment within active tabs ---
+let globalRoutinesCacheForAssignment = [];
+let selectedRoutineIdForAssignment = null;
+
+function promptAssignRoutineToClient() {
+    if (!activeUserId) {
+        alert("Selecciona un cliente primero.");
+        return;
+    }
+    const client = usersData.find(u => u.id === activeUserId);
+    const clientName = client ? `${client.first_name} ${client.last_name}` : "Cliente";
+    
+    fetch('/api/routines')
+        .then(r => r.json())
+        .then(data => {
+            globalRoutinesCacheForAssignment = data;
+            showAssignRoutineToClientModal(clientName);
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error al cargar las plantillas globales de rutinas.");
+        });
+}
+
+function showAssignRoutineToClientModal(clientName) {
+    selectedRoutineIdForAssignment = null;
+    
+    let optionsHtml = globalRoutinesCacheForAssignment.map(r => `
+        <div class="routine-option-item" onclick="selectRoutineOption(${r.id}, this)" style="padding: 12px; border: 1px solid var(--glass-border); border-radius: 10px; cursor: pointer; transition: var(--transition-smooth); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); margin-bottom: 8px;" data-title="${r.title.toLowerCase()}">
+            <div style="text-align: left; padding-right: 10px;">
+                <strong style="color: white; display: block; font-size: 13.5px; margin-bottom: 2px;">${r.title}</strong>
+                <span style="font-size: 11px; color: var(--color-text-secondary); line-height: 1.3; display: block;">${r.days ? r.days.length : 0} días • ${r.description || 'Sin descripción'}</span>
+            </div>
+            <i class="fa-regular fa-circle check-icon" style="color: var(--color-text-muted); font-size: 16px; flex-shrink: 0;"></i>
+        </div>
+    `).join('');
+    
+    if (globalRoutinesCacheForAssignment.length === 0) {
+        optionsHtml = `<div style="text-align: center; padding: 20px; color: var(--color-text-secondary); font-size: 13px;">(No hay plantillas globales creadas)</div>`;
+    }
+    
+    const modalHtml = `
+        <div id="assignRoutineToClientModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+            <div class="glass-card" style="width: 450px; max-width: 95%; padding: 25px; display: flex; flex-direction: column; max-height: 85vh;">
+                <h3 style="color: var(--accent-cyan); margin-bottom: 10px; font-size: 18px;"><i class="fa-solid fa-arrows-rotate"></i> Cambiar Rutina a ${clientName}</h3>
+                <p style="margin-bottom: 15px; color: var(--color-text-secondary); font-size: 12.5px; line-height: 1.4;">Busca y selecciona una plantilla de rutina para este cliente. Si ya tiene una rutina asignada, esta será reemplazada.</p>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <input type="text" id="routineSearchInput" class="form-input" placeholder="🔍 Buscar rutina por nombre..." style="width: 100%; padding: 10px 12px; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white;" oninput="filterRoutineOptions()">
+                </div>
+                
+                <div id="routineOptionsList" style="flex: 1; overflow-y: auto; margin-bottom: 15px; padding-right: 5px; max-height: 300px;">
+                    ${optionsHtml}
+                    <div id="noRoutineResults" style="display: none; text-align: center; padding: 20px; color: var(--color-text-muted); font-size: 13px;">
+                        No se encontraron rutinas que coincidan con tu búsqueda.
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+                    <button class="btn-secondary" onclick="document.getElementById('assignRoutineToClientModal').remove()">Cancelar</button>
+                    <button id="confirmAssignRoutineBtn" class="btn-primary" onclick="confirmAssignRoutineToActiveClient()" disabled>Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existing = document.getElementById('assignRoutineToClientModal');
+    if (existing) existing.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function selectRoutineOption(id, element) {
+    selectedRoutineIdForAssignment = id;
+    
+    const items = document.querySelectorAll('.routine-option-item');
+    items.forEach(item => {
+        item.style.borderColor = 'var(--glass-border)';
+        item.style.background = 'rgba(255,255,255,0.02)';
+        const icon = item.querySelector('.check-icon');
+        icon.className = 'fa-regular fa-circle check-icon';
+        icon.style.color = 'var(--color-text-muted)';
+    });
+    
+    element.style.borderColor = 'var(--accent-gold)';
+    element.style.background = 'rgba(243, 202, 76, 0.05)';
+    const icon = element.querySelector('.check-icon');
+    icon.className = 'fa-solid fa-circle-check check-icon';
+    icon.style.color = 'var(--accent-gold)';
+    
+    const saveBtn = document.getElementById('confirmAssignRoutineBtn');
+    if (saveBtn) saveBtn.removeAttribute('disabled');
+}
+
+function filterRoutineOptions() {
+    const query = document.getElementById('routineSearchInput').value.toLowerCase();
+    const items = document.querySelectorAll('.routine-option-item');
+    let visibleCount = 0;
+    
+    items.forEach(item => {
+        const title = item.getAttribute('data-title');
+        if (title.includes(query)) {
+            item.style.display = 'flex';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    const noResults = document.getElementById('noRoutineResults');
+    if (visibleCount === 0) {
+        noResults.style.display = 'block';
+    } else {
+        noResults.style.display = 'none';
+    }
+}
+
+async function confirmAssignRoutineToActiveClient() {
+    const planId = selectedRoutineIdForAssignment;
+    if (!planId) return;
+    
+    try {
+        const res = await fetch('/api/routines/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_id: planId, client_id: activeUserId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("Rutina cambiada correctamente.");
+            const modal = document.getElementById('assignRoutineToClientModal');
+            if (modal) modal.remove();
+            selectClient(activeUserId);
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error al conectar con el servidor.");
     }
 }
 

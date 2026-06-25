@@ -41,6 +41,8 @@ let userId = 1;
 let activeTab = 'tabRutinas';
 let clientFullData = null;
 let globalNutritionConfig = [];
+let todayCompletedExercises = [];
+let todayCompletedMeals = [];
 
 // Chart.js Instances
 let weightChartInstance = null;
@@ -70,6 +72,24 @@ async function initClientDashboard() {
     if (idParam) {
         userId = parseInt(idParam);
     }
+    
+    // Register range slider listeners
+    const sleepSlider = document.getElementById("logSleepQuality");
+    const sleepVal = document.getElementById("sleepQualityVal");
+    if (sleepSlider && sleepVal) {
+        sleepSlider.addEventListener("input", () => {
+            sleepVal.innerText = sleepSlider.value;
+        });
+    }
+
+    const dietSlider = document.getElementById("logDietAdherence");
+    const dietVal = document.getElementById("dietAdherenceVal");
+    if (dietSlider && dietVal) {
+        dietSlider.addEventListener("input", () => {
+            dietVal.innerText = dietSlider.value;
+        });
+    }
+    
     await loadNutritionConfig();
     loadClientData();
 }
@@ -84,6 +104,30 @@ async function loadClientData() {
     try {
         const response = await fetch(`/api/clients/${userId}`);
         clientFullData = await response.json();
+        
+        // Parse today's completed checklists
+        const todayStr = new Date().toISOString().substring(0, 10);
+        const logs = clientFullData.daily_logs || [];
+        const todayLog = logs.find(l => l.date === todayStr);
+        if (todayLog) {
+            try {
+                todayCompletedExercises = typeof todayLog.completed_exercises === 'string' 
+                    ? JSON.parse(todayLog.completed_exercises) 
+                    : (todayLog.completed_exercises || []);
+            } catch(e) {
+                todayCompletedExercises = [];
+            }
+            try {
+                todayCompletedMeals = typeof todayLog.completed_meals === 'string' 
+                    ? JSON.parse(todayLog.completed_meals) 
+                    : (todayLog.completed_meals || []);
+            } catch(e) {
+                todayCompletedMeals = [];
+            }
+        } else {
+            todayCompletedExercises = [];
+            todayCompletedMeals = [];
+        }
         
         displayClientHeader();
         populateKPIs();
@@ -293,6 +337,10 @@ async function submitDailyLog(event) {
             // Reload all data to refresh graphs
             loadClientData();
             document.getElementById("dailyLogForm").reset();
+            const sleepVal = document.getElementById("sleepQualityVal");
+            const dietVal = document.getElementById("dietAdherenceVal");
+            if (sleepVal) sleepVal.innerText = "8";
+            if (dietVal) dietVal.innerText = "9";
         } else {
             alert("Error al guardar: " + result.error);
         }
@@ -331,10 +379,11 @@ function renderWorkoutPlans() {
             day.blocks.forEach(block => {
                 let exercisesHtml = "";
                 block.exercises.forEach(ex => {
+                    const isChecked = todayCompletedExercises.includes(ex.id);
                     exercisesHtml += `
                         <tr>
                             <td style="padding: 4px;">
-                                <input type="checkbox" id="check-${ex.id}" style="width: 14px; height: 14px; cursor: pointer;">
+                                <input type="checkbox" id="check-exercise-${ex.id}" ${isChecked ? 'checked' : ''} onchange="toggleExerciseCheck(${ex.id}, this.checked)" style="width: 14px; height: 14px; cursor: pointer;">
                             </td>
                             <td class="exercise-name" style="padding: 4px; font-size: 11px;">${ex.exercise_name}</td>
                             <td style="padding: 4px;"><span class="compliance-badge" style="font-size: 10px; padding: 2px 6px;">${ex.sets_count} Series</span></td>
@@ -491,9 +540,11 @@ function renderNutritionPlans() {
             const hasCalories = activeFields.some(f => f.db_column === 'calories_kcal');
             const caloriesLabel = hasCalories ? `<strong style="color:var(--accent-purple); margin-left:10px;">${food.calories_kcal} Kcal</strong>` : '';
             
+            const isChecked = todayCompletedMeals.includes(food.id);
             foodItemsHtml += `
-                <div class="food-item">
-                    <div>
+                <div class="food-item" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="check-meal-${food.id}" ${isChecked ? 'checked' : ''} onchange="toggleMealCheck(${food.id}, this.checked)" style="width: 14px; height: 14px; cursor: pointer;">
+                    <div style="flex: 1;">
                         <span class="food-name">${food.food_name}</span>
                         <span style="color:var(--color-text-muted); font-size:12px;">${weightLabel}</span>
                     </div>
@@ -690,6 +741,79 @@ function showClientDayDetails(log) {
     document.getElementById('clientDayDetailPanel').style.display = 'block';
     document.getElementById('clientDayDetailDate').innerText = log.date;
     
+    let completedExListHtml = "";
+    let completedMealsListHtml = "";
+    
+    try {
+        const completedExs = typeof log.completed_exercises === 'string' ? JSON.parse(log.completed_exercises) : (log.completed_exercises || []);
+        if (Array.isArray(completedExs) && completedExs.length > 0) {
+            const names = completedExs.map(exId => {
+                let exerciseName = null;
+                if (clientFullData && clientFullData.workout_plan) {
+                    clientFullData.workout_plan.days.forEach(day => {
+                        if (day.blocks) {
+                            day.blocks.forEach(block => {
+                                const found = block.exercises.find(ex => ex.id == exId || ex.exercise_id == exId);
+                                if (found) exerciseName = found.exercise_name;
+                            });
+                        }
+                    });
+                }
+                return exerciseName || `Ejercicio #${exId}`;
+            });
+            completedExListHtml = `
+                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-cyan); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-dumbbell"></i> Ejercicios Completados (${completedExs.length})</span>
+                    <ul style="margin: 0; padding-left: 15px; font-size: 12px; color: var(--color-text-primary); line-height: 1.4;">
+                        ${names.map(name => `<li>${name}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            completedExListHtml = `
+                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-cyan); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-dumbbell"></i> Ejercicios Completados (0)</span>
+                    <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary); font-style: italic;">Ninguno completado</p>
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.error("Error parsing completed_exercises:", e);
+    }
+    
+    try {
+        const completedMeals = typeof log.completed_meals === 'string' ? JSON.parse(log.completed_meals) : (log.completed_meals || []);
+        if (Array.isArray(completedMeals) && completedMeals.length > 0) {
+            const names = completedMeals.map(foodId => {
+                let foodName = null;
+                if (clientFullData && clientFullData.nutrition_plan) {
+                    clientFullData.nutrition_plan.meals.forEach(meal => {
+                        const found = meal.items.find(food => food.id == foodId);
+                        if (found) foodName = food.food_name;
+                    });
+                }
+                return foodName || `Alimento #${foodId}`;
+            });
+            completedMealsListHtml = `
+                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-green); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-apple-whole"></i> Alimentos Consumidos (${completedMeals.length})</span>
+                    <ul style="margin: 0; padding-left: 15px; font-size: 12px; color: var(--color-text-primary); line-height: 1.4;">
+                        ${names.map(name => `<li>${name}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            completedMealsListHtml = `
+                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-green); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-apple-whole"></i> Alimentos Consumidos (0)</span>
+                    <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary); font-style: italic;">Ninguno completado</p>
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.error("Error parsing completed_meals:", e);
+    }
+
     const content = document.getElementById('clientDayDetailContent');
     content.innerHTML = `
         <div class="summary-stat-box" style="width: 100%;">
@@ -712,6 +836,65 @@ function showClientDayDetails(log) {
             <span>Adherencia Dieta</span>
             <strong>${log.diet_adherence ? log.diet_adherence + ' / 10' : '-'}</strong>
         </div>
+        ${completedExListHtml}
+        ${completedMealsListHtml}
         ${log.notes ? `<div style="width: 100%; margin-top: 5px; color: var(--color-text-secondary); font-size: 13px;"><em>"${log.notes}"</em></div>` : ''}
     `;
+}
+
+// --- Checkbox toggle persistence handlers ---
+async function toggleExerciseCheck(exId, checked) {
+    if (checked) {
+        if (!todayCompletedExercises.includes(exId)) {
+            todayCompletedExercises.push(exId);
+        }
+    } else {
+        todayCompletedExercises = todayCompletedExercises.filter(id => id !== exId);
+    }
+    await saveChecklistStateToServer();
+}
+
+async function toggleMealCheck(foodId, checked) {
+    if (checked) {
+        if (!todayCompletedMeals.includes(foodId)) {
+            todayCompletedMeals.push(foodId);
+        }
+    } else {
+        todayCompletedMeals = todayCompletedMeals.filter(id => id !== foodId);
+    }
+    await saveChecklistStateToServer();
+}
+
+async function saveChecklistStateToServer() {
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const payload = {
+        user_id: userId,
+        date: todayStr,
+        completed_exercises: JSON.stringify(todayCompletedExercises),
+        completed_meals: JSON.stringify(todayCompletedMeals)
+    };
+    
+    try {
+        await fetch('/api/daily_logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (clientFullData && clientFullData.daily_logs) {
+            const idx = clientFullData.daily_logs.findIndex(l => l.date === todayStr);
+            if (idx !== -1) {
+                clientFullData.daily_logs[idx].completed_exercises = JSON.stringify(todayCompletedExercises);
+                clientFullData.daily_logs[idx].completed_meals = JSON.stringify(todayCompletedMeals);
+            } else {
+                clientFullData.daily_logs.push({
+                    date: todayStr,
+                    completed_exercises: JSON.stringify(todayCompletedExercises),
+                    completed_meals: JSON.stringify(todayCompletedMeals)
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Error saving checklist to server:", err);
+    }
 }
