@@ -1534,104 +1534,221 @@ async function renderDailyCalendar() {
 function showDayDetails(log) {
     document.getElementById('dayDetailDate').innerText = log.date;
     
-    let completedExListHtml = "";
-    let completedMealsListHtml = "";
-    
+    let completedExs = [];
     try {
-        const completedExs = typeof log.completed_exercises === 'string' ? JSON.parse(log.completed_exercises) : (log.completed_exercises || []);
-        if (Array.isArray(completedExs) && completedExs.length > 0) {
-            const names = completedExs.map(exId => {
-                let exerciseName = null;
-                if (selectedUserFullData && selectedUserFullData.workout_plan) {
-                    selectedUserFullData.workout_plan.days.forEach(day => {
-                        if (day.blocks) {
-                            day.blocks.forEach(block => {
-                                const found = block.exercises.find(ex => ex.id == exId || ex.exercise_id == exId);
-                                if (found) exerciseName = found.exercise_name;
-                            });
-                        }
-                    });
-                }
-                return exerciseName || `Ejercicio #${exId}`;
-            });
-            completedExListHtml = `
-                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
-                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-cyan); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-dumbbell"></i> Ejercicios Completados (${completedExs.length})</span>
-                    <ul style="margin: 0; padding-left: 15px; font-size: 12px; color: var(--color-text-primary); line-height: 1.4;">
-                        ${names.map(name => `<li>${name}</li>`).join('')}
-                    </ul>
-                </div>
-            `;
-        } else {
-            completedExListHtml = `
-                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
-                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-cyan); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-dumbbell"></i> Ejercicios Completados (0)</span>
-                    <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary); font-style: italic;">Ninguno completado</p>
-                </div>
-            `;
+        if (log.completed_exercises) {
+            completedExs = typeof log.completed_exercises === 'string' ? JSON.parse(log.completed_exercises) : log.completed_exercises;
         }
     } catch (e) {
         console.error("Error parsing completed_exercises:", e);
     }
+    if (!Array.isArray(completedExs)) completedExs = [];
     
+    let completedMeals = [];
     try {
-        const completedMeals = typeof log.completed_meals === 'string' ? JSON.parse(log.completed_meals) : (log.completed_meals || []);
-        if (Array.isArray(completedMeals) && completedMeals.length > 0) {
-            const names = completedMeals.map(foodId => {
-                let foodName = null;
-                if (selectedUserFullData && selectedUserFullData.nutrition_plan) {
-                    selectedUserFullData.nutrition_plan.meals.forEach(meal => {
-                        const found = meal.items.find(food => food.id == foodId);
-                        if (found) foodName = food.food_name;
-                    });
-                }
-                return foodName || `Alimento #${foodId}`;
-            });
-            completedMealsListHtml = `
-                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
-                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-green); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-apple-whole"></i> Alimentos Consumidos (${completedMeals.length})</span>
-                    <ul style="margin: 0; padding-left: 15px; font-size: 12px; color: var(--color-text-primary); line-height: 1.4;">
-                        ${names.map(name => `<li>${name}</li>`).join('')}
-                    </ul>
-                </div>
-            `;
-        } else {
-            completedMealsListHtml = `
-                <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
-                    <span style="font-size: 11px; text-transform: uppercase; color: var(--accent-green); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fa-solid fa-apple-whole"></i> Alimentos Consumidos (0)</span>
-                    <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary); font-style: italic;">Ninguno completado</p>
-                </div>
-            `;
+        if (log.completed_meals) {
+            completedMeals = typeof log.completed_meals === 'string' ? JSON.parse(log.completed_meals) : log.completed_meals;
         }
     } catch (e) {
         console.error("Error parsing completed_meals:", e);
     }
+    if (!Array.isArray(completedMeals)) completedMeals = [];
+    
+    // Resolve workout day from completed exercises
+    let targetDay = null;
+    if (selectedUserFullData && selectedUserFullData.workout_plan && completedExs.length > 0) {
+        for (const day of selectedUserFullData.workout_plan.days) {
+            let matches = 0;
+            if (day.blocks) {
+                for (const block of day.blocks) {
+                    if (block.exercises) {
+                        for (const ex of block.exercises) {
+                            if (completedExs.includes(ex.id) || completedExs.includes(ex.exercise_id)) {
+                                matches++;
+                            }
+                        }
+                    }
+                }
+            }
+            if (matches > 0) {
+                targetDay = day;
+                break;
+            }
+        }
+    }
+    
+    // Build Workout Plan Checklist HTML
+    let workoutPlanHtml = "";
+    if (targetDay) {
+        workoutPlanHtml += `
+            <div style="font-weight: 700; font-size: 12px; color: var(--accent-cyan); margin-bottom: 8px; text-transform: uppercase;">
+                <i class="fa-solid fa-dumbbell"></i> Rutina: ${targetDay.day_name}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+        `;
+        targetDay.blocks.forEach(block => {
+            block.exercises.forEach(ex => {
+                const isCompleted = completedExs.includes(ex.id) || completedExs.includes(ex.exercise_id);
+                workoutPlanHtml += `
+                    <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: ${isCompleted ? 'var(--color-text-primary)' : 'var(--color-text-muted)'};">
+                        <i class="${isCompleted ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'}" style="color: ${isCompleted ? 'var(--accent-cyan)' : 'var(--color-text-muted)'}; opacity: ${isCompleted ? '1' : '0.5'}; font-size: 14px; margin-top: 2px;"></i>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="${isCompleted ? 'font-weight: 500;' : 'opacity: 0.7;'}">${ex.exercise_name}</span>
+                            <span style="font-size: 10px; color: var(--color-text-secondary);">${ex.sets_count}x${ex.reps_range} ${ex.rpe_target ? '(RPE ' + ex.rpe_target + ')' : ''}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+        workoutPlanHtml += `</div>`;
+    } else if (completedExs.length > 0) {
+        workoutPlanHtml += `
+            <div style="font-weight: 700; font-size: 12px; color: var(--accent-cyan); margin-bottom: 8px; text-transform: uppercase;">
+                <i class="fa-solid fa-dumbbell"></i> Ejercicios Completados (${completedExs.length})
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+        `;
+        const names = completedExs.map(exId => {
+            let name = null;
+            if (selectedUserFullData && selectedUserFullData.workout_plan) {
+                selectedUserFullData.workout_plan.days.forEach(day => {
+                    if (day.blocks) {
+                        day.blocks.forEach(block => {
+                            if (block.exercises) {
+                                const found = block.exercises.find(ex => ex.id == exId || ex.exercise_id == exId);
+                                if (found) name = found.exercise_name;
+                            }
+                        });
+                    }
+                });
+            }
+            return name || `Ejercicio #${exId}`;
+        });
+        names.forEach(name => {
+            workoutPlanHtml += `
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-text-primary);">
+                    <i class="fa-solid fa-circle-check" style="color: var(--accent-cyan); font-size: 14px;"></i>
+                    <span>${name}</span>
+                </div>
+            `;
+        });
+        workoutPlanHtml += `</div>`;
+    } else {
+        workoutPlanHtml += `
+            <div style="font-weight: 700; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px; text-transform: uppercase;">
+                <i class="fa-solid fa-dumbbell"></i> Ejercicios
+            </div>
+            <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary); font-style: italic;">Sin ejercicios completados hoy.</p>
+        `;
+    }
+    
+    // Build Nutrition Plan Checklist HTML
+    let nutritionPlanHtml = "";
+    const meals = selectedUserFullData?.nutrition_plan?.meals || [];
+    if (meals.length > 0) {
+        nutritionPlanHtml += `
+            <div style="font-weight: 700; font-size: 12px; color: var(--accent-green); margin-bottom: 8px; text-transform: uppercase;">
+                <i class="fa-solid fa-apple-whole"></i> Alimentación (${completedMeals.length} completados)
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px;">
+        `;
+        meals.forEach(meal => {
+            if (meal.items && meal.items.length > 0) {
+                nutritionPlanHtml += `
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 10px; text-transform: uppercase; color: var(--accent-gold); font-weight: 700; border-bottom: 1px solid rgba(243, 202, 76, 0.1); padding-bottom: 2px;">${meal.meal_name}</span>
+                `;
+                meal.items.forEach(food => {
+                    const isCompleted = completedMeals.includes(food.id);
+                    nutritionPlanHtml += `
+                        <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: ${isCompleted ? 'var(--color-text-primary)' : 'var(--color-text-muted)'}; margin-left: 4px;">
+                            <i class="${isCompleted ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'}" style="color: ${isCompleted ? 'var(--accent-green)' : 'var(--color-text-muted)'}; opacity: ${isCompleted ? '1' : '0.5'}; font-size: 13px; margin-top: 2px;"></i>
+                            <div style="display: flex; align-items: flex-start; flex-direction: column; flex: 1;">
+                                <span style="${isCompleted ? 'font-weight: 500;' : 'opacity: 0.7;'}">${food.food_name}</span>
+                                <span style="font-size: 9px; color: var(--color-text-secondary);">${food.weight_g}g | ${food.calories_kcal} Kcal</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                nutritionPlanHtml += `</div>`;
+            }
+        });
+        nutritionPlanHtml += `</div>`;
+    } else if (completedMeals.length > 0) {
+        nutritionPlanHtml += `
+            <div style="font-weight: 700; font-size: 12px; color: var(--accent-green); margin-bottom: 8px; text-transform: uppercase;">
+                <i class="fa-solid fa-apple-whole"></i> Alimentos Consumidos (${completedMeals.length})
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+        `;
+        const names = completedMeals.map(foodId => {
+            let name = null;
+            if (selectedUserFullData && selectedUserFullData.nutrition_plan && selectedUserFullData.nutrition_plan.meals) {
+                selectedUserFullData.nutrition_plan.meals.forEach(meal => {
+                    if (meal.items) {
+                        const found = meal.items.find(food => food.id == foodId);
+                        if (found) name = food.food_name;
+                    }
+                });
+            }
+            return name || `Alimento #${foodId}`;
+        });
+        names.forEach(name => {
+            nutritionPlanHtml += `
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-text-primary);">
+                    <i class="fa-solid fa-circle-check" style="color: var(--accent-green); font-size: 13px;"></i>
+                    <span>${name}</span>
+                </div>
+            `;
+        });
+        nutritionPlanHtml += `</div>`;
+    } else {
+        nutritionPlanHtml += `
+            <div style="font-weight: 700; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px; text-transform: uppercase;">
+                <i class="fa-solid fa-apple-whole"></i> Alimentación
+            </div>
+            <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary); font-style: italic;">Sin alimentos completados hoy.</p>
+        `;
+    }
 
     const content = document.getElementById('dayDetailContent');
     content.innerHTML = `
-        <div class="summary-stat-box" style="width: 100%;">
-            <span>Peso</span>
-            <strong>${log.weight_kg ? log.weight_kg + ' kg' : '-'}</strong>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; margin-bottom: 4px;">
+            <div class="summary-stat-box" style="padding: 8px 4px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); border-radius: 8px;">
+                <span style="font-size: 10px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-weight-scale"></i> Peso</span>
+                <strong style="font-size: 13px; color: var(--accent-gold); margin-top: 3px;">${log.weight_kg ? log.weight_kg + ' kg' : '-'}</strong>
+            </div>
+            <div class="summary-stat-box" style="padding: 8px 4px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); border-radius: 8px;">
+                <span style="font-size: 10px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-person-running"></i> Pasos</span>
+                <strong style="font-size: 13px; color: var(--accent-gold); margin-top: 3px;">${log.steps_count ? log.steps_count : '-'}</strong>
+            </div>
+            <div class="summary-stat-box" style="padding: 8px 4px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); border-radius: 8px;">
+                <span style="font-size: 10px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-bed"></i> Sueño</span>
+                <strong style="font-size: 13px; color: var(--accent-gold); margin-top: 3px;">${log.sleep_hours ? log.sleep_hours + 'h' : '-'}</strong>
+                ${log.sleep_quality ? `<span style="font-size: 8px; color: var(--color-text-muted);">Calidad: ${log.sleep_quality}/10</span>` : ''}
+            </div>
         </div>
-        <div class="summary-stat-box" style="width: 100%;">
-            <span>Actividad</span>
-            <strong>${log.steps_count ? log.steps_count + ' pasos' : '-'}</strong>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-bottom: 5px;">
+            <div class="summary-stat-box" style="padding: 8px 4px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); border-radius: 8px;">
+                <span style="font-size: 10px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-droplet" style="color: #3b82f6;"></i> Agua</span>
+                <strong style="font-size: 13px; color: var(--accent-gold); margin-top: 3px;">${log.water_intake_ml ? log.water_intake_ml + ' ml' : '-'}</strong>
+            </div>
+            <div class="summary-stat-box" style="padding: 8px 4px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); border-radius: 8px;">
+                <span style="font-size: 10px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-apple-whole" style="color: #ef4444;"></i> Adherencia</span>
+                <strong style="font-size: 13px; color: var(--accent-gold); margin-top: 3px;">${log.diet_adherence ? log.diet_adherence + '/10' : '-'}</strong>
+            </div>
         </div>
-        <div class="summary-stat-box" style="width: 100%;">
-            <span>Descanso</span>
-            <strong>${log.sleep_hours ? log.sleep_hours + ' hrs (Calidad: ' + log.sleep_quality + '/10)' : '-'}</strong>
+        
+        <div style="display: flex; flex-direction: row; gap: 15px; flex-wrap: wrap; width: 100%; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+            <div style="flex: 1; min-width: 210px; display: flex; flex-direction: column;">
+                ${workoutPlanHtml}
+            </div>
+            <div style="flex: 1; min-width: 210px; display: flex; flex-direction: column;">
+                ${nutritionPlanHtml}
+            </div>
         </div>
-        <div class="summary-stat-box" style="width: 100%;">
-            <span>Hidratación</span>
-            <strong>${log.water_intake_ml ? log.water_intake_ml + ' ml' : '-'}</strong>
-        </div>
-        <div class="summary-stat-box" style="width: 100%;">
-            <span>Adherencia Dieta</span>
-            <strong>${log.diet_adherence ? log.diet_adherence + ' / 10' : '-'}</strong>
-        </div>
-        ${completedExListHtml}
-        ${completedMealsListHtml}
-        ${log.notes ? `<div style="width: 100%; margin-top: 5px; color: var(--color-text-secondary); font-size: 13px;"><em>"${log.notes}"</em></div>` : ''}
+        
+        ${log.notes ? `<div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; color: var(--color-text-secondary); font-size: 12px; font-style: italic; text-align: center;">"${log.notes}"</div>` : ''}
     `;
     
     document.getElementById('dayDetailModal').style.display = 'flex';
