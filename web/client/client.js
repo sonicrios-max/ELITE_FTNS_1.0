@@ -93,6 +93,7 @@ async function initClientDashboard() {
     
     await loadNutritionConfig();
     loadClientData();
+    connectClientWebSocket();
 }
 
 if (document.readyState === "loading") {
@@ -847,13 +848,23 @@ function switchGlobalTab(tabId, element) {
     // Show selected view
     const view = document.getElementById(tabId);
     if (view) {
-        view.style.display = 'block';
+        view.style.display = tabId === 'clientChatView' ? 'flex' : 'block';
         view.classList.add('active');
     }
     
     // Highlight active nav item
     if (element) {
         element.classList.add('active');
+    }
+    
+    // Chat specific hook
+    if (tabId === 'clientChatView') {
+        const badge = document.getElementById("clientChatBadge");
+        if (badge) badge.style.display = 'none';
+        
+        chatHistoryOffset = 0;
+        loadClientChatHistory(false);
+        markChatAsRead();
     }
 }
 
@@ -1197,4 +1208,276 @@ async function saveChecklistStateToServer() {
     } catch (err) {
         console.error("Error saving checklist to server:", err);
     }
+}
+
+// ==========================================
+// CLIENT CHAT SYSTEM (REAL-TIME WEBSOCKET)
+// ==========================================
+
+let clientSocket = null;
+let chatHistoryOffset = 0;
+const chatHistoryLimit = 30;
+
+function playChimeSound() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        osc.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.1); // A5
+        
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+    } catch(e) {
+        console.error("Audio Context not supported", e);
+    }
+}
+
+function connectClientWebSocket() {
+    if (clientSocket && clientSocket.readyState === WebSocket.OPEN) return;
+    
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    const token = localStorage.getItem('jwtToken') || '';
+    
+    // Retrieve trainerId from sessionStorage or url
+    const trainerId = sessionStorage.getItem('trainerId') || 'admin';
+    
+    clientSocket = new WebSocket(`${wsProto}//${host}/ws/chat?trainer=${trainerId}&userId=${userId}&token=${token}`);
+    
+    clientSocket.onopen = function() {
+        console.log("Chat WS: Connected successfully");
+    };
+    
+    clientSocket.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'presence') {
+            const dot = document.getElementById("coachOnlineStatusDot");
+            const text = document.getElementById("coachOnlineStatusText");
+            if (dot && text) {
+                if (data.status === 'online') {
+                    dot.style.background = "#22c55e";
+                    text.innerText = "En línea";
+                } else {
+                    dot.style.background = "#6b7280";
+                    text.innerText = "Desconectado";
+                }
+            }
+        } else if (data.type === 'receipt') {
+            const tickEl = document.getElementById(`tick-${data.id}`);
+            if (tickEl) {
+                tickEl.innerHTML = data.delivered ? '<i class="fa-solid fa-check-double" style="color: var(--color-text-secondary);"></i>' : '<i class="fa-solid fa-check"></i>';
+            }
+        } else if (data.type === 'read_receipt') {
+            document.querySelectorAll('.chat-tick').forEach(tick => {
+                tick.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--accent-cyan);"></i>';
+            });
+        } else {
+            const isTabActive = document.getElementById("clientChatView").classList.contains("active");
+            
+            if (isTabActive) {
+                renderClientChatMessage(data, false);
+                markChatAsRead();
+                scrollToBottomClientChat();
+            } else {
+                const badge = document.getElementById("clientChatBadge");
+                if (badge) badge.style.display = 'block';
+                playChimeSound();
+            }
+        }
+    };
+    
+    clientSocket.onclose = function() {
+        console.log("Chat WS: Connection closed, reconnecting in 5s...");
+        setTimeout(connectClientWebSocket, 5000);
+    };
+    
+    clientSocket.onerror = function(err) {
+        console.error("Chat WS Error:", err);
+    };
+}
+
+async function loadClientChatHistory(appendBefore = false) {
+    try {
+        const response = await fetch(`/api/chat/history?userId=${userId}&otherId=0&limit=${chatHistoryLimit}&offset=${chatHistoryOffset}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById("clientChatMessagesContainer");
+            const loadMoreBtn = document.getElementById("clientChatLoadMoreBtn");
+            
+            if (!appendBefore) {
+                container.innerHTML = "";
+            }
+            
+            const messages = data.messages || [];
+            
+            if (messages.length < chatHistoryLimit) {
+                loadMoreBtn.style.display = "none";
+            } else {
+                loadMoreBtn.style.display = "block";
+            }
+            
+            const oldScrollHeight = document.getElementById("clientChatStream").scrollHeight;
+            
+            messages.forEach(msg => {
+                renderClientChatMessage(msg, appendBefore);
+            });
+            
+            if (appendBefore) {
+                const newScrollHeight = document.getElementById("clientChatStream").scrollHeight;
+                document.getElementById("clientChatStream").scrollTop += (newScrollHeight - oldScrollHeight);
+            } else {
+                scrollToBottomClientChat();
+            }
+            
+            loadMoreBtn.onclick = function() {
+                chatHistoryOffset += chatHistoryLimit;
+                loadClientChatHistory(true);
+            };
+        }
+    } catch (e) {
+        console.error("Error loading chat history:", e);
+    }
+}
+
+function renderClientChatMessage(msg, appendBefore = false) {
+    const container = document.getElementById("clientChatMessagesContainer");
+    if (!container) return;
+    
+    if (document.getElementById(`msg-${msg.id}`)) return;
+    
+    const isMe = msg.sender_id === userId;
+    const dateObj = new Date(msg.created_at);
+    const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    const msgDiv = document.createElement("div");
+    msgDiv.id = `msg-${msg.id}`;
+    msgDiv.style.display = "flex";
+    msgDiv.style.flexDirection = "column";
+    msgDiv.style.alignSelf = isMe ? "flex-end" : "flex-start";
+    msgDiv.style.maxWidth = "75%";
+    msgDiv.style.gap = "2px";
+    
+    const bubble = document.createElement("div");
+    bubble.style.padding = "10px 14px";
+    bubble.style.borderRadius = isMe ? "16px 16px 2px 16px" : "16px 16px 16px 2px";
+    bubble.style.fontSize = "13px";
+    bubble.style.lineHeight = "1.4";
+    bubble.style.wordBreak = "break-word";
+    
+    if (isMe) {
+        bubble.style.background = "linear-gradient(135deg, rgba(14, 165, 233, 0.4), rgba(139, 92, 246, 0.4))";
+        bubble.style.border = "1px solid rgba(14, 165, 233, 0.3)";
+        bubble.style.color = "white";
+    } else {
+        bubble.style.background = "rgba(255, 255, 255, 0.06)";
+        bubble.style.border = "1px solid rgba(255, 255, 255, 0.08)";
+        bubble.style.color = "#f3f4f6";
+    }
+    bubble.innerText = msg.message;
+    
+    const infoRow = document.createElement("div");
+    infoRow.style.display = "flex";
+    infoRow.style.alignItems = "center";
+    infoRow.style.justifyContent = isMe ? "flex-end" : "flex-start";
+    infoRow.style.gap = "5px";
+    infoRow.style.fontSize = "10px";
+    infoRow.style.color = "var(--color-text-muted)";
+    
+    const timeSpan = document.createElement("span");
+    timeSpan.innerText = timeStr;
+    infoRow.appendChild(timeSpan);
+    
+    if (isMe) {
+        const tickSpan = document.createElement("span");
+        tickSpan.id = `tick-${msg.id}`;
+        tickSpan.className = "chat-tick";
+        if (msg.is_read) {
+            tickSpan.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--accent-cyan);"></i>';
+        } else {
+            tickSpan.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--color-text-secondary);"></i>';
+        }
+        infoRow.appendChild(tickSpan);
+    }
+    
+    msgDiv.appendChild(bubble);
+    msgDiv.appendChild(infoRow);
+    
+    if (appendBefore) {
+        container.insertBefore(msgDiv, container.firstChild);
+    } else {
+        container.appendChild(msgDiv);
+    }
+}
+
+function sendClientChatMessage() {
+    const input = document.getElementById("clientChatInput");
+    if (!input) return;
+    
+    const text = input.value.trim();
+    if (!text) return;
+    
+    if (!clientSocket || clientSocket.readyState !== WebSocket.OPEN) {
+        alert("Sin conexión al chat. Reintentando conectar...");
+        connectClientWebSocket();
+        return;
+    }
+    
+    clientSocket.send(JSON.stringify({
+        "receiver_id": 0,
+        "message": text
+    }));
+    
+    const tempMsg = {
+        id: "temp-" + Date.now(),
+        sender_id: userId,
+        receiver_id: 0,
+        message: text,
+        is_read: false,
+        created_at: new Date().toISOString()
+    };
+    
+    renderClientChatMessage(tempMsg, false);
+    scrollToBottomClientChat();
+    
+    input.value = "";
+}
+
+function handleClientChatKeydown(event) {
+    if (event.key === "Enter") {
+        sendClientChatMessage();
+    }
+}
+
+async function markChatAsRead() {
+    try {
+        await fetch('/api/chat/read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sender_id: 0,
+                receiver_id: userId
+            })
+        });
+    } catch(e) {
+        console.error("Error marking chat as read:", e);
+    }
+}
+
+function scrollToBottomClientChat() {
+    setTimeout(() => {
+        const stream = document.getElementById("clientChatStream");
+        if (stream) {
+            stream.scrollTop = stream.scrollHeight;
+        }
+    }, 50);
 }

@@ -57,7 +57,9 @@ async function initTrainerDashboard() {
     await fetchAssessmentConfig();
     await fetchNutritionConfig();
     await fetchFoodLibrary();
+    await fetchTrainerUnreadCounts();
     loadClientsList();
+    connectTrainerWebSocket();
 }
 
 if (document.readyState === "loading") {
@@ -111,12 +113,26 @@ function renderClientList() {
             customStyle = 'background: rgba(220, 38, 38, 0.2); color: var(--accent-red);';
         }
         
+        const isOnline = trainerOnlineClients.has(user.id);
+        const unreadCount = trainerUnreadCounts[user.id] || 0;
+        
+        let onlineIndicator = isOnline 
+            ? `<span class="online-indicator-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; margin-left:5px;" title="En línea"></span>`
+            : '';
+            
+        let unreadBadge = unreadCount > 0
+            ? `<span class="unread-count-badge" style="background:#ef4444; color:white; font-size:10px; font-weight:bold; border-radius:10px; padding:2px 6px; margin-left:auto; display:inline-block; line-height:1;">${unreadCount}</span>`
+            : '';
+        
         card.innerHTML = `
-            <div class="client-info">
-                <h4>${user.first_name} ${user.last_name}</h4>
-                <p><i class="fa-solid fa-envelope"></i> ${user.email}</p>
+            <div class="client-info" style="display:flex; flex-direction:column; gap:2px; width:100%;">
+                <div style="display:flex; align-items:center; width:100%;">
+                    <h4 style="margin:0; display:flex; align-items:center;">${user.first_name} ${user.last_name} ${onlineIndicator}</h4>
+                    ${unreadBadge}
+                </div>
+                <p style="margin:0;"><i class="fa-solid fa-envelope"></i> ${user.email}</p>
             </div>
-            <span class="${badgeClass}" style="${customStyle}">${badgeText} (${score.toFixed(1)})</span>
+            <span class="${badgeClass}" style="${customStyle}; margin-top:5px; align-self:flex-start;">${badgeText} (${score.toFixed(1)})</span>
         `;
         listContainer.appendChild(card);
     });
@@ -147,6 +163,12 @@ async function selectClient(userId) {
         initOrUpdateCharts();
         renderNutritionPlans();
         renderWorkoutPlans(); // AÑADIDO: cargar rutinas
+        
+        if (activeTab === 'tabChat') {
+            switchTab('tabChat');
+        } else {
+            trainerActiveChatClientId = null;
+        }
         
         const placeholder = document.getElementById("selectClientPlaceholder");
         if (placeholder) placeholder.style.display = "none";
@@ -760,7 +782,33 @@ function switchTab(tabId) {
     
     // Find active tab elements
     document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add("active");
-    document.getElementById(tabId).classList.add("active");
+    
+    const panel = document.getElementById(tabId);
+    if (panel) {
+        panel.style.display = tabId === 'tabChat' ? 'flex' : 'block';
+        panel.classList.add("active");
+    }
+    
+    // Chat specific hook
+    if (tabId === 'tabChat' && activeUserId) {
+        const badge = document.getElementById("tabChatBadge");
+        if (badge) badge.style.display = 'none';
+        
+        trainerActiveChatClientId = activeUserId;
+        trainerChatHistoryOffset = 0;
+        loadTrainerChatHistory(activeUserId, false);
+        markTrainerChatAsRead(activeUserId);
+        
+        removeFloatingChatBubble(activeUserId);
+        
+        const clientName = document.getElementById("clientFullName") ? document.getElementById("clientFullName").innerText : "Cliente";
+        document.getElementById("trainerChatClientName").innerText = clientName;
+        
+        const initials = clientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        document.getElementById("trainerChatClientAvatar").innerText = initials;
+        
+        updateTrainerChatOnlineStatus(activeUserId);
+    }
 }
 
 function toggleNewAssessmentForm() {
@@ -3756,5 +3804,751 @@ async function confirmAssignRoutineToActiveClient() {
         console.error(e);
         alert("Error al conectar con el servidor.");
     }
+}
+
+// ==========================================
+// TRAINER CHAT SYSTEM (WEBSOCKETS & FLOATING BUBBLES)
+// ==========================================
+
+let trainerSocket = null;
+let trainerUnreadCounts = {}; // client_id -> count
+let trainerActiveChatClientId = null; // selected client in main tab chat
+let trainerFloatingChatClientId = null; // active client in floating drawer chat
+let trainerChatHistoryOffset = 0;
+let trainerFloatingChatHistoryOffset = 0;
+const trainerChatHistoryLimit = 30;
+let trainerOnlineClients = new Set(); // set of client user_ids currently online
+
+function playTrainerChimeSound() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
+        osc.frequency.setValueAtTime(987.77, audioCtx.currentTime + 0.1); // B5
+        
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.45);
+    } catch(e) {
+        console.error("Audio Context not supported", e);
+    }
+}
+
+function connectTrainerWebSocket() {
+    if (trainerSocket && trainerSocket.readyState === WebSocket.OPEN) return;
+    
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    const token = localStorage.getItem('jwtToken') || '';
+    
+    const trainerId = sessionStorage.getItem('trainerId') || 'admin';
+    
+    trainerSocket = new WebSocket(`${wsProto}//${host}/ws/chat?trainer=${trainerId}&userId=0&token=${token}`);
+    
+    trainerSocket.onopen = function() {
+        console.log("Trainer Chat WS: Connected successfully");
+    };
+    
+    trainerSocket.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'presence') {
+            if (data.user_id !== 0) {
+                if (data.status === 'online') {
+                    trainerOnlineClients.add(data.user_id);
+                } else {
+                    trainerOnlineClients.delete(data.user_id);
+                }
+                
+                renderClientList();
+                
+                if (trainerActiveChatClientId === data.user_id) {
+                    updateTrainerChatOnlineStatus(data.user_id);
+                }
+                
+                if (trainerFloatingChatClientId === data.user_id) {
+                    updateFloatingChatOnlineStatus(data.user_id);
+                }
+            }
+        } else if (data.type === 'receipt') {
+            if (data.receiver_id === trainerActiveChatClientId) {
+                const tickEl = document.getElementById(`tick-${data.id}`);
+                if (tickEl) {
+                    tickEl.innerHTML = data.delivered ? '<i class="fa-solid fa-check-double" style="color: var(--color-text-secondary);"></i>' : '<i class="fa-solid fa-check"></i>';
+                }
+            }
+            if (data.receiver_id === trainerFloatingChatClientId) {
+                const floatTickEl = document.getElementById(`float-tick-${data.id}`);
+                if (floatTickEl) {
+                    floatTickEl.innerHTML = data.delivered ? '<i class="fa-solid fa-check-double" style="color: var(--color-text-secondary);"></i>' : '<i class="fa-solid fa-check"></i>';
+                }
+            }
+        } else if (data.type === 'read_receipt') {
+            if (data.sender_id === 0 && data.receiver_id === trainerActiveChatClientId) {
+                document.querySelectorAll('.chat-tick').forEach(tick => {
+                    tick.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--accent-cyan);"></i>';
+                });
+            }
+            if (data.sender_id === 0 && data.receiver_id === trainerFloatingChatClientId) {
+                document.querySelectorAll('.float-chat-tick').forEach(tick => {
+                    tick.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--accent-cyan);"></i>';
+                });
+            }
+        } else {
+            const senderId = data.sender_id;
+            
+            const isMainTabActive = activeTab === 'tabChat' && activeUserId === senderId;
+            const isFloatingActive = document.getElementById("expandedFloatingChatDrawer").style.display === 'flex' && trainerFloatingChatClientId === senderId;
+            
+            if (isMainTabActive) {
+                renderTrainerChatMessage(data, false);
+                markTrainerChatAsRead(senderId);
+                scrollToBottomTrainerChat();
+            } else if (isFloatingActive) {
+                renderFloatingChatMessage(data, false);
+                markTrainerChatAsRead(senderId);
+                scrollToBottomFloatingChat();
+            } else {
+                playTrainerChimeSound();
+                incrementUnreadCount(senderId);
+            }
+            
+            fetchTrainerUnreadCounts();
+        }
+    };
+    
+    trainerSocket.onclose = function() {
+        console.log("Trainer Chat WS: Connection closed, reconnecting in 5s...");
+        setTimeout(connectTrainerWebSocket, 5000);
+    };
+    
+    trainerSocket.onerror = function(err) {
+        console.error("Trainer Chat WS Error:", err);
+    };
+}
+
+function incrementUnreadCount(clientId) {
+    trainerUnreadCounts[clientId] = (trainerUnreadCounts[clientId] || 0) + 1;
+    
+    const client = usersData.find(u => u.id === clientId);
+    const clientName = client ? `${client.first_name} ${client.last_name}` : "Cliente";
+    renderFloatingChatBubble(clientId, clientName, trainerUnreadCounts[clientId]);
+}
+
+async function fetchTrainerUnreadCounts() {
+    try {
+        const response = await fetch('/api/chat/unread_counts');
+        const data = await response.json();
+        if (data.success) {
+            trainerUnreadCounts = data.unread_counts || {};
+            
+            renderClientList();
+            
+            let totalUnread = 0;
+            for (const id in trainerUnreadCounts) {
+                totalUnread += trainerUnreadCounts[id];
+            }
+            
+            const badge = document.getElementById("globalBellBadge");
+            if (badge) {
+                if (totalUnread > 0) {
+                    badge.innerText = totalUnread;
+                    badge.style.display = "flex";
+                } else {
+                    badge.style.display = "none";
+                }
+            }
+            
+            const headerCount = document.getElementById("unreadNotificationsHeaderCount");
+            if (headerCount) {
+                headerCount.innerText = `${totalUnread} nuevos`;
+            }
+            
+            const tabBadge = document.getElementById("tabChatBadge");
+            if (tabBadge) {
+                if (activeUserId && trainerUnreadCounts[activeUserId] > 0) {
+                    tabBadge.style.display = "block";
+                } else {
+                    tabBadge.style.display = "none";
+                }
+            }
+        }
+    } catch(e) {
+        console.error("Error fetching unread counts:", e);
+    }
+}
+
+function updateTrainerChatOnlineStatus(clientId) {
+    const isOnline = trainerOnlineClients.has(clientId);
+    const dot = document.getElementById("trainerChatClientStatusDot");
+    const text = document.getElementById("trainerChatClientStatusText");
+    if (dot && text) {
+        if (isOnline) {
+            dot.style.background = "#22c55e";
+            text.innerText = "En línea";
+        } else {
+            dot.style.background = "#6b7280";
+            text.innerText = "Desconectado";
+        }
+    }
+}
+
+function updateFloatingChatOnlineStatus(clientId) {
+    const isOnline = trainerOnlineClients.has(clientId);
+    const dot = document.getElementById("floatingChatStatusDot");
+    const text = document.getElementById("floatingChatClientStatusText");
+    if (dot && text) {
+        if (isOnline) {
+            dot.style.background = "#22c55e";
+            text.innerText = "En línea";
+        } else {
+            dot.style.background = "#6b7280";
+            text.innerText = "Desconectado";
+        }
+    }
+}
+
+async function loadTrainerChatHistory(clientId, appendBefore = false) {
+    try {
+        const response = await fetch(`/api/chat/history?userId=0&otherId=${clientId}&limit=${trainerChatHistoryLimit}&offset=${trainerChatHistoryOffset}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById("trainerChatMessagesContainer");
+            const loadMoreBtn = document.getElementById("trainerChatLoadMoreBtn");
+            
+            if (!appendBefore) {
+                container.innerHTML = "";
+            }
+            
+            const messages = data.messages || [];
+            if (messages.length < trainerChatHistoryLimit) {
+                loadMoreBtn.style.display = "none";
+            } else {
+                loadMoreBtn.style.display = "block";
+            }
+            
+            const oldScrollHeight = document.getElementById("trainerChatStream").scrollHeight;
+            
+            messages.forEach(msg => {
+                renderTrainerChatMessage(msg, appendBefore);
+            });
+            
+            if (appendBefore) {
+                const newScrollHeight = document.getElementById("trainerChatStream").scrollHeight;
+                document.getElementById("trainerChatStream").scrollTop += (newScrollHeight - oldScrollHeight);
+            } else {
+                scrollToBottomTrainerChat();
+            }
+            
+            loadMoreBtn.onclick = function() {
+                trainerChatHistoryOffset += trainerChatHistoryLimit;
+                loadTrainerChatHistory(clientId, true);
+            };
+        }
+    } catch (e) {
+        console.error("Error loading trainer chat history:", e);
+    }
+}
+
+function renderTrainerChatMessage(msg, appendBefore = false) {
+    const container = document.getElementById("trainerChatMessagesContainer");
+    if (!container) return;
+    
+    if (document.getElementById(`msg-${msg.id}`)) return;
+    
+    const isMe = msg.sender_id === 0;
+    const dateObj = new Date(msg.created_at);
+    const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    const msgDiv = document.createElement("div");
+    msgDiv.id = `msg-${msg.id}`;
+    msgDiv.style.display = "flex";
+    msgDiv.style.flexDirection = "column";
+    msgDiv.style.alignSelf = isMe ? "flex-end" : "flex-start";
+    msgDiv.style.maxWidth = "75%";
+    msgDiv.style.gap = "2px";
+    
+    const bubble = document.createElement("div");
+    bubble.style.padding = "10px 14px";
+    bubble.style.borderRadius = isMe ? "16px 16px 2px 16px" : "16px 16px 16px 2px";
+    bubble.style.fontSize = "13px";
+    bubble.style.lineHeight = "1.4";
+    bubble.style.wordBreak = "break-word";
+    
+    if (isMe) {
+        bubble.style.background = "linear-gradient(135deg, rgba(14, 165, 233, 0.4), rgba(139, 92, 246, 0.4))";
+        bubble.style.border = "1px solid rgba(14, 165, 233, 0.3)";
+        bubble.style.color = "white";
+    } else {
+        bubble.style.background = "rgba(255, 255, 255, 0.06)";
+        bubble.style.border = "1px solid rgba(255, 255, 255, 0.08)";
+        bubble.style.color = "#f3f4f6";
+    }
+    bubble.innerText = msg.message;
+    
+    const infoRow = document.createElement("div");
+    infoRow.style.display = "flex";
+    infoRow.style.alignItems = "center";
+    infoRow.style.justifyContent = isMe ? "flex-end" : "flex-start";
+    infoRow.style.gap = "5px";
+    infoRow.style.fontSize = "10px";
+    infoRow.style.color = "var(--color-text-muted)";
+    
+    const timeSpan = document.createElement("span");
+    timeSpan.innerText = timeStr;
+    infoRow.appendChild(timeSpan);
+    
+    if (isMe) {
+        const tickSpan = document.createElement("span");
+        tickSpan.id = `tick-${msg.id}`;
+        tickSpan.className = "chat-tick";
+        if (msg.is_read) {
+            tickSpan.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--accent-cyan);"></i>';
+        } else {
+            tickSpan.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--color-text-secondary);"></i>';
+        }
+        infoRow.appendChild(tickSpan);
+    }
+    
+    msgDiv.appendChild(bubble);
+    msgDiv.appendChild(infoRow);
+    
+    if (appendBefore) {
+        container.insertBefore(msgDiv, container.firstChild);
+    } else {
+        container.appendChild(msgDiv);
+    }
+}
+
+function sendTrainerChatMessage() {
+    const input = document.getElementById("trainerChatInput");
+    if (!input) return;
+    
+    const text = input.value.trim();
+    if (!text || !activeUserId) return;
+    
+    if (!trainerSocket || trainerSocket.readyState !== WebSocket.OPEN) {
+        alert("Sin conexión al chat. Reintentando conectar...");
+        connectTrainerWebSocket();
+        return;
+    }
+    
+    trainerSocket.send(JSON.stringify({
+        "receiver_id": activeUserId,
+        "message": text
+    }));
+    
+    const tempMsg = {
+        id: "temp-" + Date.now(),
+        sender_id: 0,
+        receiver_id: activeUserId,
+        message: text,
+        is_read: false,
+        created_at: new Date().toISOString()
+    };
+    
+    renderTrainerChatMessage(tempMsg, false);
+    scrollToBottomTrainerChat();
+    
+    input.value = "";
+}
+
+function handleTrainerChatKeydown(event) {
+    if (event.key === "Enter") {
+        sendTrainerChatMessage();
+    }
+}
+
+async function markTrainerChatAsRead(clientId) {
+    try {
+        await fetch('/api/chat/read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sender_id: clientId,
+                receiver_id: 0
+            })
+        });
+        
+        trainerUnreadCounts[clientId] = 0;
+        fetchTrainerUnreadCounts();
+    } catch(e) {
+        console.error("Error marking trainer chat as read:", e);
+    }
+}
+
+function scrollToBottomTrainerChat() {
+    setTimeout(() => {
+        const stream = document.getElementById("trainerChatStream");
+        if (stream) {
+            stream.scrollTop = stream.scrollHeight;
+        }
+    }, 50);
+}
+
+// --- Notifications Dropdown Handling ---
+
+function toggleChatNotificationsDropdown(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById("chatNotificationsDropdown");
+    if (!dropdown) return;
+    
+    if (dropdown.style.display === "none") {
+        dropdown.style.display = "block";
+        populateChatNotificationsDropdown();
+    } else {
+        dropdown.style.display = "none";
+    }
+}
+
+document.addEventListener("click", () => {
+    const dropdown = document.getElementById("chatNotificationsDropdown");
+    if (dropdown) dropdown.style.display = "none";
+});
+
+function populateChatNotificationsDropdown() {
+    const list = document.getElementById("chatNotificationsDropdownList");
+    if (!list) return;
+    
+    list.innerHTML = "";
+    
+    let hasNotifications = false;
+    
+    usersData.forEach(user => {
+        const unreadCount = trainerUnreadCounts[user.id] || 0;
+        if (unreadCount > 0) {
+            hasNotifications = true;
+            
+            const item = document.createElement("div");
+            item.style.padding = "10px 15px";
+            item.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+            item.style.cursor = "pointer";
+            item.style.display = "flex";
+            item.style.alignItems = "center";
+            item.style.gap = "10px";
+            item.style.background = "rgba(255,255,255,0.02)";
+            
+            item.onclick = (e) => {
+                e.stopPropagation();
+                selectClient(user.id);
+                switchTab('tabChat');
+                document.getElementById("chatNotificationsDropdown").style.display = "none";
+            };
+            
+            const initials = `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+            
+            item.innerHTML = `
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 11px;">
+                    ${initials}
+                </div>
+                <div style="flex:1;">
+                    <strong style="color:var(--color-text-primary);">${user.first_name} ${user.last_name}</strong>
+                    <div style="color:var(--color-text-secondary); font-size:10px;">Tiene mensajes sin leer</div>
+                </div>
+                <span style="background:#ef4444; color:white; font-size:10px; font-weight:bold; border-radius:10px; padding:1px 5px; line-height:1;">${unreadCount}</span>
+            `;
+            
+            list.appendChild(item);
+        }
+    });
+    
+    if (!hasNotifications) {
+        list.innerHTML = `<div style="padding: 20px 15px; text-align: center; color: var(--color-text-muted);">No tienes mensajes nuevos</div>`;
+    }
+}
+
+// --- Floating Bubbles & Chat Drawer Handling ---
+
+function renderFloatingChatBubble(clientId, clientName, count) {
+    removeFloatingChatBubble(clientId);
+    
+    const container = document.getElementById("floatingChatBubblesContainer");
+    if (!container) return;
+    
+    const initials = clientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    const isOnline = trainerOnlineClients.has(clientId);
+    
+    const bubble = document.createElement("div");
+    bubble.id = `chat-bubble-${clientId}`;
+    bubble.style.width = "48px";
+    bubble.style.height = "48px";
+    bubble.style.borderRadius = "50%";
+    bubble.style.background = "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))";
+    bubble.style.border = "2px solid var(--glass-border)";
+    bubble.style.display = "flex";
+    bubble.style.alignItems = "center";
+    bubble.style.justifyContent = "center";
+    bubble.style.color = "white";
+    bubble.style.fontWeight = "bold";
+    bubble.style.cursor = "pointer";
+    bubble.style.position = "relative";
+    bubble.style.boxShadow = "0 6px 20px rgba(0,0,0,0.4)";
+    bubble.style.transition = "transform 0.2s ease";
+    
+    bubble.innerText = initials;
+    bubble.title = `Chat con ${clientName}`;
+    
+    const dot = document.createElement("span");
+    dot.style.position = "absolute";
+    dot.style.bottom = "0";
+    dot.style.right = "0";
+    dot.style.width = "12px";
+    dot.style.height = "12px";
+    dot.style.borderRadius = "50%";
+    dot.style.background = isOnline ? "#22c55e" : "#6b7280";
+    dot.style.border = "2px solid var(--color-bg-dark)";
+    bubble.appendChild(dot);
+    
+    if (count > 0) {
+        const badge = document.createElement("span");
+        badge.style.position = "absolute";
+        badge.style.top = "-5px";
+        badge.style.left = "-5px";
+        badge.style.background = "#ef4444";
+        badge.style.color = "white";
+        badge.style.fontSize = "10px";
+        badge.style.fontWeight = "bold";
+        badge.style.borderRadius = "10px";
+        badge.style.padding = "2px 6px";
+        badge.style.lineHeight = "1";
+        badge.innerText = count;
+        bubble.appendChild(badge);
+    }
+    
+    bubble.onclick = (e) => {
+        e.stopPropagation();
+        openFloatingChatDrawer(clientId, clientName);
+    };
+    
+    container.appendChild(bubble);
+}
+
+function removeFloatingChatBubble(clientId) {
+    const bubble = document.getElementById(`chat-bubble-${clientId}`);
+    if (bubble) bubble.remove();
+}
+
+function openFloatingChatDrawer(clientId, clientName) {
+    removeFloatingChatBubble(clientId);
+    
+    trainerFloatingChatClientId = clientId;
+    trainerFloatingChatHistoryOffset = 0;
+    
+    const drawer = document.getElementById("expandedFloatingChatDrawer");
+    drawer.style.display = "flex";
+    
+    document.getElementById("floatingChatClientName").innerText = clientName;
+    const initials = clientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    document.getElementById("floatingChatAvatar").innerText = initials;
+    
+    updateFloatingChatOnlineStatus(clientId);
+    loadFloatingChatHistory(clientId, false);
+    markTrainerChatAsRead(clientId);
+}
+
+function collapseFloatingChat() {
+    const drawer = document.getElementById("expandedFloatingChatDrawer");
+    drawer.style.display = "none";
+    
+    if (trainerFloatingChatClientId) {
+        const client = usersData.find(u => u.id === trainerFloatingChatClientId);
+        const name = client ? `${client.first_name} ${client.last_name}` : "Cliente";
+        renderFloatingChatBubble(trainerFloatingChatClientId, name, 0);
+        trainerFloatingChatClientId = null;
+    }
+}
+
+function closeFloatingChat() {
+    const drawer = document.getElementById("expandedFloatingChatDrawer");
+    drawer.style.display = "none";
+    trainerFloatingChatClientId = null;
+}
+
+function maximizeFromFloatingChat() {
+    if (trainerFloatingChatClientId) {
+        const cid = trainerFloatingChatClientId;
+        closeFloatingChat();
+        selectClient(cid);
+        switchTab('tabChat');
+    }
+}
+
+function minimizeTrainerChat() {
+    if (activeUserId) {
+        const client = usersData.find(u => u.id === activeUserId);
+        const name = client ? `${client.first_name} ${client.last_name}` : "Cliente";
+        
+        switchTab('tabFicha');
+        
+        renderFloatingChatBubble(activeUserId, name, 0);
+    }
+}
+
+async function loadFloatingChatHistory(clientId, appendBefore = false) {
+    try {
+        const response = await fetch(`/api/chat/history?userId=0&otherId=${clientId}&limit=${trainerChatHistoryLimit}&offset=${trainerFloatingChatHistoryOffset}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById("floatingChatMessagesContainer");
+            const loadMoreBtn = document.getElementById("floatingChatLoadMoreBtn");
+            
+            if (!appendBefore) {
+                container.innerHTML = "";
+            }
+            
+            const messages = data.messages || [];
+            if (messages.length < trainerChatHistoryLimit) {
+                loadMoreBtn.style.display = "none";
+            } else {
+                loadMoreBtn.style.display = "block";
+            }
+            
+            const oldScrollHeight = document.getElementById("floatingChatStream").scrollHeight;
+            
+            messages.forEach(msg => {
+                renderFloatingChatMessage(msg, appendBefore);
+            });
+            
+            if (appendBefore) {
+                const newScrollHeight = document.getElementById("floatingChatStream").scrollHeight;
+                document.getElementById("floatingChatStream").scrollTop += (newScrollHeight - oldScrollHeight);
+            } else {
+                scrollToBottomFloatingChat();
+            }
+            
+            loadMoreBtn.onclick = function() {
+                trainerFloatingChatHistoryOffset += trainerChatHistoryLimit;
+                loadFloatingChatHistory(clientId, true);
+            };
+        }
+    } catch(e) {
+        console.error("Error loading floating chat history:", e);
+    }
+}
+
+function renderFloatingChatMessage(msg, appendBefore = false) {
+    const container = document.getElementById("floatingChatMessagesContainer");
+    if (!container) return;
+    
+    if (document.getElementById(`float-msg-${msg.id}`)) return;
+    
+    const isMe = msg.sender_id === 0;
+    const dateObj = new Date(msg.created_at);
+    const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    const msgDiv = document.createElement("div");
+    msgDiv.id = `float-msg-${msg.id}`;
+    msgDiv.style.display = "flex";
+    msgDiv.style.flexDirection = "column";
+    msgDiv.style.alignSelf = isMe ? "flex-end" : "flex-start";
+    msgDiv.style.maxWidth = "80%";
+    msgDiv.style.gap = "1px";
+    
+    const bubble = document.createElement("div");
+    bubble.style.padding = "6px 10px";
+    bubble.style.borderRadius = isMe ? "12px 12px 2px 12px" : "12px 12px 12px 2px";
+    bubble.style.fontSize = "11px";
+    bubble.style.lineHeight = "1.3";
+    bubble.style.wordBreak = "break-word";
+    
+    if (isMe) {
+        bubble.style.background = "linear-gradient(135deg, rgba(14, 165, 233, 0.4), rgba(139, 92, 246, 0.4))";
+        bubble.style.border = "1px solid rgba(14, 165, 233, 0.3)";
+        bubble.style.color = "white";
+    } else {
+        bubble.style.background = "rgba(255, 255, 255, 0.06)";
+        bubble.style.border = "1px solid rgba(255, 255, 255, 0.08)";
+        bubble.style.color = "#f3f4f6";
+    }
+    bubble.innerText = msg.message;
+    
+    const infoRow = document.createElement("div");
+    infoRow.style.display = "flex";
+    infoRow.style.alignItems = "center";
+    infoRow.style.justifyContent = isMe ? "flex-end" : "flex-start";
+    infoRow.style.gap = "4px";
+    infoRow.style.fontSize = "9px";
+    infoRow.style.color = "var(--color-text-muted)";
+    
+    const timeSpan = document.createElement("span");
+    timeSpan.innerText = timeStr;
+    infoRow.appendChild(timeSpan);
+    
+    if (isMe) {
+        const tickSpan = document.createElement("span");
+        tickSpan.id = `float-tick-${msg.id}`;
+        tickSpan.className = "float-chat-tick";
+        if (msg.is_read) {
+            tickSpan.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--accent-cyan);"></i>';
+        } else {
+            tickSpan.innerHTML = '<i class="fa-solid fa-check-double" style="color: var(--color-text-secondary);"></i>';
+        }
+        infoRow.appendChild(tickSpan);
+    }
+    
+    msgDiv.appendChild(bubble);
+    msgDiv.appendChild(infoRow);
+    
+    if (appendBefore) {
+        container.insertBefore(msgDiv, container.firstChild);
+    } else {
+        container.appendChild(msgDiv);
+    }
+}
+
+function sendFloatingChatMessage() {
+    const input = document.getElementById("floatingChatInput");
+    if (!input) return;
+    
+    const text = input.value.trim();
+    if (!text || !trainerFloatingChatClientId) return;
+    
+    if (!trainerSocket || trainerSocket.readyState !== WebSocket.OPEN) {
+        alert("Sin conexión al chat.");
+        return;
+    }
+    
+    trainerSocket.send(JSON.stringify({
+        "receiver_id": trainerFloatingChatClientId,
+        "message": text
+    }));
+    
+    const tempMsg = {
+        id: "temp-float-" + Date.now(),
+        sender_id: 0,
+        receiver_id: trainerFloatingChatClientId,
+        message: text,
+        is_read: false,
+        created_at: new Date().toISOString()
+    };
+    
+    renderFloatingChatMessage(tempMsg, false);
+    scrollToBottomFloatingChat();
+    
+    input.value = "";
+}
+
+function handleFloatingChatKeydown(event) {
+    if (event.key === "Enter") {
+        sendFloatingChatMessage();
+    }
+}
+
+function scrollToBottomFloatingChat() {
+    setTimeout(() => {
+        const stream = document.getElementById("floatingChatStream");
+        if (stream) {
+            stream.scrollTop = stream.scrollHeight;
+        }
+    }, 50);
 }
 

@@ -24,7 +24,7 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Portal del Entrenador - Elite Coaching</title>
-    <link rel="stylesheet" href="/shared/style.css?v=2.0.7">
+    <link rel="stylesheet" href="/shared/style.css?v=2.0.9">
     <!-- Chart.js for beautiful interactive analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for clean premium icons -->
@@ -65,7 +65,24 @@
             <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Nutrición</a>
             <a href="#" onclick="showGlobalView('settings')" class="btn-nav" id="navSettings"><i class="fa-solid fa-gear"></i> Ajustes</a>
         </div>
-        <div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <!-- Bell Notification Icon -->
+            <div style="position: relative; cursor: pointer; display: flex; align-items: center;" onclick="toggleChatNotificationsDropdown(event)">
+                <i class="fa-solid fa-bell" style="font-size: 20px; color: var(--color-text-muted);"></i>
+                <span id="globalBellBadge" style="display: none; position: absolute; top: -8px; right: -8px; width: 16px; height: 16px; border-radius: 50%; background: #ef4444; color: white; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1;">0</span>
+                
+                <!-- Dropdown menu -->
+                <div id="chatNotificationsDropdown" style="display: none; position: absolute; top: 35px; right: 0; width: 280px; background: var(--color-bg-card); border: 1px solid var(--glass-border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); backdrop-filter: blur(10px); z-index: 30000; padding: 10px 0;">
+                    <div style="padding: 5px 15px 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 12px; font-weight: bold; color: var(--accent-cyan); display: flex; justify-content: space-between;">
+                        <span>Mensajes Pendientes</span>
+                        <span id="unreadNotificationsHeaderCount" style="color: var(--color-text-muted); font-weight: normal;">0 nuevos</span>
+                    </div>
+                    <div id="chatNotificationsDropdownList" style="max-height: 200px; overflow-y: auto; font-size: 11px;">
+                        <div style="padding: 20px 15px; text-align: center; color: var(--color-text-muted);">No tienes mensajes nuevos</div>
+                    </div>
+                </div>
+            </div>
+            
             <button class="btn-primary" onclick="openAddClientModal()"><i class="fa-solid fa-user-plus"></i> Nuevo Cliente</button>
         </div>
     </header>
@@ -153,6 +170,7 @@
                         <button class="tab-btn" onclick="switchTab('tabSeguimiento')"><i class="fa-solid fa-chart-line"></i> Trazabilidad Diaria</button>
                         <button class="tab-btn" onclick="switchTab('tabRutinas')"><i class="fa-solid fa-calendar-days"></i> Rutina</button>
                         <button class="tab-btn" onclick="switchTab('tabNutricion')"><i class="fa-solid fa-plate-wheat"></i> Nutrición Fit</button>
+                        <button class="tab-btn" onclick="switchTab('tabChat')"><i class="fa-solid fa-comments" style="position:relative;"><span id="tabChatBadge" style="display: none; position: absolute; top: -5px; right: -5px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span></i> Chat con Cliente</button>
                     </div>
 
                     <!-- TAB 1: FICHA ANTROPOMETRICA FORM & RECORDS -->
@@ -271,6 +289,38 @@
                         </div>
                         <div id="nutritionPlanContainer">
                             <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: CLIENT MESSAGING CHAT -->
+                    <div class="tab-panel" id="tabChat" style="gap: 10px;">
+                        <button class="mobile-sub-back-btn" onclick="closeMobileSubPanel()"><i class="fa-solid fa-arrow-left"></i> Volver a Detalles</button>
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="position: relative;">
+                                    <div id="trainerChatClientAvatar" style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white;">
+                                        CL
+                                    </div>
+                                    <span id="trainerChatClientStatusDot" style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; border-radius: 50%; background: #6b7280; border: 2px solid var(--color-bg-dark);"></span>
+                                </div>
+                                <div>
+                                    <h4 id="trainerChatClientName" style="margin: 0; font-size: 15px; color: var(--color-text-primary);">Selecciona un Cliente</h4>
+                                    <span id="trainerChatClientStatusText" style="font-size: 11px; color: var(--color-text-secondary);">Desconectado</span>
+                                </div>
+                            </div>
+                            <button id="trainerChatMinimizeBtn" class="btn-nav" style="font-size: 11px; padding: 5px 10px; display: flex; align-items: center; gap: 5px;" onclick="minimizeTrainerChat()"><i class="fa-solid fa-window-minimize"></i> Minimizar</button>
+                        </div>
+
+                        <!-- Chat Messages Stream -->
+                        <div id="trainerChatStream" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 10px 5px; scroll-behavior: smooth;">
+                            <button id="trainerChatLoadMoreBtn" class="btn-nav" style="align-self: center; font-size: 11px; display: none; opacity: 0.7; margin-bottom: 10px;">Cargar chats anteriores</button>
+                            <div id="trainerChatMessagesContainer" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                        </div>
+
+                        <!-- Chat Input Area -->
+                        <div style="display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                            <input type="text" id="trainerChatInput" placeholder="Escribe un mensaje para el cliente..." style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; border-radius: 20px; padding: 10px 20px; font-size: 13px; outline: none;" onkeydown="handleTrainerChatKeydown(event)">
+                            <button class="btn-primary" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0;" onclick="sendTrainerChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
                         </div>
                     </div>
                 </div>
@@ -908,7 +958,46 @@
 
 
 
-    <script src="/trainer/trainer.js?v=2.0.7"></script>
+    <!-- PERSISTENT FLOATING CHAT BUBBLES CONTAINER -->
+    <div id="floatingChatBubblesContainer" style="position: fixed; bottom: 80px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 25000; align-items: flex-end;"></div>
+
+    <!-- PERSISTENT EXPANDED FLOATING CHAT DRAWER -->
+    <div id="expandedFloatingChatDrawer" style="display: none; position: fixed; bottom: 80px; right: 80px; width: 340px; height: 420px; background: var(--color-bg-card); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 12px 35px rgba(0,0,0,0.6); backdrop-filter: blur(12px); z-index: 25000; flex-direction: column; overflow: hidden;">
+        <!-- Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="position: relative;">
+                    <div id="floatingChatAvatar" style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px;">
+                        CL
+                    </div>
+                    <span id="floatingChatStatusDot" style="position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; background: #6b7280; border: 1.5px solid var(--color-bg-dark);"></span>
+                </div>
+                <div>
+                    <h5 id="floatingChatClientName" style="margin: 0; font-size: 12px; color: var(--color-text-primary);">Cliente</h5>
+                    <span id="floatingChatClientStatusText" style="font-size: 9px; color: var(--color-text-secondary);">Desconectado</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-nav" style="padding: 2px 6px; font-size: 10px;" onclick="collapseFloatingChat()"><i class="fa-solid fa-window-minimize"></i></button>
+                <button class="btn-nav" style="padding: 2px 6px; font-size: 10px; color: var(--accent-purple);" onclick="maximizeFromFloatingChat()"><i class="fa-solid fa-expand"></i></button>
+                <button class="btn-nav" style="padding: 2px 6px; font-size: 10px; color: #ef4444;" onclick="closeFloatingChat()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+
+        <!-- Floating message stream -->
+        <div id="floatingChatStream" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px 10px; font-size: 12px; scroll-behavior: smooth;">
+            <button id="floatingChatLoadMoreBtn" class="btn-nav" style="align-self: center; font-size: 10px; display: none; opacity: 0.7; margin-bottom: 5px;">Cargar anteriores</button>
+            <div id="floatingChatMessagesContainer" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        </div>
+
+        <!-- Floating input area -->
+        <div style="display: flex; gap: 8px; border-top: 1px solid rgba(255,255,255,0.08); padding: 8px 10px; background: rgba(0,0,0,0.15);">
+            <input type="text" id="floatingChatInput" placeholder="Responder..." style="flex: 1; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); color: white; border-radius: 15px; padding: 6px 12px; font-size: 11px; outline: none;" onkeydown="handleFloatingChatKeydown(event)">
+            <button class="btn-primary" style="width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0;" onclick="sendFloatingChatMessage()"><i class="fa-solid fa-paper-plane" style="font-size: 10px;"></i></button>
+        </div>
+    </div>
+
+    <script src="/trainer/trainer.js?v=2.0.9"></script>
     
     <!-- PWA Service Worker Registration -->
     <script>

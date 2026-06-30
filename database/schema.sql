@@ -268,3 +268,15 @@ CREATE TABLE IF NOT EXISTS food_library (
     fat_g REAL NOT NULL DEFAULT 0,
     custom_data TEXT -- JSON representation of custom dynamic nutritional values
 );
+
+-- 16. Chat Messages Table
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL,
+    receiver_id INTEGER NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_participants ON chat_messages(sender_id, receiver_id);

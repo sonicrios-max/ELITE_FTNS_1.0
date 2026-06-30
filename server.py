@@ -7,7 +7,7 @@ import urllib.parse
 from datetime import datetime
 import shutil
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -376,6 +376,23 @@ def check_and_migrate_db(db_path):
             print("Migration: Adding column 'completed_meals' to 'daily_logs' table...")
             cursor.execute("ALTER TABLE daily_logs ADD COLUMN completed_meals TEXT DEFAULT '[]'")
             conn.commit()
+            
+        # Migration: Create chat_messages table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER NOT NULL,
+                receiver_id INTEGER NOT NULL,
+                message TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        
+        # Migration: Create index on sender_id/receiver_id
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_participants ON chat_messages(sender_id, receiver_id)")
+        conn.commit()
             
     except Exception as e:
         print("Error during migration:", e)
@@ -2585,6 +2602,228 @@ async def api_get_foods(request: Request):
     handler = FitnessHTTPRequestHandler(request)
     handler.handle_get_foods()
     return make_api_response(handler)
+
+# --- Chat SQLite Helpers ---
+
+def save_chat_message(trainer: str, sender_id: int, receiver_id: int, message_text: str) -> int:
+    db_path = get_tenant_db_path(trainer)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO chat_messages (sender_id, receiver_id, message, is_read)
+            VALUES (?, ?, ?, 0)
+        """, (sender_id, receiver_id, message_text))
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+def get_chat_history(trainer: str, user_id: int, other_id: int, limit: int = 30, offset: int = 0):
+    db_path = get_tenant_db_path(trainer)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT id, sender_id, receiver_id, message, is_read, created_at
+            FROM chat_messages
+            WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+            ORDER BY id DESC
+            LIMIT ? OFFSET ?
+        """, (user_id, other_id, other_id, user_id, limit, offset))
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                "id": r["id"],
+                "sender_id": r["sender_id"],
+                "receiver_id": r["receiver_id"],
+                "message": r["message"],
+                "is_read": bool(r["is_read"]),
+                "created_at": r["created_at"]
+            })
+        result.reverse()
+        return result
+    finally:
+        conn.close()
+
+def mark_messages_as_read(trainer: str, other_id: int, user_id: int):
+    db_path = get_tenant_db_path(trainer)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE chat_messages
+            SET is_read = 1
+            WHERE sender_id = ? AND receiver_id = ? AND is_read = 0
+        """, (other_id, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+# --- Chat Connection Manager ---
+
+class ChatConnectionManager:
+    def __init__(self):
+        self.active_connections = {}
+
+    async def connect(self, websocket: WebSocket, trainer: str, user_id: int):
+        await websocket.accept()
+        self.active_connections[(trainer, user_id)] = websocket
+
+    def disconnect(self, trainer: str, user_id: int):
+        self.active_connections.pop((trainer, user_id), None)
+
+    async def send_personal_message(self, message: dict, trainer: str, user_id: int):
+        websocket = self.active_connections.get((trainer, user_id))
+        if websocket:
+            try:
+                await websocket.send_json(message)
+                return True
+            except Exception:
+                self.disconnect(trainer, user_id)
+        return False
+
+chat_manager = ChatConnectionManager()
+
+# --- Chat WebSocket Endpoint ---
+
+@app.websocket("/ws/chat")
+async def websocket_chat_endpoint(websocket: WebSocket, trainer: str, userId: int, token: str = None):
+    if token:
+        try:
+            jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        except Exception:
+            print("WS Chat: invalid token provided")
+            
+    await chat_manager.connect(websocket, trainer, userId)
+    
+    # Notify presence upon connection
+    if userId != 0:
+        # Client connected. Notify trainer if online, and tell client if trainer is online.
+        trainer_online = (trainer, 0) in chat_manager.active_connections
+        if trainer_online:
+            await chat_manager.send_personal_message({"type": "presence", "user_id": 0, "status": "online"}, trainer, userId)
+            await chat_manager.send_personal_message({"type": "presence", "user_id": userId, "status": "online"}, trainer, 0)
+        else:
+            await chat_manager.send_personal_message({"type": "presence", "user_id": 0, "status": "offline"}, trainer, userId)
+    else:
+        # Trainer connected. Notify all online clients of this trainer, and notify trainer of online clients.
+        for (t, u_id) in list(chat_manager.active_connections.keys()):
+            if t == trainer and u_id != 0:
+                await chat_manager.send_personal_message({"type": "presence", "user_id": 0, "status": "online"}, trainer, u_id)
+                await chat_manager.send_personal_message({"type": "presence", "user_id": u_id, "status": "online"}, trainer, 0)
+                
+    try:
+        while True:
+            data = await websocket.receive_json()
+            receiver_id = int(data.get("receiver_id"))
+            message_text = data.get("message")
+            
+            if message_text:
+                msg_id = save_chat_message(trainer, userId, receiver_id, message_text)
+                
+                payload = {
+                    "id": msg_id,
+                    "sender_id": userId,
+                    "receiver_id": receiver_id,
+                    "message": message_text,
+                    "is_read": False,
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                
+                delivered = await chat_manager.send_personal_message(payload, trainer, receiver_id)
+                
+                await websocket.send_json({
+                    "type": "receipt",
+                    "id": msg_id,
+                    "receiver_id": receiver_id,
+                    "delivered": delivered
+                })
+    except WebSocketDisconnect:
+        chat_manager.disconnect(websocket, trainer, userId)
+        # Notify offline status on disconnect
+        if userId != 0:
+            await chat_manager.send_personal_message({"type": "presence", "user_id": userId, "status": "offline"}, trainer, 0)
+        else:
+            for (t, u_id) in list(chat_manager.active_connections.keys()):
+                if t == trainer and u_id != 0:
+                    await chat_manager.send_personal_message({"type": "presence", "user_id": 0, "status": "offline"}, trainer, u_id)
+    except Exception as e:
+        print("WS Chat Exception:", e)
+        chat_manager.disconnect(websocket, trainer, userId)
+        if userId != 0:
+            await chat_manager.send_personal_message({"type": "presence", "user_id": userId, "status": "offline"}, trainer, 0)
+        else:
+            for (t, u_id) in list(chat_manager.active_connections.keys()):
+                if t == trainer and u_id != 0:
+                    await chat_manager.send_personal_message({"type": "presence", "user_id": 0, "status": "offline"}, trainer, u_id)
+
+# --- Chat REST Endpoints ---
+
+@app.get("/api/chat/history")
+async def api_get_chat_history(request: Request, userId: int, otherId: int, limit: int = 30, offset: int = 0):
+    handler = FitnessHTTPRequestHandler(request)
+    if not handler.verify_jwt():
+        return make_api_response(handler)
+    trainer = handler.get_request_trainer()
+    
+    try:
+        history = get_chat_history(trainer, userId, otherId, limit, offset)
+        return JSONResponse(content={"success": True, "messages": history})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
+@app.post("/api/chat/read")
+async def api_mark_chat_read(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    if not handler.verify_jwt():
+        return make_api_response(handler)
+    trainer = handler.get_request_trainer()
+    
+    try:
+        data = await request.json()
+        sender_id = int(data.get("sender_id"))
+        receiver_id = int(data.get("receiver_id"))
+        
+        mark_messages_as_read(trainer, sender_id, receiver_id)
+        
+        await chat_manager.send_personal_message({
+            "type": "read_receipt",
+            "sender_id": sender_id,
+            "receiver_id": receiver_id
+        }, trainer, sender_id)
+        
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
+@app.get("/api/chat/unread_counts")
+async def api_get_chat_unread_counts(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    if not handler.verify_jwt():
+        return make_api_response(handler)
+    trainer = handler.get_request_trainer()
+    
+    db_path = get_tenant_db_path(trainer)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT sender_id, COUNT(*) as count
+            FROM chat_messages
+            WHERE receiver_id = 0 AND is_read = 0
+            GROUP BY sender_id
+        """)
+        rows = cursor.fetchall()
+        counts = {r["sender_id"]: r["count"] for r in rows}
+        return JSONResponse(content={"success": True, "unread_counts": counts})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+    finally:
+        conn.close()
 
 # --- UI HTML Views ---
 
