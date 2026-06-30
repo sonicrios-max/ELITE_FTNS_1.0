@@ -1419,26 +1419,16 @@ function renderClientChatMessage(msg, appendBefore = false) {
     }
 }
 
-function sendClientChatMessage() {
+async function sendClientChatMessage() {
     const input = document.getElementById("clientChatInput");
     if (!input) return;
     
     const text = input.value.trim();
     if (!text) return;
     
-    if (!clientSocket || clientSocket.readyState !== WebSocket.OPEN) {
-        alert("Sin conexión al chat. Reintentando conectar...");
-        connectClientWebSocket();
-        return;
-    }
-    
-    clientSocket.send(JSON.stringify({
-        "receiver_id": 0,
-        "message": text
-    }));
-    
+    const tempId = "temp-" + Date.now();
     const tempMsg = {
-        id: "temp-" + Date.now(),
+        id: tempId,
         sender_id: userId,
         receiver_id: 0,
         message: text,
@@ -1448,8 +1438,41 @@ function sendClientChatMessage() {
     
     renderClientChatMessage(tempMsg, false);
     scrollToBottomClientChat();
-    
     input.value = "";
+    
+    if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+        clientSocket.send(JSON.stringify({
+            "receiver_id": 0,
+            "message": text
+        }));
+    } else {
+        try {
+            const response = await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender_id: userId,
+                    receiver_id: 0,
+                    message: text
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                const tempEl = document.getElementById(`msg-${tempId}`);
+                if (tempEl) {
+                    tempEl.id = `msg-${data.message_id}`;
+                    const tick = tempEl.querySelector('.chat-tick');
+                    if (tick) {
+                        tick.id = `tick-${data.message_id}`;
+                        tick.innerHTML = '<i class="fa-solid fa-check"></i>';
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("REST send fallback failed:", e);
+        }
+        connectClientWebSocket();
+    }
 }
 
 function handleClientChatKeydown(event) {

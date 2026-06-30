@@ -2799,6 +2799,48 @@ async def api_mark_chat_read(request: Request):
     except Exception as e:
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
+@app.post("/api/chat/send")
+async def api_send_chat_message_fallback(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    if not handler.verify_jwt():
+        return make_api_response(handler)
+    trainer = handler.get_request_trainer()
+    
+    try:
+        data = await request.json()
+        sender_id = int(data.get("sender_id"))
+        receiver_id = int(data.get("receiver_id"))
+        message_text = data.get("message", "").strip()
+        
+        if not message_text:
+            return JSONResponse(status_code=400, content={"success": False, "error": "Empty message"})
+            
+        msg_id = save_chat_message(trainer, sender_id, receiver_id, message_text)
+        
+        payload = {
+            "id": msg_id,
+            "sender_id": sender_id,
+            "receiver_id": receiver_id,
+            "message": message_text,
+            "is_read": False,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        await chat_manager.send_personal_message(payload, trainer, receiver_id)
+        
+        receipt = {
+            "type": "receipt",
+            "id": msg_id,
+            "sender_id": sender_id,
+            "receiver_id": receiver_id,
+            "delivered": True
+        }
+        await chat_manager.send_personal_message(receipt, trainer, sender_id)
+        
+        return JSONResponse(content={"success": True, "message_id": msg_id})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
 @app.get("/api/chat/unread_counts")
 async def api_get_chat_unread_counts(request: Request):
     handler = FitnessHTTPRequestHandler(request)

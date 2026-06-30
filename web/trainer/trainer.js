@@ -778,7 +778,10 @@ function switchTab(tabId) {
     tabBtns.forEach(btn => btn.classList.remove("active"));
     
     const panels = document.querySelectorAll(".tab-panel");
-    panels.forEach(p => p.classList.remove("active"));
+    panels.forEach(p => {
+        p.classList.remove("active");
+        p.style.display = "none";
+    });
     
     // Find active tab elements
     document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add("active");
@@ -4128,26 +4131,16 @@ function renderTrainerChatMessage(msg, appendBefore = false) {
     }
 }
 
-function sendTrainerChatMessage() {
+async function sendTrainerChatMessage() {
     const input = document.getElementById("trainerChatInput");
     if (!input) return;
     
     const text = input.value.trim();
     if (!text || !activeUserId) return;
     
-    if (!trainerSocket || trainerSocket.readyState !== WebSocket.OPEN) {
-        alert("Sin conexión al chat. Reintentando conectar...");
-        connectTrainerWebSocket();
-        return;
-    }
-    
-    trainerSocket.send(JSON.stringify({
-        "receiver_id": activeUserId,
-        "message": text
-    }));
-    
+    const tempId = "temp-" + Date.now();
     const tempMsg = {
-        id: "temp-" + Date.now(),
+        id: tempId,
         sender_id: 0,
         receiver_id: activeUserId,
         message: text,
@@ -4157,8 +4150,41 @@ function sendTrainerChatMessage() {
     
     renderTrainerChatMessage(tempMsg, false);
     scrollToBottomTrainerChat();
-    
     input.value = "";
+    
+    if (trainerSocket && trainerSocket.readyState === WebSocket.OPEN) {
+        trainerSocket.send(JSON.stringify({
+            "receiver_id": activeUserId,
+            "message": text
+        }));
+    } else {
+        try {
+            const response = await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender_id: 0,
+                    receiver_id: activeUserId,
+                    message: text
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                const tempEl = document.getElementById(`msg-${tempId}`);
+                if (tempEl) {
+                    tempEl.id = `msg-${data.message_id}`;
+                    const tick = tempEl.querySelector('.chat-tick');
+                    if (tick) {
+                        tick.id = `tick-${data.message_id}`;
+                        tick.innerHTML = '<i class="fa-solid fa-check"></i>';
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("REST send fallback failed:", e);
+        }
+        connectTrainerWebSocket();
+    }
 }
 
 function handleTrainerChatKeydown(event) {
@@ -4505,25 +4531,16 @@ function renderFloatingChatMessage(msg, appendBefore = false) {
     }
 }
 
-function sendFloatingChatMessage() {
+async function sendFloatingChatMessage() {
     const input = document.getElementById("floatingChatInput");
     if (!input) return;
     
     const text = input.value.trim();
     if (!text || !trainerFloatingChatClientId) return;
     
-    if (!trainerSocket || trainerSocket.readyState !== WebSocket.OPEN) {
-        alert("Sin conexión al chat.");
-        return;
-    }
-    
-    trainerSocket.send(JSON.stringify({
-        "receiver_id": trainerFloatingChatClientId,
-        "message": text
-    }));
-    
+    const tempId = "temp-float-" + Date.now();
     const tempMsg = {
-        id: "temp-float-" + Date.now(),
+        id: tempId,
         sender_id: 0,
         receiver_id: trainerFloatingChatClientId,
         message: text,
@@ -4533,8 +4550,41 @@ function sendFloatingChatMessage() {
     
     renderFloatingChatMessage(tempMsg, false);
     scrollToBottomFloatingChat();
-    
     input.value = "";
+    
+    if (trainerSocket && trainerSocket.readyState === WebSocket.OPEN) {
+        trainerSocket.send(JSON.stringify({
+            "receiver_id": trainerFloatingChatClientId,
+            "message": text
+        }));
+    } else {
+        try {
+            const response = await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender_id: 0,
+                    receiver_id: trainerFloatingChatClientId,
+                    message: text
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                const tempEl = document.getElementById(`float-msg-${tempId}`);
+                if (tempEl) {
+                    tempEl.id = `float-msg-${data.message_id}`;
+                    const tick = tempEl.querySelector('.float-chat-tick');
+                    if (tick) {
+                        tick.id = `float-tick-${data.message_id}`;
+                        tick.innerHTML = '<i class="fa-solid fa-check"></i>';
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("REST float send fallback failed:", e);
+        }
+        connectTrainerWebSocket();
+    }
 }
 
 function handleFloatingChatKeydown(event) {
