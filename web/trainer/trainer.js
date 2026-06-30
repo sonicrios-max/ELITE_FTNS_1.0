@@ -1802,7 +1802,132 @@ function showDayDetails(log) {
         ${log.notes ? `<div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; color: var(--color-text-secondary); font-size: 12px; font-style: italic; text-align: center;">"${log.notes}"</div>` : ''}
     `;
     
+    // Set dynamic footer actions
+    const footer = document.getElementById('dayDetailFooter');
+    if (footer) {
+        footer.innerHTML = `
+            <button type="button" class="btn-secondary" id="btnEditDayDetails" style="margin-right: auto;"><i class="fa-solid fa-pen-to-square"></i> Editar Registro</button>
+            <button type="button" class="btn-primary" onclick="document.getElementById('dayDetailModal').style.display='none'">Cerrar</button>
+        `;
+        document.getElementById('btnEditDayDetails').onclick = () => editDayDetails(log);
+    }
+    
     document.getElementById('dayDetailModal').style.display = 'flex';
+}
+
+function editDayDetails(log) {
+    const content = document.getElementById('dayDetailContent');
+    content.innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-weight-scale"></i> Peso (kg)</label>
+                <input type="number" step="0.01" id="editWeight" class="form-input" style="width: 100%; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px;" value="${log.weight_kg !== null && log.weight_kg !== undefined ? log.weight_kg : ''}">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-person-running"></i> Pasos</label>
+                <input type="number" id="editSteps" class="form-input" style="width: 100%; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px;" value="${log.steps_count !== null && log.steps_count !== undefined ? log.steps_count : ''}">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-bed"></i> Sueño (h)</label>
+                <input type="number" step="0.1" id="editSleepHours" class="form-input" style="width: 100%; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px;" value="${log.sleep_hours !== null && log.sleep_hours !== undefined ? log.sleep_hours : ''}">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-star"></i> Calidad Sueño (1-10)</label>
+                <input type="number" min="1" max="10" id="editSleepQuality" class="form-input" style="width: 100%; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px;" value="${log.sleep_quality !== null && log.sleep_quality !== undefined ? log.sleep_quality : ''}">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-droplet" style="color: #3b82f6;"></i> Agua (ml)</label>
+                <input type="number" step="50" id="editWater" class="form-input" style="width: 100%; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px;" value="${log.water_intake_ml !== null && log.water_intake_ml !== undefined ? log.water_intake_ml : ''}">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-solid fa-apple-whole" style="color: #ef4444;"></i> Adherencia Dieta (1-10)</label>
+                <input type="number" min="1" max="10" id="editDietAdherence" class="form-input" style="width: 100%; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px;" value="${log.diet_adherence !== null && log.diet_adherence !== undefined ? log.diet_adherence : ''}">
+            </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: 8px;">
+            <label style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;"><i class="fa-regular fa-comment"></i> Notas / Comentarios</label>
+            <textarea id="editNotes" class="form-input" rows="3" style="width: 100%; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px; resize: none; font-family: inherit; font-size: 12px;">${log.notes || ''}</textarea>
+        </div>
+    `;
+    
+    const footer = document.getElementById('dayDetailFooter');
+    if (footer) {
+        footer.innerHTML = `
+            <button type="button" class="btn-secondary" id="btnCancelEdit">Cancelar</button>
+            <button type="button" class="btn-primary" id="btnSaveDayDetails">Guardar Cambios</button>
+        `;
+        document.getElementById('btnCancelEdit').onclick = () => showDayDetails(log);
+        document.getElementById('btnSaveDayDetails').onclick = () => saveDayDetails(log);
+    }
+}
+
+async function saveDayDetails(originalLog) {
+    const weightVal = document.getElementById('editWeight').value;
+    const stepsVal = document.getElementById('editSteps').value;
+    const sleepHoursVal = document.getElementById('editSleepHours').value;
+    const sleepQualityVal = document.getElementById('editSleepQuality').value;
+    const waterVal = document.getElementById('editWater').value;
+    const dietVal = document.getElementById('editDietAdherence').value;
+    const notesVal = document.getElementById('editNotes').value;
+    
+    const payload = {
+        user_id: activeUserId,
+        date: originalLog.date,
+        weight_kg: weightVal ? parseFloat(weightVal) : null,
+        steps_count: stepsVal ? parseInt(stepsVal) : null,
+        sleep_hours: sleepHoursVal ? parseFloat(sleepHoursVal) : null,
+        sleep_quality: sleepQualityVal ? parseInt(sleepQualityVal) : null,
+        water_intake_ml: waterVal ? parseInt(waterVal) : 0,
+        diet_adherence: dietVal ? parseInt(dietVal) : null,
+        notes: notesVal.trim() || null
+    };
+    
+    try {
+        const btnSave = document.getElementById('btnSaveDayDetails');
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerText = "Guardando...";
+        }
+        
+        const response = await fetch('/api/daily_logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            // Update local memory list / calendar map
+            originalLog.weight_kg = payload.weight_kg;
+            originalLog.steps_count = payload.steps_count;
+            originalLog.sleep_hours = payload.sleep_hours;
+            originalLog.sleep_quality = payload.sleep_quality;
+            originalLog.water_intake_ml = payload.water_intake_ml;
+            originalLog.diet_adherence = payload.diet_adherence;
+            originalLog.notes = payload.notes;
+            
+            // Reload client data to refresh overall charts and lists immediately
+            const currentSelectedClientId = activeUserId;
+            await selectClient(currentSelectedClientId);
+            
+            // Re-render compliance details for the day
+            showDayDetails(originalLog);
+        } else {
+            alert("Error al guardar cambios: " + (result.error || "Error desconocido"));
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerText = "Guardar Cambios";
+            }
+        }
+    } catch (err) {
+        console.error("Error saving day details:", err);
+        alert("Error de conexión al guardar cambios.");
+        const btnSave = document.getElementById('btnSaveDayDetails');
+        if (btnSave) {
+            btnSave.disabled = false;
+            btnSave.innerText = "Guardar Cambios";
+        }
+    }
 }
 
 // Hook calendar rendering into client selection

@@ -838,7 +838,7 @@
     </div>
 
     <!-- Calendar Day Details Modal -->
-    <div id="dayDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+    <div id="dayDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
         <div class="glass-card" style="width: 500px; max-width: 95%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h3 style="color: var(--accent-cyan);"><i class="fa-regular fa-clipboard"></i> Resumen del Día</h3>
@@ -849,7 +849,7 @@
                 <!-- Llenado por JS -->
             </div>
             
-            <div style="margin-top: 15px; text-align: right;">
+            <div id="dayDetailFooter" style="margin-top: 15px; text-align: right; display: flex; justify-content: flex-end; gap: 10px;">
                 <button type="button" class="btn-primary" onclick="document.getElementById('dayDetailModal').style.display='none'">Cerrar</button>
             </div>
         </div>
