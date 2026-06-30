@@ -119,7 +119,12 @@
         <div id="latestAssessmentBanner" class="glass-card" style="display: none; margin-bottom: 20px; padding: 15px;">
             <h4 style="font-size: 13px; color: var(--accent-cyan); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
                 <span><i class="fa-solid fa-user-doctor"></i> Mi Última Valoración</span>
-                <span id="assessmentDateLabel" style="color: var(--color-text-secondary); font-size: 11px; font-weight: normal;"></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="assessmentDateLabel" style="color: var(--color-text-secondary); font-size: 11px; font-weight: normal;"></span>
+                    <button type="button" id="btnToggleAssessmentCollapse" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; padding: 2px 6px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; border-radius: 4px; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                        <i class="fa-solid fa-chevron-up" id="toggleAssessmentIcon"></i>
+                    </button>
+                </div>
             </h4>
             <div id="latestAssessmentGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
                 <!-- Dynamic content will be injected here -->

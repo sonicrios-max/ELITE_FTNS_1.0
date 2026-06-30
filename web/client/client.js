@@ -41,6 +41,7 @@ let userId = 1;
 let activeTab = 'tabRutinas';
 let clientFullData = null;
 let globalNutritionConfig = [];
+let assessmentConfig = [];
 let todayCompletedExercises = [];
 let todayCompletedMeals = [];
 let activeWorkoutDay = "";
@@ -48,8 +49,6 @@ let activeWorkoutDay = "";
 // Chart.js Instances
 let weightChartInstance = null;
 let stepsChartInstance = null;
-
-
 
 // Hydration State
 let currentWaterIntakeMl = 0;
@@ -63,6 +62,18 @@ async function loadNutritionConfig() {
         }
     } catch (e) {
         console.error("Error loading nutrition config:", e);
+    }
+}
+
+async function loadAssessmentConfig() {
+    try {
+        const res = await fetch('/api/assessment_config');
+        const data = await res.json();
+        if (data.success) {
+            assessmentConfig = data.config || [];
+        }
+    } catch (e) {
+        console.error("Error loading assessment config:", e);
     }
 }
 
@@ -92,6 +103,7 @@ async function initClientDashboard() {
     }
     
     await loadNutritionConfig();
+    await loadAssessmentConfig();
     loadClientData();
     connectClientWebSocket();
 }
@@ -203,73 +215,112 @@ function populateKPIs() {
         const grid = document.getElementById("latestAssessmentGrid");
         grid.innerHTML = "";
         
-        const displayKeys = [
-            { key: 'weight_kg', label: 'Peso', color: 'var(--accent-cyan)', unit: 'kg' },
-            { key: 'bmi', label: 'IMC', color: 'var(--accent-purple)', unit: '' },
-            { key: 'body_fat_percentage', label: '% Grasa', color: 'var(--accent-orange)', unit: '%' },
-            { key: 'lean_mass_kg', label: 'Músculo', color: 'var(--accent-green)', unit: 'kg' },
-            { key: 'muscle_mass_pct', label: '% Músculo', color: 'var(--accent-green)', unit: '%' },
-            { key: 'body_water_pct', label: '% Agua', color: '#3b82f6', unit: '%' },
-            { key: 'visceral_fat_rating', label: 'Grasa Visceral', color: '#ef4444', unit: '' },
-            { key: 'bone_mass_kg', label: 'Masa Ósea', color: '#f3f4f6', unit: 'kg' },
-            { key: 'basal_metabolic_rate_kcal', label: 'TMB', color: '#f59e0b', unit: 'kcal' },
-            { key: 'fc_rep', label: 'FC Reposo', color: '#ef4444', unit: 'bpm' },
-            { key: 'fc_max', label: 'FC Máx', color: '#ef4444', unit: 'bpm' },
-            { key: 'neck', label: 'Cuello', color: '#d1d5db', unit: 'cm' },
-            { key: 'chest', label: 'Pecho', color: '#d1d5db', unit: 'cm' },
-            { key: 'shoulder', label: 'Hombro', color: '#d1d5db', unit: 'cm' },
-            { key: 'abdomen', label: 'Abdomen', color: '#d1d5db', unit: 'cm' },
-            { key: 'iliac', label: 'Iliaco', color: '#d1d5db', unit: 'cm' },
-            { key: 'trochanter', label: 'Cadera', color: '#d1d5db', unit: 'cm' },
-            { key: 'right_thigh', label: 'Muslo Der', color: '#d1d5db', unit: 'cm' },
-            { key: 'left_thigh', label: 'Muslo Izq', color: '#d1d5db', unit: 'cm' },
-            { key: 'right_calf', label: 'Pantorrilla Der', color: '#d1d5db', unit: 'cm' },
-            { key: 'left_calf', label: 'Pantorrilla Izq', color: '#d1d5db', unit: 'cm' },
-            { key: 'right_bicep', label: 'Bíceps Der', color: '#d1d5db', unit: 'cm' },
-            { key: 'left_bicep', label: 'Bíceps Izq', color: '#d1d5db', unit: 'cm' },
-            { key: 'right_forearm', label: 'Antebrazo Der', color: '#d1d5db', unit: 'cm' },
-            { key: 'left_forearm', label: 'Antebrazo Izq', color: '#d1d5db', unit: 'cm' },
-            { key: 'scapular', label: 'Pl. Escapular', color: '#9ca3af', unit: 'mm' },
-            { key: 'triceps', label: 'Pl. Tríceps', color: '#9ca3af', unit: 'mm' },
-            { key: 'abdominal', label: 'Pl. Abdominal', color: '#9ca3af', unit: 'mm' },
-            { key: 'suprailiac', label: 'Pl. Suprailiaco', color: '#9ca3af', unit: 'mm' }
-        ];
+        const columnColors = {
+            weight_kg: 'var(--accent-cyan)',
+            bmi: 'var(--accent-purple)',
+            body_fat_percentage: 'var(--accent-orange)',
+            lean_mass_kg: 'var(--accent-green)',
+            muscle_mass_pct: 'var(--accent-green)',
+            body_water_pct: '#3b82f6',
+            visceral_fat_rating: '#ef4444',
+            bone_mass_kg: '#f3f4f6',
+            basal_metabolic_rate_kcal: '#f59e0b',
+            fc_rep: '#ef4444',
+            fc_max: '#ef4444',
+            scapular: '#9ca3af',
+            triceps: '#9ca3af',
+            abdominal: '#9ca3af',
+            suprailiac: '#9ca3af'
+        };
 
-        displayKeys.forEach(item => {
-            let val = latest[item.key];
-            if (val !== null && val !== undefined && val !== "") {
-                if (typeof val === 'number') val = val.toFixed(1).replace('.0', '');
-                
-                const box = document.createElement("div");
-                box.className = "summary-stat-box";
-                box.style.padding = "8px";
-                box.style.width = "100%";
-                box.innerHTML = `
-                    <span style="font-size: 10px; display: block;">${item.label}</span>
-                    <strong style="font-size: 14px; color: ${item.color};">${val} ${item.unit}</strong>
-                `;
-                grid.appendChild(box);
-            }
-        });
+        const activeConfigs = assessmentConfig.filter(c => c.is_active == 1);
         
-        // Handle custom_data
-        if (latest.custom_data) {
-            try {
-                const custom = JSON.parse(latest.custom_data);
-                for (const [k, v] of Object.entries(custom)) {
-                    if (v !== null && v !== "") {
-                        const box = document.createElement("div");
-                        box.className = "summary-stat-box";
-                        box.style.padding = "8px";
-                        box.style.width = "100%";
-                        box.innerHTML = `
-                            <span style="font-size: 10px; display: block; text-transform: capitalize;">${k.replace(/_/g, ' ')}</span>
-                            <strong style="font-size: 14px; color: var(--color-text-primary);">${v}</strong>
-                        `;
-                        grid.appendChild(box);
-                    }
+        if (activeConfigs.length > 0) {
+            // Render according to trainer's config
+            let customData = {};
+            if (latest.custom_data) {
+                try {
+                    customData = typeof latest.custom_data === 'string' ? JSON.parse(latest.custom_data) : latest.custom_data;
+                } catch(e) {
+                    console.error("Error parsing custom_data:", e);
                 }
-            } catch(e) {}
+            }
+            if (!customData) customData = {};
+
+            activeConfigs.forEach(c => {
+                let val = null;
+                if (c.is_default == 1) {
+                    val = latest[c.db_column];
+                } else {
+                    val = customData[c.field_name];
+                }
+                
+                if (val !== null && val !== undefined && val !== "") {
+                    if (typeof val === 'number') val = val.toFixed(1).replace('.0', '');
+                    
+                    const box = document.createElement("div");
+                    box.className = "summary-stat-box";
+                    box.style.padding = "8px";
+                    box.style.width = "100%";
+                    box.innerHTML = `
+                        <span style="font-size: 10px; display: block;">${c.field_name}</span>
+                        <strong style="font-size: 14px; color: ${columnColors[c.db_column] || 'var(--accent-gold)'};">${val} ${c.unit || ''}</strong>
+                    `;
+                    grid.appendChild(box);
+                }
+            });
+        } else {
+            // Fallback default list
+            const displayKeys = [
+                { key: 'weight_kg', label: 'Peso', color: 'var(--accent-cyan)', unit: 'kg' },
+                { key: 'bmi', label: 'IMC', color: 'var(--accent-purple)', unit: '' },
+                { key: 'body_fat_percentage', label: '% Grasa', color: 'var(--accent-orange)', unit: '%' },
+                { key: 'lean_mass_kg', label: 'Músculo', color: 'var(--accent-green)', unit: 'kg' },
+                { key: 'basal_metabolic_rate_kcal', label: 'TMB', color: '#f59e0b', unit: 'kcal' }
+            ];
+            
+            displayKeys.forEach(item => {
+                let val = latest[item.key];
+                if (val !== null && val !== undefined && val !== "") {
+                    if (typeof val === 'number') val = val.toFixed(1).replace('.0', '');
+                    const box = document.createElement("div");
+                    box.className = "summary-stat-box";
+                    box.style.padding = "8px";
+                    box.style.width = "100%";
+                    box.innerHTML = `
+                        <span style="font-size: 10px; display: block;">${item.label}</span>
+                        <strong style="font-size: 14px; color: ${item.color};">${val} ${item.unit}</strong>
+                    `;
+                    grid.appendChild(box);
+                }
+            });
+        }
+
+        // Collapsible Banner Toggle Logic
+        const toggleBtn = document.getElementById("btnToggleAssessmentCollapse");
+        const icon = document.getElementById("toggleAssessmentIcon");
+        if (toggleBtn && grid && icon) {
+            const savedState = localStorage.getItem("assessment_collapsed");
+            if (savedState === "true") {
+                grid.style.display = "none";
+                icon.className = "fa-solid fa-chevron-down";
+            } else {
+                grid.style.display = "grid";
+                icon.className = "fa-solid fa-chevron-up";
+            }
+            
+            toggleBtn.onclick = () => {
+                const isCollapsed = grid.style.display === "none";
+                if (isCollapsed) {
+                    grid.style.display = "grid";
+                    icon.className = "fa-solid fa-chevron-up";
+                    localStorage.setItem("assessment_collapsed", "false");
+                } else {
+                    grid.style.display = "none";
+                    icon.className = "fa-solid fa-chevron-down";
+                    localStorage.setItem("assessment_collapsed", "true");
+                }
+            };
         }
         
     } else {
