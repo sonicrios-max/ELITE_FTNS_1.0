@@ -1,0 +1,181 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[paperwidth=4.7in, paperheight=9in, margin=0.35in]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, arrows.meta, shapes.geometric}
+
+% Colores premium estilo ELITE FTNS
+\definecolor{neonYellow}{HTML}{F3CA4C}
+\definecolor{darkBg}{HTML}{121212}
+\definecolor{lightGray}{HTML}{F9F9F9}
+\definecolor{linkBlue}{HTML}{1A73E8}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=linkBlue,
+    urlcolor=linkBlue,
+    pdftitle={Documento de Arquitectura ELITE FTNS}
+}
+
+% Ajuste de fuentes y espaciados para lectura cómoda en celular
+\renewcommand{\familydefault}{\sfdefault}
+\titleformat{\section}{\large\bfseries\color{darkBg}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{darkBg}}{\thesubsection}{1em}{}
+\titlespacing*{\section}{0pt}{1.5ex plus 1ex minus .2ex}{1ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 1ex minus .2ex}{0.8ex plus .2ex}
+
+\setlist[itemize]{leftmargin=12pt, noitemsep, topsep=2pt}
+\setlist[enumerate]{leftmargin=12pt, noitemsep, topsep=2pt}
+
+\title{\textbf{\large ELITE FTNS \\ Documento de Arquitectura y Guía de Integración}}
+\author{\small Antigravity Co-Pilot}
+\date{\footnotesize \today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introducción}
+Este documento consolida la arquitectura técnica, las especificaciones de frontend, backend y el flujo de integración de funcionalidades core de la plataforma \textbf{ELITE FTNS (v2.0.3)}. Está diseñado para su consulta en dispositivos móviles durante viajes de investigación.
+
+---
+
+\section{Arquitectura y Backend}
+El backend está implementado en **FastAPI** y estructurado bajo un modelo de datos multi-tenant aislado a nivel de archivos físicos de base de datos.
+
+\subsection{Estructura Multi-Tenant}
+El aislamiento de entrenadores se maneja mediante:
+\begin{enumerate}
+    \item \textbf{Base de Datos Maestra (\texttt{master.db}):} Administra las credenciales y el estado de suscripción de los entrenadores (tabla \texttt{trainers}).
+    \item \textbf{Bases de Datos de Tenants (\texttt{trainer\_*.db}):} Ubicadas en el directorio \texttt{database/tenants/}. Cada entrenador cuenta con su propio archivo SQLite físico, aislando completamente la información de sus clientes, rutinas, valoraciones y dietas.
+\end{enumerate}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=0.6cm,
+    box/.style={draw=darkBg, thick, rectangle, rounded corners, fill=lightGray, text width=3.3in, align=center, minimum height=0.6cm, font=\footnotesize},
+    arrow/.style={-{Latex}, thick, darkBg}
+]
+    \node (master) [box] {\textbf{Master DB} (\texttt{master.db}) \\ Tabla: \texttt{trainers}};
+    \node (tenantDir) [box, below=of master] {\textbf{Directorio de Tenants} (\texttt{database/tenants/})};
+    \node (tenant1) [box, below=0.4cm of tenantDir, text width=1.5in, xshift=-0.85in] {\textbf{Tenant Admin} \\ \texttt{trainer\_admin.db}};
+    \node (tenant2) [box, below=0.4cm of tenantDir, text width=1.5in, xshift=0.85in] {\textbf{Tenant Carlos} \\ \texttt{trainer\_carlos.db}};
+    
+    \draw [arrow] (master) -- (tenantDir);
+    \draw [arrow] (tenantDir.south) -- ++(0,-0.2) -| (tenant1.north);
+    \draw [arrow] (tenantDir.south) -- ++(0,-0.2) -| (tenant2.north);
+\end{tikzpicture}
+\caption{Aislamiento Físico de Datos (Multi-Tenant).}
+\end{figure}
+
+\subsection{Modo WAL de SQLite}
+Para permitir lecturas y escrituras concurrentes (crítico cuando múltiples clientes registran datos de entrenamiento en vivo), las bases de datos de inquilinos se inicializan con la instrucción:
+\begin{quote}\footnotesize
+    \texttt{PRAGMA journal\_mode=WAL;}
+\end{quote}
+Esto evita bloqueos de base de datos durante escrituras de bitácora y mensajería WebSocket.
+
+\subsection{Lógica de Autosemillado para Nuevos Tenants}
+Cuando se registra un nuevo entrenador, el backend copia automáticamente la biblioteca global de alimentos (\texttt{food\_library}) y el catálogo de ejercicios base (\texttt{exercises}) desde la base de datos maestra a su nuevo archivo tenant, asegurando un entorno de trabajo funcional desde el primer segundo.
+
+\subsection{Lógica de Persistencia de la Bitácora}
+En el endpoint de guardado diario de datos del cliente, el servidor utiliza una consulta con \texttt{sqlite3.Row} para recuperar el registro diario previo (si existe), realizar un \textbf{merge} de los datos parciales (hidratación, peso, checklists) y guardar la estructura combinada. Esto previene que una actualización parcial de hidratación sobreescriba o borre el checklist de ejercicios completados del mismo día.
+
+\subsection{API de Endpoints Principales}
+\begin{itemize}
+    \item \texttt{POST /api/auth/login:} Autenticación segura con JWT.
+    \item \texttt{GET/POST /api/clients:} Gestión de clientes por tenant.
+    \item \texttt{GET/POST/PUT /api/assessments:} Valoraciones físicas (cálculo de Faulkner, FFMI, etc.).
+    \item \texttt{GET/POST /api/assessment\_config:} Configuración dinámica de campos.
+    \item \texttt{PUT /api/clients/<id>/routine:} Cambiar rutina asignada.
+    \item \texttt{WS /ws/chat:} Canal dúplex en tiempo real para chat.
+\end{itemize}
+
+---
+
+\section{Diseño y Frontend}
+El frontend está desarrollado con tecnologías web estándar (HTML, CSS vanilla y JavaScript modular), empaquetado como una **PWA (Progressive Web App)** con soporte sin conexión para el cliente.
+
+\subsection{Identidad Visual: Energía Neón}
+Se define por un diseño estilo \textbf{dark glassmorphism}:
+\begin{itemize}
+    \item \textbf{Fondo oscuro} con acentos de color amarillo neón (\texttt{\#F3CA4C}).
+    \item \textbf{Efecto Glassmorphism:} Tarjetas y contenedores con un fondo negro translúcido y desenfoque por software:
+    \begin{quote}\footnotesize
+        \texttt{background: rgba(18, 18, 18, 0.7); \\ backdrop-filter: blur(10px);}
+    \end{quote}
+\end{itemize}
+
+\subsection{PWA (Bitácora Móvil)}
+Mediante un \texttt{manifest.json} y un \texttt{service-worker.js}, el portal de cliente se puede agregar a la pantalla de inicio de celulares Android e iOS, ofreciendo navegación de pantalla completa y caché local.
+
+\subsection{Responsividad y Breakpoints}
+*   El breakpoint global se fijó en \textbf{\texttt{1024px}} (en lugar de \texttt{768px}). Esto asegura que las vistas en modo horizontal (Landscape) de tabletas y móviles mantengan el diseño de aplicación nativa (con la barra inferior de navegación en lugar de la barra lateral de escritorio).
+*   Las tablas de datos fueron optimizadas reduciendo el padding a \texttt{4px}, disminuyendo el tamaño de la tipografía a \texttt{11px} e incorporando un scroll horizontal automático (\texttt{overflow-x: auto}) para evitar deformaciones en pantallas pequeñas.
+
+\subsection{Resolución de Capas (z-index)}
+El panel deslizable de la ficha del cliente en móvil tiene un \texttt{z-index: 10000}. Para evitar que este panel tape a las ventanas emergentes (crear cliente, cambiar rutina, etc.), se estableció globalmente en \texttt{style.css} una regla de z-index superior para todos los modales:
+\begin{quote}\footnotesize
+    \texttt{.modal-container \{ z-index: 20000 !important; \}}
+\end{quote}
+
+---
+
+\section{Integración de Funcionalidades Core}
+
+\subsection{Checklists en Tiempo Real}
+El Portal del Cliente incluye checkboxes al lado de cada ejercicio y alimento.
+1.  **Sincronización:** Al pulsar un checkbox, JavaScript envía el estado del ejercicio/comida de inmediato a través de una petición de guardado.
+2.  **Visualización del Entrenador:** Estos progresos se reflejan de inmediato en el Portal del Entrenador al abrir el día correspondiente en el calendario mensual de trazabilidad.
+
+\subsection{Flujo de ``Cambiar Rutina''}
+Se eliminaron las opciones de asignación y desasignación separadas para evitar redundancia:
+1.  El entrenador abre el modal unificado de **``Cambiar Rutina''**.
+2.  Un buscador dinámico en JavaScript filtra en vivo las tarjetas interactivas de las rutinas globales por título.
+3.  Al presionar ``Guardar Cambios'', el backend desvincula la rutina anterior y asocia la nueva de manera atómica.
+
+\subsection{Chat en Tiempo Real por WebSockets}
+El chat funciona con un canal WebSocket que orquesta la entrega instantánea:
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=1.2cm,
+    every node/.style={font=\scriptsize},
+    line/.style={draw, thick, dashed, darkBg},
+    actor/.style={draw=darkBg, thick, rectangle, rounded corners, fill=lightGray, text width=0.9in, align=center, minimum height=0.5cm},
+    msg/.style={-{Latex}, thick, darkBg}
+]
+    \node (c) [actor] {\textbf{Cliente}};
+    \node (s) [actor, right=1.0in of c] {\textbf{FastAPI WS}};
+    \node (db) [actor, right=1.0in of s] {\textbf{SQLite Tenant}};
+    
+    \draw [line] (c.south) -- ++(0,-4.5);
+    \draw [line] (s.south) -- ++(0,-4.5);
+    \draw [line] (db.south) -- ++(0,-4.5);
+    
+    \draw [msg] ($(c.south)+(0,-0.6)$) -- node[above] {1. Mensaje WS} ($(s.south)+(0,-0.6)$);
+    \draw [msg] ($(s.south)+(0,-1.6)$) -- node[above] {2. INSERT SQL} ($(db.south)+(0,-1.6)$);
+    \draw [msg, dashed] ($(db.south)+(0,-2.6)$) -- node[above] {3. ID generado} ($(s.south)+(0,-2.6)$);
+    \draw [msg, dashed] ($(s.south)+(0,-3.6)$) -- node[above] {4. Sent Receipt} ($(c.south)+(0,-3.6)$);
+\end{tikzpicture}
+\caption{Diagrama de Flujo del Chat de Mensajes.}
+\end{figure}
+
+El sistema implementa:
+*   **Burbujas translúcidas:** Fondo oscuro con desenfoque de fondo y acentos azul/cian en mensajes enviados.
+*   **Ticks de Confirmación:** Un tick al guardarse en el servidor, doble tick al entregarse (receptor online), y doble tick coloreado al leerse.
+
+\subsection{Calendario de Trazabilidad Diaria}
+Se solucionó un bug de colisión de IDs en el DOM eliminando el bloque inactivo de inyección y centralizando la carga únicamente en el modal emergente (\texttt{dayDetailModal}). Al pulsar un día en el calendario, se abre el modal mostrando peso, hidratación, notas del día y el checklist completado.
+
+\end{document}

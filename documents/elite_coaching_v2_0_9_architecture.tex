@@ -1,0 +1,217 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[paperwidth=4.7in, paperheight=9in, margin=0.35in]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, arrows.meta, shapes.geometric}
+
+% Colores premium estilo ELITE COACHING
+\definecolor{neonYellow}{HTML}{F3CA4C}
+\definecolor{darkBg}{HTML}{121212}
+\definecolor{lightGray}{HTML}{F9F9F9}
+\definecolor{linkBlue}{HTML}{1A73E8}
+\definecolor{borderGray}{HTML}{DDDDDD}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=linkBlue,
+    urlcolor=linkBlue,
+    pdftitle={Especificacion Tecnica Detallada Elite Coaching v2.0.9}
+}
+
+% Ajuste de fuentes y espaciados para lectura cómoda en celular
+\renewcommand{\familydefault}{\sfdefault}
+\titleformat{\section}{\large\bfseries\color{darkBg}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{darkBg}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\small\bfseries\color{darkBg}}{\thesubsubsection}{1em}{}
+\titlespacing*{\section}{0pt}{1.8ex plus 1ex minus .2ex}{1ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{1.4ex plus 1ex minus .2ex}{0.8ex plus .2ex}
+\titlespacing*{\subsubsection}{0pt}{1.2ex plus 1ex minus .2ex}{0.6ex plus .2ex}
+
+\setlist[itemize]{leftmargin=12pt, noitemsep, topsep=2pt}
+\setlist[enumerate]{leftmargin=12pt, noitemsep, topsep=2pt}
+
+\title{\textbf{\large ELITE COACHING v2.0.9 \\ Especificación Técnica Completa de Arquitectura e Integración}}
+\author{\small Antigravity Co-Pilot}
+\date{\footnotesize \today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introducción y Propósito}
+Este documento proporciona la radiografía técnica y operativa de la plataforma \textbf{ELITE COACHING (v2.0.9)}. El objetivo es consolidar el 100\% de las funcionalidades del backend y del frontend para permitir una revisión detallada offline en dispositivos móviles.
+
+---
+
+\section{Arquitectura del Backend y Base de Datos}
+El backend está programado en Python utilizando el framework asíncrono **FastAPI** y servido mediante **Uvicorn** en el puerto \texttt{8080}. La persistencia está resuelta mediante bases de datos relacionales SQLite locales.
+
+\subsection{Modelo Multi-Tenant Físico}
+Para garantizar la privacidad y escalabilidad, los datos se aíslan físicamente:
+\begin{itemize}
+    \item \textbf{Base Maestra (\texttt{master.db}):} Administra la tabla de entrenadores (\texttt{trainers}) con sus credenciales hasheadas, tema de color y estado de suscripción.
+    \item \textbf{Bases de Inquilinos (\texttt{database/tenants/trainer\_<nickname>.db}):} Cada entrenador tiene un archivo de base de datos exclusivo. Al iniciar sesión, el token JWT del usuario encapsula su inquilino, reencauzando dinámicamente las consultas SQL en el backend a su correspondiente archivo.
+\end{itemize}
+
+\subsection{Configuración de SQLite y WAL}
+Cada conexión a la base de datos ejecuta:
+\begin{quote}\footnotesize
+    \texttt{PRAGMA journal\_mode=WAL;}
+\end{quote}
+El modo \textit{Write-Ahead Logging} permite que las lecturas no bloqueen las escrituras concurrentes, algo indispensable para soportar que múltiples clientes registren entrenamientos en vivo mientras el entrenador analiza gráficas.
+
+\subsection{Estructura Completa de Tablas de Tenant}
+\begin{itemize}
+    \item \textbf{\texttt{users}:} ID, primer nombre, apellido, email, teléfono, fecha de nacimiento, estatura, tipo de sangre, alergias, medicamentos, disponibilidad, nickname, password hasheada.
+    \item \textbf{\texttt{exercises}:} ID, nombre, descripción, clasificación (Fullbody, Fuerza, etc.), músculo primario, músculos secundarios, equipamiento, URL de video y foto.
+    \item \textbf{\texttt{workout\_blocks}:} ID del bloque, ID de usuario (0 para globales), nombre, clasificación.
+    \item \textbf{\texttt{workout\_exercises}:} ID, ID del bloque, ID del ejercicio, series, reps, RPE objetivo, descanso, notas y orden.
+    \item \textbf{\texttt{workout\_plans}:} ID, ID del cliente, título, descripción, fecha inicio/fin.
+    \item \textbf{\texttt{workout\_days}:} ID, ID del plan, nombre del día, orden.
+    \item \texttt{workout\_day\_blocks}: Relación entre días y bloques de ejercicio.
+    \item \textbf{\texttt{workout\_execution\_logs}:} Registro de entrenamientos iniciados con fecha, hora inicio/fin, RPE real y fatiga.
+    \item \textbf{\texttt{set\_logs}:} Series completadas con peso levantado, reps, RPE y RIR (repeticiones en reserva).
+    \item \textbf{\texttt{nutrition\_plans}:} ID, ID cliente, título, calorías y macronutrientes totales objetivo (proteína, carbohidratos, grasa).
+    \item \textbf{\texttt{meals}:} Comidas asignadas (Desayuno, Almuerzo, etc.).
+    \item \textbf{\texttt{meal\_items}:} Alimentos en cada comida con peso, calorías y macronutrientes individuales calculados.
+    \item \textbf{\texttt{food\_library}:} Biblioteca de ingredientes y macros de referencia por cada 100g.
+    \item \textbf{\texttt{daily\_logs}:} Registro diario de peso, pasos, horas y calidad de sueño, hidratación (ml), energía, digestión, adherencia a dieta, HRV, notas y checklists completados de ejercicios (\texttt{completed\_exercises}) y comidas (\texttt{completed\_meals}) almacenados en formato JSON.
+    \item \textbf{\texttt{chat\_messages}:} ID, emisor, receptor, mensaje, leído (is\_read) y marca de tiempo.
+\end{itemize}
+
+---
+
+\section{Seguridad y Autenticación}
+El backend protege los endpoints mediante un middleware que intercepta las peticiones:
+\begin{enumerate}
+    \item Exige cabecera \texttt{Authorization: Bearer <token>}.
+    \item El token JWT se desencripta con la variable \texttt{JWT\_SECRET} y verifica la fecha de expiración y el rol (\texttt{admin}, \texttt{trainer}, \texttt{client}).
+    \item Las consultas a la base de datos se parametrizan obligatoriamente para evitar inyecciones SQL (SQLi).
+\end{enumerate}
+
+---
+
+\section{Diseño, Estilos y PWA en Frontend}
+El frontend es una aplicación de página única (SPA) estructurada en Vanilla JS y optimizada para dispositivos móviles mediante **PWA**.
+
+\subsection{Diseño Visual y CSS}
+Utiliza un diseño de **Dark Glassmorphism**:
+\begin{itemize}
+    \item Fondo general oscuro profundo (\texttt{\#080c14}).
+    \item Efecto cristal translúcido en tarjetas:
+    \begin{quote}\footnotesize
+        \texttt{background: rgba(18, 18, 18, 0.75);\\
+        backdrop-filter: blur(12px);\\
+        border: 1px solid rgba(255, 255, 255, 0.1);}
+    \end{quote}
+    \item Variables tipográficas usando la fuente moderna de Google Fonts \textbf{Inter} y \textbf{Outfit}.
+\end{itemize}
+
+\subsection{Soporte Móvil Nativo (PWA)}
+*   \textbf{Safe-Area:} El CSS utiliza variables del sistema para evitar que los botones inferiores se superpongan con el controlador táctil físico del celular:
+    \begin{quote}\footnotesize
+        \texttt{padding-bottom: env(safe-area-inset-bottom);}
+    \end{quote}
+*   \textbf{Caché local:} El archivo \texttt{service-worker.js} cachea de forma proactiva todos los archivos de interfaz (HTML, CSS, JS, iconos de FontAwesome) asegurando el inicio instantáneo y habilitando scripts de invalidación remota para forzar actualizaciones.
+
+---
+
+\section{Módulo de Entrenamiento y Rutinas}
+Permite la planificación estructurada del ejercicio físico y el posterior seguimiento del cliente.
+
+\subsection{Estructuración en Bloques y Rutinas}
+El entrenador no asigna ejercicios sueltos. Crea **Bloques de Entrenamiento** (ej. "Fuerza de Empuje"), les añade ejercicios y luego estructura un **Plan de Entrenamiento** compuesto por **Días**, asociando bloques específicos a cada uno.
+
+\subsection{Workout Locking (Bloqueo de Día Activo)}
+Para evitar errores de registro en el celular del cliente:
+1. El usuario visualiza un control superior para seleccionar el día a entrenar hoy (Día 1, Día 2, etc.) o indicar descanso.
+2. El día seleccionado se destaca visualmente y habilita sus checklists de ejercicios.
+3. El resto de días quedan bloqueados en modo solo lectura, persistiendo esta selección en el \texttt{localStorage} del dispositivo.
+
+\subsection{Trazabilidad en Vivo}
+Al entrenar, el cliente marca cada ejercicio como completado. Esto actualiza de inmediato el checklist diario en la base de datos. Si el cliente pulsa el botón ``Ver Técnica'', se despliega un modal interactivo que reproduce el video instruccional del ejercicio.
+
+---
+
+\section{Módulo de Nutrición y Alimentación}
+Facilita la prescripción nutricional del entrenador y su cumplimiento por parte del cliente.
+
+\subsection{Biblioteca y Carga Predictiva de Alimentos}
+Al diseñar dietas, se cuenta con una barra de búsqueda predictiva personalizada (\texttt{.food-suggestions-dropdown}) con una altura máxima de \texttt{200px} y barra de desplazamiento dedicada.
+* Al escribir, filtra en vivo el catálogo de alimentos.
+* Permite navegar por la lista usando las flechas del teclado y seleccionar con Enter.
+* Al elegir un alimento e ingresar los gramos, la interfaz recalcula matemáticamente los macronutrientes de forma proporcional antes de guardar el registro.
+
+\subsection{Checklist de Cumplimiento Nutricional}
+En la pestaña de nutrición del cliente, cada comida tiene sus ingredientes enumerados con checkboxes individuales. Al marcar una comida consumida, el estado se sincroniza al servidor de forma asíncrona.
+
+---
+
+\section{Trazabilidad e Indicadores Físicos}
+
+\subsection{Valoraciones Físicas y Adipometría}
+El sistema calcula y genera de forma automática los KPIs de composición corporal basándose en la ecuación clásica de Faulkner para el porcentaje de grasa corporal, deduciendo la masa magra y la masa grasa a partir de los pliegues grasos registrados.
+
+\subsection{Campos Personalizados Dinámicos}
+El entrenador puede añadir campos personalizados a las fichas físicas sin afectar a otros entrenadores. El backend expone la configuración en la tabla \texttt{assessment\_config} y serializa la información variable dentro de un campo de texto estructurado en JSON (\texttt{custom\_data}) de la tabla \texttt{anthropometric\_assessments}.
+
+\subsection{Calendario de Trazabilidad Diaria}
+El entrenador cuenta con un calendario mensual interactivo. Al hacer clic en cualquier día completado, se despliega el modal emergente \texttt{dayDetailModal} (ancho de 500px), que renderiza:
+* Una cuadrícula con las 5 estadísticas del día (Peso, pasos, horas de sueño, agua ingerida y nivel de adherencia a la dieta).
+* Dos paneles paralelos detallando qué ejercicios de la rutina y qué comidas de la dieta fueron completadas y cuáles quedaron pendientes.
+
+---
+
+\section{Chat en Tiempo Real y Comunicación Híbrida}
+Permite la comunicación fluida entrenador-cliente utilizando WebSockets asíncronos y REST.
+
+\subsection{Arquitectura del WebSocket}
+\begin{itemize}
+    \item \textbf{Gestor (\texttt{ChatConnectionManager}):} Administra las conexiones WebSocket bajo llaves \texttt{(trainer, user\_id)}.
+    \item \textbf{Normalización:} Limpia espacios y convierte el nickname del inquilino a minúsculas para prevenir colisiones de canales.
+    \item \textbf{Mensajería Híbrida:} Si el cliente pierde señal, el script desvía el envío mediante peticiones HTTP a \texttt{POST /api/chat/send} y reconecta el socket en segundo plano.
+    \item \textbf{Acuse de Lectura (Ticks):} El cliente notifica al servidor cuándo abre un chat, enviando un evento que colorea los ticks en cian en la pantalla del emisor.
+\end{itemize}
+
+\subsection{Burbujas y Notificaciones}
+* \textbf{Burbuja Flotante:} El entrenador puede minimizar cualquier chat a una burbuja circular que flota en el lateral derecho de la pantalla, permitiéndole navegar sin interrumpir la charla. Al llegar un mensaje, la burbuja vibra y muestra un indicador rojo de no leídos.
+* \textbf{Campana de Header:} Muestra un listado rápido en la barra de navegación superior con los nombres de clientes que tienen mensajes pendientes.
+* \textbf{Web Audio Synthesizer:} Genera el sonido de alerta sintetizando ondas de frecuencia en tiempo real por hardware, eliminando dependencias de archivos de sonido.
+
+---
+
+\section{Comparativa de Funcionamiento: PWA Web vs. App Móvil Nativa}
+Para brindar la mejor experiencia según el contexto del usuario, la plataforma cuenta con dos frentes de cara al cliente: la aplicación web PWA y el prototipo nativo para Android desarrollado en Kotlin con Jetpack Compose.
+
+\subsection{Similitudes Funcionales}
+\begin{itemize}
+    \item \textbf{Consistencia de Identidad:} Ambos comparten el esquema de color oscuro premium con fondo \texttt{\#080C14}, tarjetas \texttt{\#0F172A} y acentos cian y púrpura.
+    \item \textbf{Estructura de Secciones:} Divididas en tres pilares: Dashboard de Progreso, Gimnasio (Entrenamiento con checklists) y Nutrición.
+    \item \textbf{Backend Común:} Ambos portales consumen la misma API centralizada en FastAPI (\texttt{server.py}) para la sincronización de la bitácora y la descarga de planes asignados.
+\end{itemize}
+
+\subsection{Diferencias Operativas}
+\vspace{0.5em}
+\noindent
+\begin{tabularx}{\linewidth}{X X X}
+    \toprule
+    \textbf{Módulo} & \textbf{Versión Web PWA} & \textbf{App Android Compose} \\
+    \midrule
+    Pasos (NEAT) & Manual por formulario & Tarjeta visual de demostración (mockup sin conexión activa) \\
+    \midrule
+    Distribución & Inmediata por navegador & Archivo compilado APK (código Kotlin nativo) \\
+    \midrule
+    Audio & API Web Audio (síntesis local) & Sin alertas de audio implementadas en prototipo \\
+    \bottomrule
+\end{tabularx}
+\vspace{0.5em}
+
+\end{document}

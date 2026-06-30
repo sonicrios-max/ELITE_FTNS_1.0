@@ -1,0 +1,229 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[paperwidth=4.7in, paperheight=9in, margin=0.35in]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, arrows.meta, shapes.geometric}
+
+% Colores premium estilo ELITE FTNS
+\definecolor{neonYellow}{HTML}{F3CA4C}
+\definecolor{darkBg}{HTML}{121212}
+\definecolor{lightGray}{HTML}{F9F9F9}
+\definecolor{linkBlue}{HTML}{1A73E8}
+\definecolor{accentGray}{HTML}{E0E0E0}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=linkBlue,
+    urlcolor=linkBlue,
+    pdftitle={Propuesta Agente IA ELITE FTNS}
+}
+
+% Ajuste de fuentes y espaciados para lectura cómoda en celular
+\renewcommand{\familydefault}{\sfdefault}
+\titleformat{\section}{\large\bfseries\color{darkBg}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{darkBg}}{\thesubsection}{1em}{}
+\titlespacing*{\section}{0pt}{1.5ex plus 1ex minus .2ex}{1ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 1ex minus .2ex}{0.8ex plus .2ex}
+
+\setlist[itemize]{leftmargin=12pt, noitemsep, topsep=2pt}
+\setlist[enumerate]{leftmargin=12pt, noitemsep, topsep=2pt}
+
+\title{\textbf{\large ELITE FTNS \\ Informe de Investigación y Arquitectura: Agente de IA}}
+\author{\small Antigravity Co-Pilot}
+\date{\footnotesize \today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introducción}
+Este informe detalla la investigación, recursos, costos, pros/contras y la hoja de ruta para la creación e integración de nuestro propio \textbf{Agente de Inteligencia Artificial} en la plataforma \textbf{ELITE FTNS}.
+
+El agente estará diseñado para:
+\begin{enumerate}
+    \item \textbf{Asistir en la creación de rutinas} de entrenamiento y planes de alimentación basados en las características del usuario.
+    \item \textbf{Interpretar y comentar gráficas} e indicadores de trazabilidad del cliente (peso, pasos, sueño, apego a la dieta).
+    \item \textbf{Consultar las bases de datos de alimentos y ejercicios} propias para generar planes personalizados y realistas.
+\end{enumerate}
+
+---
+
+\section{Arquitectura y Capacidades del Agente}
+Para que el agente de IA sea realmente útil y eficiente, debe estructurarse utilizando un patrón de \textbf{Agente con herramientas (Tool-Use Agent)} y \textbf{RAG (Retrieval-Augmented Generation)} en lugar de ser un simple chatbot de texto.
+
+\subsection{Flujo de Trabajo del Agente (Móvil-Alineado)}
+A continuación se detalla cómo fluyen los datos en la arquitectura multi-tenant:
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=0.7cm,
+    every node/.style={font=\footnotesize},
+    box/.style={draw=darkBg, thick, rectangle, rounded corners, fill=lightGray, text width=3.3in, align=center, minimum height=0.6cm},
+    arrow/.style={-{Latex[scale=0.8]}, thick, darkBg}
+]
+    \node (pwa) [box] {\textbf{PWA (Usuario / Entrenador)}};
+    \node (api) [box, below=of pwa] {\textbf{API FastAPI (server.py)}};
+    \node (agent) [box, below=of api] {\textbf{Orquestador del Agente (Python)}};
+    \node (sqlite) [box, below=of agent] {\textbf{SQLite (Datos del Tenant y Métricas)}};
+    \node (rag) [box, below=of sqlite] {\textbf{Vector DB / RAG (Búsqueda Semántica)}};
+    \node (llm) [box, below=of rag] {\textbf{API del LLM (Gemini / OpenAI / Claude)}};
+    
+    \draw [arrow, <->] (pwa) -- (api);
+    \draw [arrow, <->] (api) -- (agent);
+    \draw [arrow, <->] (agent) -- (sqlite);
+    \draw [arrow, <->] (sqlite) -- (rag);
+    \draw [arrow, <->] (rag) -- (llm);
+\end{tikzpicture}
+\caption{Flujograma de Integración de Datos del Agente.}
+\end{figure}
+
+\subsection{Funciones Principales de la IA}
+\begin{itemize}
+    \item \textbf{Asistente de Rutinas y Nutrición:} El agente podrá acceder a la base de datos de ejercicios y alimentos a través de herramientas de búsqueda de base de datos.
+    \begin{quote}\footnotesize
+        \textit{Ejemplo:} ``Crea una rutina de empuje enfocada en el pectoral superior de 45 minutos con el equipamiento disponible: mancuernas''. El agente consultará la tabla \texttt{exercises} filtrando por \texttt{primary\_muscle = 'Pectoral'} y \texttt{equipment = 'Mancuernas'}.
+    \end{quote}
+    \item \textbf{Lectura e Interpretación de Indicadores:} El agente leerá los registros antropométricos (\texttt{anthropometric\_assessments}), el historial de pliegues (\texttt{skinfold\_assessments}) y la bitácora diaria del cliente (\texttt{daily\_logs}).
+    \begin{quote}\footnotesize
+        \textit{Ejemplo:} Analizará la gráfica del cliente de los últimos 14 días y dará un diagnóstico: \textit{``Hemos visto un descenso del peso corporal de 0.8 kg coincidiendo con un aumento promedio de 2,000 pasos diarios, sin embargo, la calidad de sueño se ha deteriorado en los días con bajo apego a la hidratación. Sugiero aumentar el agua a 2.5L en los días de entrenamiento duro''}.
+    \end{quote}
+\end{itemize}
+
+---
+
+\section{Opciones de Modelos de Lenguaje (LLMs)}
+Para implementar el motor cerebral del agente, evaluamos cuatro enfoques principales.
+
+\subsection{Comparativa de Costos}
+Costo estimado por cada 1 millón de tokens (en USD):
+
+\vspace{0.5em}
+\noindent
+\begin{tabularx}{\linewidth}{X r r}
+    \toprule
+    \textbf{Modelo} & \textbf{Entrada} & \textbf{Salida} \\
+    \midrule
+    \textbf{Gemini 1.5 Flash} & \$0.075 & \$0.300 \\
+    \textbf{GPT-4o-mini} & \$0.150 & \$0.600 \\
+    \textbf{Claude 3.5 Sonnet} & \$3.000 & \$15.000 \\
+    \textbf{Llama 3 70B (Groq)} & \$0.590 & \$0.790 \\
+    \bottomrule
+\end{tabularx}
+\vspace{0.5em}
+
+\subsection{Análisis Detallado por Modelo}
+
+\subsubsection{1. Gemini 1.5 Flash / 2.0 Flash (Google)}
+\begin{itemize}
+    \item \textbf{Pros:} Ventana de contexto gigante (1M-2M tokens), precio extremadamente bajo, excelente velocidad, integración nativa con Python y estructuración JSON.
+    \item \textbf{Contras:} Menor abundancia de tutoriales clásicos que OpenAI.
+    \item \textbf{Recomendación:} \textbf{Opción ideal} para iniciar y escalar por costo/beneficio.
+\end{itemize}
+
+\subsubsection{2. OpenAI GPT-4o / GPT-4o-mini}
+\begin{itemize}
+    \item \textbf{Pros:} Estándar de la industria, abundante documentación, excelente soporte de Function Calling (herramientas).
+    \item \textbf{Contras:} GPT-4o completo es costoso para tareas repetitivas; límites de cuota estrictos en cuentas nuevas.
+    \item \textbf{Recomendación:} Excelente alternativa secundaria para validación.
+\end{itemize}
+
+\subsubsection{3. Claude 3.5 Sonnet (Anthropic)}
+\begin{itemize}
+    \item \textbf{Pros:} El modelo más inteligente del mercado para razonamiento complejo y codificación; tono de explicaciones natural y premium.
+    \item \textbf{Contras:} Costo significativamente elevado; velocidad moderada.
+    \item \textbf{Recomendación:} Ideal solo para análisis avanzados de reportes antropométricos complejos.
+\end{itemize}
+
+\subsubsection{4. Llama 3 (Open Source - Hosteado)}
+\begin{itemize}
+    \item \textbf{Pros:} Privacidad total de datos si es auto-alojado; velocidad de inferencia brutal (en Groq); libre de bloqueos comerciales.
+    \item \textbf{Contras:} Requiere configurar infraestructura propia de GPU o pagar proveedores Cloud; menos robusto en estructuración JSON compleja.
+    \item \textbf{Recomendación:} Ideal si el volumen es masivo o se requiere alojamiento local (on-premise).
+\end{itemize}
+
+---
+
+\section{Tecnologías y Frameworks de Agentes}
+Para conectar la base de datos SQLite y razonar sobre los datos del cliente, se sugieren las siguientes herramientas:
+\begin{enumerate}
+    \item \textbf{LangGraph (de LangChain):} Permite crear flujos de agentes cíclicos basados en grafos de estado. Perfecto para validar paso a paso las calorías y ejercicios generados por la IA.
+    \item \textbf{LlamaIndex:} La biblioteca líder para conectar datos privados con LLMs. Simplifica la búsqueda semántica en la base de datos de alimentos y ejercicios.
+    \item \textbf{FastAPI Agent Endpoints:} Como el backend actual ya usa FastAPI, podemos integrar rutas de Websockets para chat interactivo en vivo (\texttt{/api/v1/chat/ws}) o endpoints REST tradicionales.
+\end{enumerate}
+
+---
+
+\section{Hoja de Ruta de Integración por Fases}
+A continuación se presenta el plan de integración propuesto en una línea de tiempo vertical para dispositivos móviles:
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=0.5cm,
+    every node/.style={font=\footnotesize},
+    timeline/.style={draw=darkBg, thick, circle, fill=neonYellow, minimum size=8pt, inner sep=0pt},
+    box/.style={draw=darkBg, thin, rectangle, rounded corners, fill=lightGray, text width=2.9in, align=left}
+]
+    \node (t1) [timeline] {};
+    \node (b1) [box, right=0.3cm of t1] {\textbf{Fase 1: Consolidación (Actual)} \\ Estabilizar la beta cerrada sin IA. Consolidación de tablas de ejercicios y alimentos de forma local en cada base de datos del entrenador.};
+    
+    \node (t2) [timeline, below=1.7cm of t1] {};
+    \node (b2) [box, right=0.3cm of t2] {\textbf{Fase 2: Piloto Chat (Agosto)} \\ Interfaz de chat interactivo. Conectar a Gemini API pasando perfil básico de usuario en texto plano (peso, altura, objetivo).};
+    
+    \node (t3) [timeline, below=1.7cm of t2] {};
+    \node (b3) [box, right=0.3cm of t3] {\textbf{Fase 3: RAG e Indicadores (Sept.)} \\ Búsquedas semánticas en base de datos local de alimentos y ejercicios. Análisis estructurado de bitácoras antropométricas.};
+    
+    \node (t4) [timeline, below=1.7cm of t3] {};
+    \node (b4) [box, right=0.3cm of t4] {\textbf{Fase 4: Autonomía (Octubre)} \\ IA con capacidad de escritura directa en las tablas de rutinas (\texttt{workout\_plans}) y comidas tras aprobación del entrenador.};
+    
+    \draw [thick, darkBg] (t1) -- (t2);
+    \draw [thick, darkBg] (t2) -- (t3);
+    \draw [thick, darkBg] (t3) -- (t4);
+\end{tikzpicture}
+\caption{Línea de Tiempo de Integración.}
+\end{figure}
+
+---
+
+\section{Plan de Migración Tecnológica}
+El sistema actual corre bajo un stack ligero: \textbf{FastAPI + SQLite (Multi-tenant) + PWA en HTML/JS Vanilla}.
+
+\subsection{¿Cuándo necesitaremos migrar?}
+Se debe iniciar la migración cuando se cumplan al menos dos de los siguientes desencadenantes (triggers):
+\begin{enumerate}
+    \item \textbf{Volumen de Usuarios:} Superar los 100 entrenadores activos con más de 2,000 clientes concurrentes en total.
+    \item \textbf{Complejidad de Búsqueda de IA:} Cuando necesitemos búsquedas vectoriales avanzadas integradas.
+    \item \textbf{Necesidad de Analítica Cruzada:} Cuando el administrador central necesite realizar consultas SQL agregadas cruzando datos de todos los entrenadores al mismo tiempo.
+\end{enumerate}
+
+\subsection{Hoja de Ruta de Migración (Destino)}
+El camino sugerido para escalar los componentes es el siguiente:
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=0.5cm,
+    every node/.style={font=\footnotesize},
+    box/.style={draw=darkBg, thick, rectangle, rounded corners, fill=lightGray, text width=3.3in, align=center, minimum height=0.6cm},
+    arrow/.style={-{Latex}, thick, darkBg}
+]
+    \node (db) [box] {\textbf{Base de Datos} \\ SQLite Multi-tenant $\rightarrow$ PostgreSQL con Schemas y extensión \texttt{pgvector} para embeddings};
+    \node (back) [box, below=of db] {\textbf{Backend y Alojamiento} \\ FastAPI Local/Render $\rightarrow$ Contenedores Docker + AWS ECS o GCP Cloud Run con Celery};
+    \node (front) [box, below=of back] {\textbf{Frontend} \\ Vanilla HTML/JS $\rightarrow$ React / Vite para componentes reactivos y gráficos interactivos};
+    
+    \draw [arrow] (db) -- (back);
+    \draw [arrow] (back) -- (front);
+\end{tikzpicture}
+\caption{Esquema de Migración de Stack.}
+\end{figure}
+
+\end{document}
