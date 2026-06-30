@@ -4,3 +4,4 @@ uvicorn
 passlib
 bcrypt
 PyJWT
+websockets
