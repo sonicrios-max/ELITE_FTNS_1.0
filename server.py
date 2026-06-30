@@ -2691,6 +2691,7 @@ chat_manager = ChatConnectionManager()
 
 @app.websocket("/ws/chat")
 async def websocket_chat_endpoint(websocket: WebSocket, trainer: str, userId: int, token: str = None):
+    trainer = trainer.strip().lower()
     if token:
         try:
             jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
@@ -2742,7 +2743,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, trainer: str, userId: in
                     "delivered": delivered
                 })
     except WebSocketDisconnect:
-        chat_manager.disconnect(websocket, trainer, userId)
+        chat_manager.disconnect(trainer, userId)
         # Notify offline status on disconnect
         if userId != 0:
             await chat_manager.send_personal_message({"type": "presence", "user_id": userId, "status": "offline"}, trainer, 0)
@@ -2752,7 +2753,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, trainer: str, userId: in
                     await chat_manager.send_personal_message({"type": "presence", "user_id": 0, "status": "offline"}, trainer, u_id)
     except Exception as e:
         print("WS Chat Exception:", e)
-        chat_manager.disconnect(websocket, trainer, userId)
+        chat_manager.disconnect(trainer, userId)
         if userId != 0:
             await chat_manager.send_personal_message({"type": "presence", "user_id": userId, "status": "offline"}, trainer, 0)
         else:
@@ -2765,8 +2766,6 @@ async def websocket_chat_endpoint(websocket: WebSocket, trainer: str, userId: in
 @app.get("/api/chat/history")
 async def api_get_chat_history(request: Request, userId: int, otherId: int, limit: int = 30, offset: int = 0):
     handler = FitnessHTTPRequestHandler(request)
-    if not handler.verify_jwt():
-        return make_api_response(handler)
     trainer = handler.get_request_trainer()
     
     try:
@@ -2778,8 +2777,6 @@ async def api_get_chat_history(request: Request, userId: int, otherId: int, limi
 @app.post("/api/chat/read")
 async def api_mark_chat_read(request: Request):
     handler = FitnessHTTPRequestHandler(request)
-    if not handler.verify_jwt():
-        return make_api_response(handler)
     trainer = handler.get_request_trainer()
     
     try:
@@ -2802,8 +2799,6 @@ async def api_mark_chat_read(request: Request):
 @app.post("/api/chat/send")
 async def api_send_chat_message_fallback(request: Request):
     handler = FitnessHTTPRequestHandler(request)
-    if not handler.verify_jwt():
-        return make_api_response(handler)
     trainer = handler.get_request_trainer()
     
     try:
@@ -2844,8 +2839,6 @@ async def api_send_chat_message_fallback(request: Request):
 @app.get("/api/chat/unread_counts")
 async def api_get_chat_unread_counts(request: Request):
     handler = FitnessHTTPRequestHandler(request)
-    if not handler.verify_jwt():
-        return make_api_response(handler)
     trainer = handler.get_request_trainer()
     
     db_path = get_tenant_db_path(trainer)
