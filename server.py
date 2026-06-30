@@ -2573,6 +2573,45 @@ async def api_get_daily_calendar(request: Request):
     handler.handle_get_daily_calendar(request.url.query)
     return make_api_response(handler)
 
+@app.get("/api/public/all_clients")
+async def api_get_public_all_clients():
+    conn = sqlite3.connect(MASTER_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT nickname, name FROM trainers ORDER BY id ASC")
+        trainer_rows = cursor.fetchall()
+        trainers = [{"nickname": r["nickname"], "name": r["name"]} for r in trainer_rows]
+    except Exception as e:
+        print("Error fetching trainers for public view:", e)
+        trainers = [{"nickname": "admin", "name": "Admin"}]
+    finally:
+        conn.close()
+
+    all_clients = []
+    for t in trainers:
+        trainer_nickname = t["nickname"]
+        trainer_name = t["name"]
+        db_path = get_tenant_db_path(trainer_nickname)
+        if not os.path.exists(db_path):
+            continue
+        try:
+            t_conn = sqlite3.connect(db_path)
+            t_conn.row_factory = sqlite3.Row
+            t_cursor = t_conn.cursor()
+            t_cursor.execute("SELECT id, first_name, last_name, email, nickname FROM users WHERE id != 0 ORDER BY id ASC")
+            rows = t_cursor.fetchall()
+            for r in rows:
+                client = dict(r)
+                client["trainer_id"] = trainer_nickname
+                client["trainer_name"] = trainer_name
+                all_clients.append(client)
+            t_conn.close()
+        except Exception as e:
+            print(f"Error fetching clients for trainer '{trainer_nickname}':", e)
+            
+    return JSONResponse(content={"success": True, "clients": all_clients})
+
 @app.get("/api/trainer/config")
 async def api_get_trainer_config(request: Request):
     handler = FitnessHTTPRequestHandler(request)

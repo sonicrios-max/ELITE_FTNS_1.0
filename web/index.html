@@ -194,6 +194,7 @@
         const trainerId = urlParams.get('trainer') || '';
         let selectedAuthType = null; // 'trainer' or 'client'
         let selectedClientId = null; // user ID if client type
+        let selectedClientTrainerId = null; // Trainer ID of the selected client
 
         document.addEventListener("DOMContentLoaded", () => {
             if (trainerId) {
@@ -225,13 +226,20 @@
 
         async function loadClients() {
             try {
-                const headers = {};
                 if (trainerId) {
-                    headers['X-Trainer-Id'] = trainerId;
+                    const headers = { 'X-Trainer-Id': trainerId };
+                    const response = await fetch('/api/clients', { headers });
+                    const clients = await response.json();
+                    renderClients(clients, trainerId);
+                } else {
+                    const response = await fetch('/api/public/all_clients');
+                    const resData = await response.json();
+                    if (resData.success) {
+                        renderClients(resData.clients);
+                    } else {
+                        throw new Error(resData.error || "Failed to load clients list");
+                    }
                 }
-                const response = await fetch('/api/clients', { headers });
-                const clients = await response.json();
-                renderClients(clients);
             } catch (err) {
                 console.error("Error loading clients:", err);
                 document.getElementById("clientsGrid").innerHTML = `
@@ -241,7 +249,7 @@
             }
         }
 
-        function renderClients(clients) {
+        function renderClients(clients, defaultTrainerId = null) {
             const grid = document.getElementById("clientsGrid");
             grid.innerHTML = "";
             
@@ -256,14 +264,19 @@
             clients.forEach(client => {
                 const card = document.createElement("div");
                 card.className = "glass-card master-card";
+                const cTrainerId = client.trainer_id || defaultTrainerId || 'admin';
+                const cTrainerName = client.trainer_name || 'Admin';
                 card.innerHTML = `
                     <div>
                         <i class="fa-solid fa-user-check card-icon"></i>
                         <h3>${client.first_name} ${client.last_name}</h3>
                         <p style="margin-bottom: 5px;"><strong>E-mail:</strong> ${client.email}</p>
+                        <p style="margin-bottom: 12px; font-size: 11px; color: var(--accent-gold); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fa-solid fa-user-tie"></i> Entrenador: ${cTrainerName}
+                        </p>
                         <p>Visualiza tu rutina activa, registra tus variables diarias e hidratación.</p>
                     </div>
-                    <button class="btn-primary" onclick="openLoginModal('client', ${client.id}, '${client.first_name} ${client.last_name}')">
+                    <button class="btn-primary" onclick="openLoginModal('client', ${client.id}, '${client.first_name} ${client.last_name}', '${cTrainerId}')">
                         <i class="fa-solid fa-user-shield"></i> Acceder Portal
                     </button>
                 `;
@@ -271,9 +284,10 @@
             });
         }
 
-        function openLoginModal(type, id = null, name = '') {
+        function openLoginModal(type, id = null, name = '', clientTrainerId = null) {
             selectedAuthType = type;
             selectedClientId = id;
+            selectedClientTrainerId = clientTrainerId || trainerId || 'admin';
             
             const modal = document.getElementById("loginModal");
             const title = document.getElementById("modalTitle");
@@ -291,7 +305,7 @@
                 icon.className = "fa-solid fa-user-gear";
             } else {
                 title.innerText = `Acceso: ${name}`;
-                subtitle.innerText = `Ingresa credenciales del cliente`;
+                subtitle.innerText = `Ingresa credenciales del cliente (Entrenador: ${selectedClientTrainerId.toUpperCase()})`;
                 icon.className = "fa-solid fa-user-shield";
             }
             
@@ -318,10 +332,9 @@
                 password: password
             };
             
+            const activeTrainer = (selectedAuthType === 'client') ? selectedClientTrainerId : (trainerId || 'admin');
             const headers = { 'Content-Type': 'application/json' };
-            if (trainerId) {
-                headers['X-Trainer-Id'] = trainerId;
-            }
+            headers['X-Trainer-Id'] = activeTrainer;
             
             try {
                 const response = await fetch('/api/auth', {
@@ -341,8 +354,8 @@
                         // Validate that the user who logged in is indeed the one they clicked
                         if (result.userId === selectedClientId) {
                             sessionStorage.setItem(`clientAuth_${selectedClientId}`, 'true');
-                            sessionStorage.setItem('trainerId', trainerId || 'admin');
-                            window.location.href = `/client/?userId=${selectedClientId}&trainer=${trainerId || 'admin'}`;
+                            sessionStorage.setItem('trainerId', activeTrainer);
+                            window.location.href = `/client/?userId=${selectedClientId}&trainer=${activeTrainer}`;
                         } else {
                             error.innerText = "Las credenciales ingresadas pertenecen a otro cliente.";
                             error.style.display = "block";
