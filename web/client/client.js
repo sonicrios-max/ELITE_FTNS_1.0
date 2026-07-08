@@ -49,6 +49,7 @@ let activeWorkoutDay = "";
 // Chart.js Instances
 let weightChartInstance = null;
 let stepsChartInstance = null;
+let chartFilterDays = 'all';
 
 // Hydration State
 let currentWaterIntakeMl = 0;
@@ -106,6 +107,15 @@ async function initClientDashboard() {
     await loadAssessmentConfig();
     loadClientData();
     connectClientWebSocket();
+
+    // Restore active tab
+    const savedTab = localStorage.getItem('clientActiveTab') || 'clientHomeView';
+    const matchingBtn = document.querySelector(`[onclick*="switchGlobalTab('${savedTab}'")`);
+    if (matchingBtn) {
+        switchGlobalTab(savedTab, matchingBtn);
+    } else {
+        switchGlobalTab('clientHomeView');
+    }
 }
 
 if (document.readyState === "loading") {
@@ -354,7 +364,7 @@ function updateWaterLabel() {
 }
 
 async function addWater(amountMl) {
-    currentWaterIntakeMl += amountMl;
+    currentWaterIntakeMl = Math.max(0, currentWaterIntakeMl + amountMl);
     updateWaterLabel();
     
     const todayStr = new Date().toISOString().substring(0, 10);
@@ -816,7 +826,15 @@ function renderNutritionPlans() {
 // Charts for progress
 function initOrUpdateCharts() {
     const logs = clientFullData.daily_logs || [];
-    const sortedLogs = [...logs].sort((a,b) => new Date(a.date) - new Date(b.date));
+    let sortedLogs = [...logs].sort((a,b) => new Date(a.date) - new Date(b.date));
+    
+    if (chartFilterDays !== 'all') {
+        const daysLimit = parseInt(chartFilterDays);
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
+        cutoffDate.setHours(0,0,0,0);
+        sortedLogs = sortedLogs.filter(l => new Date(l.date) >= cutoffDate);
+    }
     
     const dates = sortedLogs.map(l => l.date);
     const weights = sortedLogs.map(l => l.weight_kg).filter(w => w !== null);
@@ -886,6 +904,7 @@ function initOrUpdateCharts() {
 
 // Global Tab Switcher (matches Trainer UI)
 function switchGlobalTab(tabId, element) {
+    localStorage.setItem('clientActiveTab', tabId);
     // Hide all global views
     document.querySelectorAll('.global-tab-content').forEach(el => {
         el.style.display = 'none';
@@ -1554,4 +1573,9 @@ function scrollToBottomClientChat() {
             stream.scrollTop = stream.scrollHeight;
         }
     }, 50);
+}
+
+function changeChartFilter(value) {
+    chartFilterDays = value;
+    initOrUpdateCharts();
 }

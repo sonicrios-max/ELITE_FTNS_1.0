@@ -5,7 +5,14 @@ import sqlite3
 import os
 import urllib.parse
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import shutil
+
+COLOMBIA_TZ = ZoneInfo("America/Bogota")
+
+def get_colombia_now():
+    return datetime.now(COLOMBIA_TZ)
+
 
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
@@ -1927,6 +1934,7 @@ class FitnessHTTPRequestHandler(object):
             return
             
         field_name = data.get("field_name")
+        field_type = data.get("field_type")
         unit = data.get("unit")
         is_active = data.get("is_active")
         order_index = data.get("order_index")
@@ -1939,6 +1947,9 @@ class FitnessHTTPRequestHandler(object):
             if field_name is not None:
                 updates.append("field_name = ?")
                 params.append(field_name)
+            if field_type is not None:
+                updates.append("field_type = ?")
+                params.append(field_type)
             if unit is not None:
                 updates.append("unit = ?")
                 params.append(unit)
@@ -2153,6 +2164,7 @@ class FitnessHTTPRequestHandler(object):
             return
             
         field_name = data.get("field_name")
+        field_type = data.get("field_type")
         unit = data.get("unit")
         is_active = data.get("is_active")
         order_index = data.get("order_index")
@@ -2165,6 +2177,9 @@ class FitnessHTTPRequestHandler(object):
             if field_name is not None:
                 updates.append("field_name = ?")
                 params.append(field_name)
+            if field_type is not None:
+                updates.append("field_type = ?")
+                params.append(field_type)
             if unit is not None:
                 updates.append("unit = ?")
                 params.append(unit)
@@ -2231,7 +2246,7 @@ async def log_requests(request: Request, call_next):
     finally:
         process_time = (time.time() - start_time) * 1000
         status_code = response.status_code if response else 500
-        log_line = f"{datetime.now()} | {request.method} | {request.url.path} | Query: {request.url.query} | Status: {status_code} | Time: {process_time:.2f}ms\n"
+        log_line = f"{get_colombia_now()} | {request.method} | {request.url.path} | Query: {request.url.query} | Status: {status_code} | Time: {process_time:.2f}ms\n"
         if error_msg:
             log_line += f"{error_msg}\n"
         try:
@@ -2650,9 +2665,9 @@ def save_chat_message(trainer: str, sender_id: int, receiver_id: int, message_te
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO chat_messages (sender_id, receiver_id, message, is_read)
-            VALUES (?, ?, ?, 0)
-        """, (sender_id, receiver_id, message_text))
+            INSERT INTO chat_messages (sender_id, receiver_id, message, is_read, created_at)
+            VALUES (?, ?, ?, 0, ?)
+        """, (sender_id, receiver_id, message_text, get_colombia_now().isoformat()))
         conn.commit()
         return cursor.lastrowid
     finally:
@@ -2770,7 +2785,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, trainer: str, userId: in
                     "receiver_id": receiver_id,
                     "message": message_text,
                     "is_read": False,
-                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    "created_at": get_colombia_now().isoformat()
                 }
                 
                 delivered = await chat_manager.send_personal_message(payload, trainer, receiver_id)
@@ -2857,7 +2872,7 @@ async def api_send_chat_message_fallback(request: Request):
             "receiver_id": receiver_id,
             "message": message_text,
             "is_read": False,
-            "created_at": datetime.now().isoformat()
+            "created_at": get_colombia_now().isoformat()
         }
         
         await chat_manager.send_personal_message(payload, trainer, receiver_id)

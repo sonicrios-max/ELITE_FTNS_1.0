@@ -76,10 +76,10 @@
             </a>
         </div>
         <div class="nav-links">
-            <a href="#" onclick="showGlobalView('clients')" class="btn-nav active" id="navClients"><i class="fa-solid fa-users"></i> Clientes</a>
-            <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment"><i class="fa-solid fa-ruler-combined"></i> Valoraciones</a>
-            <a href="#" onclick="showGlobalView('training')" class="btn-nav" id="navTraining"><i class="fa-solid fa-dumbbell"></i> Entrenamiento</a>
-            <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Nutrición</a>
+            <a href="#" onclick="showGlobalView('clients')" class="btn-nav active" id="navClients"><i class="fa-solid fa-users"></i> Mis Asesorados</a>
+            <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment" style="border-left: 1px solid rgba(255,255,255,0.15); padding-left: 15px;"><i class="fa-solid fa-ruler-combined"></i> Campos de Valoración</a>
+            <a href="#" onclick="showGlobalView('training')" class="btn-nav" id="navTraining"><i class="fa-solid fa-dumbbell"></i> Biblioteca de Rutinas</a>
+            <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Biblioteca de Alimentos</a>
             <a href="#" onclick="showGlobalView('settings')" class="btn-nav" id="navSettings"><i class="fa-solid fa-gear"></i> Ajustes</a>
         </div>
         <div style="display: flex; align-items: center; gap: 15px;">
@@ -113,9 +113,10 @@
         <a href="#" onclick="handleBottomNav('settings')" class="bottom-nav-item" id="botNavSettings"><i class="fa-solid fa-gear"></i><span>Ajustes</span></a>
     </nav>
     
-    <!-- MOBILE FAB (Floating Action Button) -->
-    <button class="fab-btn" onclick="handleFabClick()" id="mobileFab">
-        <i class="fa-solid fa-plus"></i>
+    <!-- MOBILE FAB (Floating Chat Button) -->
+    <button class="fab-btn" onclick="handleMobileChatFabClick()" id="mobileFab" style="position: fixed; bottom: 80px; right: 20px; z-index: 24000; background: var(--accent-gold); color: black; border: none; border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; transition: 0.3s; padding: 0;">
+        <i class="fa-solid fa-comment-dots" style="font-size: 24px;"></i>
+        <span id="mobileFabBadge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1;">0</span>
     </button>
 
     <!-- VISTA 1: CLIENTES -->
@@ -185,8 +186,8 @@
                     <div class="tabs-container">
                         <button class="tab-btn active" onclick="switchTab('tabFicha')"><i class="fa-solid fa-address-book"></i> Ficha Antropométrica</button>
                         <button class="tab-btn" onclick="switchTab('tabSeguimiento')"><i class="fa-solid fa-chart-line"></i> Trazabilidad Diaria</button>
-                        <button class="tab-btn" onclick="switchTab('tabRutinas')"><i class="fa-solid fa-calendar-days"></i> Rutina</button>
-                        <button class="tab-btn" onclick="switchTab('tabNutricion')"><i class="fa-solid fa-plate-wheat"></i> Nutrición Fit</button>
+                        <button class="tab-btn" onclick="switchTab('tabRutinas')"><i class="fa-solid fa-calendar-days"></i> Rutina Asignada</button>
+                        <button class="tab-btn" onclick="switchTab('tabNutricion')"><i class="fa-solid fa-plate-wheat"></i> Dieta Asignada</button>
                         <button class="tab-btn" onclick="switchTab('tabChat')"><i class="fa-solid fa-comments" style="position:relative;"><span id="tabChatBadge" style="display: none; position: absolute; top: -5px; right: -5px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span></i> Chat con Cliente</button>
                     </div>
 
@@ -592,7 +593,12 @@
                 <input type="hidden" id="resetClientId">
                 <div class="form-group">
                     <label>Nueva Contraseña</label>
-                    <input type="password" id="resetClientNewPassword" required minlength="6">
+                    <div style="display: flex; gap: 8px; align-items: center; position: relative;">
+                        <input type="password" id="resetClientNewPassword" required minlength="6" style="flex: 1; padding-right: 40px;">
+                        <button type="button" onclick="togglePasswordVisibility('resetClientNewPassword', 'toggleResetClientPwIcon')" style="position: absolute; right: 10px; background: transparent; border: none; color: var(--color-text-secondary); cursor: pointer; display: flex; align-items: center; height: 100%;">
+                            <i id="toggleResetClientPwIcon" class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
                     <button type="button" class="btn-nav" onclick="closeResetClientPasswordModal()">Cancelar</button>
@@ -656,7 +662,12 @@
                         </div>
                         <div class="form-group">
                             <label>Clave de Acceso (Contraseña)</label>
-                            <input type="password" id="newClientPassword" required placeholder="Ej. 123456" value="123456">
+                            <div style="display: flex; gap: 8px; align-items: center; position: relative;">
+                                <input type="password" id="newClientPassword" required placeholder="Ej. 123456" value="123456" style="flex: 1; padding-right: 40px;">
+                                <button type="button" onclick="togglePasswordVisibility('newClientPassword', 'toggleNewClientPwIcon')" style="position: absolute; right: 10px; background: transparent; border: none; color: var(--color-text-secondary); cursor: pointer; display: flex; align-items: center; height: 100%;">
+                                    <i id="toggleNewClientPwIcon" class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="form-group">
@@ -981,7 +992,7 @@
     <!-- PERSISTENT EXPANDED FLOATING CHAT DRAWER -->
     <div id="expandedFloatingChatDrawer" style="display: none; position: fixed; bottom: 80px; right: 80px; width: 340px; height: 420px; background: var(--color-bg-card); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 12px 35px rgba(0,0,0,0.6); backdrop-filter: blur(12px); z-index: 25000; flex-direction: column; overflow: hidden;">
         <!-- Header -->
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2);">
+        <div id="expandedFloatingChatHeader" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); cursor: move; user-select: none;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div style="position: relative;">
                     <div id="floatingChatAvatar" style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px;">

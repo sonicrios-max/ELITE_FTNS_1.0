@@ -58,8 +58,19 @@ async function initTrainerDashboard() {
     await fetchNutritionConfig();
     await fetchFoodLibrary();
     await fetchTrainerUnreadCounts();
-    loadClientsList();
+    await loadClientsList();
     connectTrainerWebSocket();
+    
+    // Make chat drawer draggable
+    const drawer = document.getElementById("expandedFloatingChatDrawer");
+    const header = document.getElementById("expandedFloatingChatHeader");
+    if (drawer && header) {
+        makeElementDraggable(drawer, header);
+    }
+    
+    // Restore active global view
+    const savedView = localStorage.getItem('trainerActiveGlobalView') || 'clients';
+    showGlobalView(savedView);
 }
 
 if (document.readyState === "loading") {
@@ -75,7 +86,14 @@ async function loadClientsList() {
         usersData = await response.json();
         renderClientList();
         
-        // Do not automatically select first client on load
+        // Restore active client if saved
+        const savedClientId = localStorage.getItem('activeUserId');
+        if (savedClientId) {
+            const clientExists = usersData.some(c => c.id == savedClientId);
+            if (clientExists) {
+                selectClient(parseInt(savedClientId));
+            }
+        }
     } catch (err) {
         console.error("Error fetching clients list:", err);
         document.getElementById("clientList").innerHTML = `
@@ -141,6 +159,7 @@ function renderClientList() {
 // Select a client and load detailed data
 async function selectClient(userId) {
     activeUserId = userId;
+    localStorage.setItem('activeUserId', userId);
     
     // Update active class in sidebar
     const items = document.querySelectorAll(".client-card-item");
@@ -164,9 +183,9 @@ async function selectClient(userId) {
         renderNutritionPlans();
         renderWorkoutPlans(); // AÑADIDO: cargar rutinas
         
-        if (activeTab === 'tabChat') {
-            switchTab('tabChat');
-        } else {
+        const savedSubTab = localStorage.getItem('trainerActiveSubTab') || 'tabFicha';
+        switchTab(savedSubTab);
+        if (savedSubTab !== 'tabChat') {
             trainerActiveChatClientId = null;
         }
         
@@ -774,6 +793,7 @@ function initOrUpdateCharts() {
 // Tab switcher
 function switchTab(tabId) {
     activeTab = tabId;
+    localStorage.setItem('trainerActiveSubTab', tabId);
     const tabBtns = document.querySelectorAll(".tab-btn");
     tabBtns.forEach(btn => btn.classList.remove("active"));
     
@@ -1082,6 +1102,7 @@ function exportToPDF() {
 // NEW: Global Views Management (Librerías)
 // ==========================================
 function showGlobalView(viewName) {
+    localStorage.setItem('trainerActiveGlobalView', viewName);
     // Hide all containers
     document.getElementById('clientsView').style.display = 'none';
     document.getElementById('trainingLibView').style.display = 'none';
@@ -3593,20 +3614,18 @@ function handleBottomNav(viewId) {
     }
 }
 
-function handleFabClick() {
-    const clientsView = document.getElementById("clientsView");
-    const trainingLibView = document.getElementById("trainingLibView");
-    const nutritionLibView = document.getElementById("nutritionLibView");
-    const assessmentLibView = document.getElementById("assessmentLibView");
-
-    if (clientsView && clientsView.style.display !== 'none' && clientsView.style.display !== '') {
-        if (typeof openAddClientModal === 'function') openAddClientModal();
-    } else if (trainingLibView && trainingLibView.style.display !== 'none') {
-        if (typeof openExerciseModal === 'function') openExerciseModal();
-    } else if (nutritionLibView && nutritionLibView.style.display !== 'none') {
-        if (typeof openNutritionModal === 'function') openNutritionModal(true);
-    } else if (assessmentLibView && assessmentLibView.style.display !== 'none') {
-        if (typeof openAssessmentConfigModal === 'function') openAssessmentConfigModal();
+function handleMobileChatFabClick() {
+    if (activeUserId) {
+        const drawer = document.getElementById("expandedFloatingChatDrawer");
+        if (drawer.style.display === "none" || drawer.style.display === "") {
+            const client = usersData.find(c => c.id === activeUserId);
+            const clientName = client ? `${client.first_name} ${client.last_name}` : "Cliente";
+            openFloatingChatDrawer(activeUserId, clientName);
+        } else {
+            collapseFloatingChat();
+        }
+    } else {
+        alert("Selecciona un cliente de tu lista para chatear directamente.");
     }
 }
 
@@ -4085,12 +4104,21 @@ async function fetchTrainerUnreadCounts() {
             }
             
             const badge = document.getElementById("globalBellBadge");
+            const fabBadge = document.getElementById("mobileFabBadge");
             if (badge) {
                 if (totalUnread > 0) {
                     badge.innerText = totalUnread;
                     badge.style.display = "flex";
                 } else {
                     badge.style.display = "none";
+                }
+            }
+            if (fabBadge) {
+                if (totalUnread > 0) {
+                    fabBadge.innerText = totalUnread;
+                    fabBadge.style.display = "flex";
+                } else {
+                    fabBadge.style.display = "none";
                 }
             }
             
@@ -4725,5 +4753,76 @@ function scrollToBottomFloatingChat() {
             stream.scrollTop = stream.scrollHeight;
         }
     }, 50);
+}
+
+function togglePasswordVisibility(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input && icon) {
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove("fa-eye");
+            icon.classList.add("fa-eye-slash");
+        } else {
+            input.type = "password";
+            icon.classList.remove("fa-eye-slash");
+            icon.classList.add("fa-eye");
+        }
+    }
+}
+
+function makeElementDraggable(el, header) {
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    header.onmousedown = dragMouseDown;
+    header.ontouchstart = dragTouchStart;
+
+    function dragMouseDown(e) {
+        if (e.target.closest('button') || e.target.closest('input')) return;
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    }
+
+    function dragTouchStart(e) {
+        if (e.target.closest('button') || e.target.closest('input')) return;
+        pos3 = e.touches[0].clientX;
+        pos4 = e.touches[0].clientY;
+        document.ontouchend = closeDragElement;
+        document.ontouchmove = elementTouchDrag;
+    }
+
+    function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        
+        el.style.bottom = 'auto';
+        el.style.right = 'auto';
+        el.style.top = (el.offsetTop - pos2) + "px";
+        el.style.left = (el.offsetLeft - pos1) + "px";
+    }
+
+    function elementTouchDrag(e) {
+        pos1 = pos3 - e.touches[0].clientX;
+        pos2 = pos4 - e.touches[0].clientY;
+        pos3 = e.touches[0].clientX;
+        pos4 = e.touches[0].clientY;
+        
+        el.style.bottom = 'auto';
+        el.style.right = 'auto';
+        el.style.top = (el.offsetTop - pos2) + "px";
+        el.style.left = (el.offsetLeft - pos1) + "px";
+    }
+
+    function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+        document.ontouchend = null;
+        document.ontouchmove = null;
+    }
 }
 

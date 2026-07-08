@@ -22,3 +22,6 @@ Desktop.ini
 
 # Backups folder
 backups/
+
+# Virtual Environment
+venv/

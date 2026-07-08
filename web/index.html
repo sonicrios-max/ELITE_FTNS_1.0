@@ -346,6 +346,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    localStorage.setItem('jwtToken', result.token);
                     if (selectedAuthType === 'trainer') {
                         sessionStorage.setItem('trainerAuth', 'true');
                         sessionStorage.setItem('trainerId', result.nickname);

@@ -137,9 +137,11 @@
                 <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary); display: block; margin-bottom: 2px;">Rastreador de Hidratación</span>
                 <span class="water-progress-text" id="waterProgressLabel">0 ml / 2500 ml</span>
             </div>
-            <div class="water-btns">
-                <button class="btn-water-add" onclick="addWater(250)">+250 ml <i class="fa-solid fa-glass-water"></i></button>
-                <button class="btn-water-add" onclick="addWater(500)">+500 ml <i class="fa-solid fa-bottle-water"></i></button>
+            <div class="water-btns" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-water-add" onclick="addWater(250)" style="flex: 1; min-width: 100px;">+250 ml <i class="fa-solid fa-glass-water"></i></button>
+                <button class="btn-water-add" onclick="addWater(500)" style="flex: 1; min-width: 100px;">+500 ml <i class="fa-solid fa-bottle-water"></i></button>
+                <button class="btn-water-remove" onclick="addWater(-250)" style="flex: 1; min-width: 100px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; border-radius: 8px; padding: 10px 14px; font-weight: bold; cursor: pointer; transition: 0.2s;"><i class="fa-solid fa-minus"></i> 250 ml</button>
+                <button class="btn-water-remove" onclick="addWater(-500)" style="flex: 1; min-width: 100px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; border-radius: 8px; padding: 10px 14px; font-weight: bold; cursor: pointer; transition: 0.2s;"><i class="fa-solid fa-minus"></i> 500 ml</button>
             </div>
         </div>
 
@@ -252,6 +254,16 @@
             <div id="clientDayDetailContent" style="display: flex; flex-wrap: wrap; gap: 10px;">
                 <!-- Dinámico -->
             </div>
+        </div>
+
+        <div class="glass-card" style="padding: 12px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <span style="font-weight: bold; color: var(--accent-cyan);"><i class="fa-solid fa-filter"></i> Filtrar Rango de Progreso:</span>
+            <select id="chartDateFilter" onchange="changeChartFilter(this.value)" style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); color: white; border-radius: 8px; padding: 6px 12px; outline: none; cursor: pointer;">
+                <option value="all" selected>Todos los registros</option>
+                <option value="7">Últimos 7 días</option>
+                <option value="30">Últimos 30 días</option>
+                <option value="90">Últimos 3 meses</option>
+            </select>
         </div>
 
         <div class="charts-grid" style="grid-template-columns: 1fr;">
