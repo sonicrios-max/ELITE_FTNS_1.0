@@ -157,7 +157,8 @@ function renderClientList() {
 }
 
 // Select a client and load detailed data
-async function selectClient(userId) {
+async function selectClient(userId, overrideSubTab = null) {
+    const isRefreshing = (activeUserId === userId);
     activeUserId = userId;
     localStorage.setItem('activeUserId', userId);
     
@@ -183,9 +184,18 @@ async function selectClient(userId) {
         renderNutritionPlans();
         renderWorkoutPlans(); // AÑADIDO: cargar rutinas
         
-        const savedSubTab = localStorage.getItem('trainerActiveSubTab') || 'tabFicha';
-        switchTab(savedSubTab);
-        if (savedSubTab !== 'tabChat') {
+        let activeSubTab = 'tabFicha';
+        if (overrideSubTab) {
+            activeSubTab = overrideSubTab;
+            localStorage.setItem('trainerActiveSubTab', overrideSubTab);
+        } else if (isRefreshing) {
+            activeSubTab = localStorage.getItem('trainerActiveSubTab') || 'tabFicha';
+        } else {
+            localStorage.setItem('trainerActiveSubTab', 'tabFicha');
+        }
+        
+        switchTab(activeSubTab);
+        if (activeSubTab !== 'tabChat') {
             trainerActiveChatClientId = null;
         }
         
@@ -201,9 +211,13 @@ async function selectClient(userId) {
         if (mainPanel) {
             mainPanel.classList.add("mobile-open");
             if (window.innerWidth <= 1024) {
-                closeMobileSubPanel(); // Cierra los tabs para mostrar el menú del perfil
+                if (overrideSubTab) {
+                    switchTab(overrideSubTab);
+                } else if (!isRefreshing) {
+                    closeMobileSubPanel(); // Cierra los tabs para mostrar el menú del perfil para un nuevo cliente
+                }
             } else {
-                switchTab('tabFicha'); // En escritorio, siempre abre la primera pestaña por defecto
+                switchTab(activeSubTab);
             }
         }
         
@@ -1953,8 +1967,8 @@ async function saveDayDetails(originalLog) {
 
 // Hook calendar rendering into client selection
 const originalSelectClient = selectClient;
-selectClient = async function(userId) {
-    await originalSelectClient(userId);
+selectClient = async function(userId, overrideSubTab = null) {
+    await originalSelectClient(userId, overrideSubTab);
     renderDailyCalendar();
 };
 
@@ -4548,8 +4562,7 @@ function maximizeFromFloatingChat() {
     if (trainerFloatingChatClientId) {
         const cid = trainerFloatingChatClientId;
         closeFloatingChat();
-        selectClient(cid);
-        switchTab('tabChat');
+        selectClient(cid, 'tabChat');
     }
 }
 

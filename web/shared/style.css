@@ -5,6 +5,7 @@
 :root {
     --bg-primary: #121212;
     --bg-secondary: #1a1a1a;
+    --color-bg-card: rgba(26, 26, 26, 0.96);
     --glass-bg: rgba(26, 26, 26, 0.75);
     --glass-border: rgba(243, 202, 76, 0.15);
     --glass-highlight: rgba(243, 202, 76, 0.03);
