@@ -113,11 +113,7 @@
         <a href="#" onclick="handleBottomNav('settings')" class="bottom-nav-item" id="botNavSettings"><i class="fa-solid fa-gear"></i><span>Ajustes</span></a>
     </nav>
     
-    <!-- MOBILE FAB (Floating Chat Button) -->
-    <button class="fab-btn" onclick="handleMobileChatFabClick()" id="mobileFab" style="position: fixed; bottom: 80px; right: 20px; z-index: 24000; background: var(--accent-gold); color: black; border: none; border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; transition: 0.3s; padding: 0;">
-        <i class="fa-solid fa-comment-dots" style="font-size: 24px;"></i>
-        <span id="mobileFabBadge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1;">0</span>
-    </button>
+    <!-- MOBILE FAB removed as per user request to use minimized chat bubble instead -->
 
     <!-- VISTA 1: CLIENTES -->
     <div class="container" id="clientsView">
@@ -457,20 +453,22 @@
                 Personaliza los campos que conforman la ficha de valoración de tus clientes. Puedes ocultar campos predeterminados o crear nuevos. Ten en cuenta que si ocultas campos predeterminados, algunos indicadores calculados podrían dejar de funcionar.
             </p>
             
-            <table class="data-table" style="width: 100%;">
-                <thead>
-                    <tr>
-                        <th style="width: 60px; text-align: left;">Orden</th>
-                        <th style="text-align: left;">Nombre del Campo</th>
-                        <th style="width: 100px; text-align: left;">Tipo</th>
-                        <th style="width: 100px; text-align: left;">Unidad</th>
-                        <th style="width: 120px; text-align: left;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="assessmentConfigTableBody">
-                    <!-- Llenado dinámico -->
-                </tbody>
-            </table>
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+                <table class="data-table" style="width: 100%; min-width: 600px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px; text-align: left;">Orden</th>
+                            <th style="text-align: left;">Nombre del Campo</th>
+                            <th style="width: 100px; text-align: left;">Tipo</th>
+                            <th style="width: 100px; text-align: left;">Unidad</th>
+                            <th style="width: 120px; text-align: left;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assessmentConfigTableBody">
+                        <!-- Llenado dinámico -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -488,20 +486,22 @@
                 Personaliza los campos de nutrientes y métricas de alimentos que deseas registrar en tus planes de nutrición. Puedes ocultar campos base (Peso, Calorías, Proteínas, Carbohidratos, Grasas) o crear nuevos campos dinámicos (ej. Fibra, Sodio, etc.).
             </p>
             
-            <table class="data-table" style="width: 100%;">
-                <thead>
-                    <tr>
-                        <th style="width: 60px; text-align: left;">Orden</th>
-                        <th style="text-align: left;">Nombre del Campo</th>
-                        <th style="width: 100px; text-align: left;">Tipo</th>
-                        <th style="width: 100px; text-align: left;">Unidad</th>
-                        <th style="width: 120px; text-align: left;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="nutritionConfigTableBody">
-                    <!-- Llenado dinámico -->
-                </tbody>
-            </table>
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+                <table class="data-table" style="width: 100%; min-width: 600px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px; text-align: left;">Orden</th>
+                            <th style="text-align: left;">Nombre del Campo</th>
+                            <th style="width: 100px; text-align: left;">Tipo</th>
+                            <th style="width: 100px; text-align: left;">Unidad</th>
+                            <th style="width: 120px; text-align: left;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nutritionConfigTableBody">
+                        <!-- Llenado dinámico -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

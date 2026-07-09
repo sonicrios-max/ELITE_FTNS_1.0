@@ -3614,20 +3614,7 @@ function handleBottomNav(viewId) {
     }
 }
 
-function handleMobileChatFabClick() {
-    if (activeUserId) {
-        const drawer = document.getElementById("expandedFloatingChatDrawer");
-        if (drawer.style.display === "none" || drawer.style.display === "") {
-            const client = usersData.find(c => c.id === activeUserId);
-            const clientName = client ? `${client.first_name} ${client.last_name}` : "Cliente";
-            openFloatingChatDrawer(activeUserId, clientName);
-        } else {
-            collapseFloatingChat();
-        }
-    } else {
-        alert("Selecciona un cliente de tu lista para chatear directamente.");
-    }
-}
+// handleMobileChatFabClick removed as mobile FAB was removed. Minimized chat bubbles are used instead.
 
 // ==========================================
 // NEW: Settings & Client Management Logic
@@ -4503,11 +4490,17 @@ function renderFloatingChatBubble(clientId, clientName, count) {
     }
     
     bubble.onclick = (e) => {
+        if (container.getAttribute('data-dragged') === 'true') {
+            return;
+        }
         e.stopPropagation();
         openFloatingChatDrawer(clientId, clientName);
     };
     
     container.appendChild(bubble);
+    
+    // Enable dragging of the container when dragging this bubble
+    makeElementDraggable(container, bubble);
 }
 
 function removeFloatingChatBubble(clientId) {
@@ -4773,49 +4766,91 @@ function togglePasswordVisibility(inputId, iconId) {
 
 function makeElementDraggable(el, header) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    let startX = 0, startY = 0;
+    let hasDragged = false;
+    
     header.onmousedown = dragMouseDown;
     header.ontouchstart = dragTouchStart;
 
     function dragMouseDown(e) {
         if (e.target.closest('button') || e.target.closest('input')) return;
-        e.preventDefault();
+        startX = e.clientX;
+        startY = e.clientY;
         pos3 = e.clientX;
         pos4 = e.clientY;
+        hasDragged = false;
+        el.removeAttribute('data-dragged');
+        
         document.onmouseup = closeDragElement;
         document.onmousemove = elementDrag;
     }
 
     function dragTouchStart(e) {
         if (e.target.closest('button') || e.target.closest('input')) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
         pos3 = e.touches[0].clientX;
         pos4 = e.touches[0].clientY;
+        hasDragged = false;
+        el.removeAttribute('data-dragged');
+        
         document.ontouchend = closeDragElement;
         document.ontouchmove = elementTouchDrag;
     }
 
     function elementDrag(e) {
         e.preventDefault();
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            hasDragged = true;
+            el.setAttribute('data-dragged', 'true');
+        }
+        
         pos1 = pos3 - e.clientX;
         pos2 = pos4 - e.clientY;
         pos3 = e.clientX;
         pos4 = e.clientY;
         
-        el.style.bottom = 'auto';
-        el.style.right = 'auto';
-        el.style.top = (el.offsetTop - pos2) + "px";
-        el.style.left = (el.offsetLeft - pos1) + "px";
+        updatePosition(el.offsetTop - pos2, el.offsetLeft - pos1);
     }
 
     function elementTouchDrag(e) {
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            hasDragged = true;
+            el.setAttribute('data-dragged', 'true');
+            if (e.cancelable) e.preventDefault();
+        }
+        
         pos1 = pos3 - e.touches[0].clientX;
         pos2 = pos4 - e.touches[0].clientY;
         pos3 = e.touches[0].clientX;
         pos4 = e.touches[0].clientY;
         
+        updatePosition(el.offsetTop - pos2, el.offsetLeft - pos1);
+    }
+    
+    function updatePosition(newTop, newLeft) {
+        const buffer = 10;
+        const maxTop = window.innerHeight - (el.offsetHeight || 50) - buffer;
+        const maxLeft = window.innerWidth - (el.offsetWidth || 50) - buffer;
+        
+        let constrainedTop = newTop;
+        let constrainedLeft = newLeft;
+        
+        if (maxTop > buffer) {
+            constrainedTop = Math.max(buffer, Math.min(newTop, maxTop));
+        }
+        if (maxLeft > buffer) {
+            constrainedLeft = Math.max(buffer, Math.min(newLeft, maxLeft));
+        }
+        
         el.style.bottom = 'auto';
         el.style.right = 'auto';
-        el.style.top = (el.offsetTop - pos2) + "px";
-        el.style.left = (el.offsetLeft - pos1) + "px";
+        el.style.top = constrainedTop + "px";
+        el.style.left = constrainedLeft + "px";
     }
 
     function closeDragElement() {
@@ -4823,6 +4858,12 @@ function makeElementDraggable(el, header) {
         document.onmousemove = null;
         document.ontouchend = null;
         document.ontouchmove = null;
+        
+        if (hasDragged) {
+            setTimeout(() => {
+                el.removeAttribute('data-dragged');
+            }, 100);
+        }
     }
 }
 
