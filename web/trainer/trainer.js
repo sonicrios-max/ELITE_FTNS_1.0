@@ -2381,6 +2381,20 @@ function addNutritionMeal(defaultName = "", prefillItems = null, defaultOrder = 
         defaultOrder = currentCards + 1;
     }
     
+    const activeFields = globalNutritionConfig.filter(f => f.is_active == 1 || f.is_active === true);
+    let fieldsHeaderHtml = "";
+    activeFields.forEach(field => {
+        const unitLabel = field.unit ? ` (${field.unit})` : "";
+        const displayName = `${field.field_name}${unitLabel}`;
+        fieldsHeaderHtml += `<div style="flex: 1; min-width: 60px; font-size: 10px; font-weight: 700; color: var(--color-text-secondary); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayName}">${displayName}</div>`;
+    });
+    const headerRowHtml = `
+        <div class="food-header-row" style="display: flex; gap: 5px; margin-bottom: 5px; padding-right: 28px; opacity: 0.8;">
+            <div style="flex: 2; min-width: 120px; font-size: 10px; font-weight: 700; color: var(--color-text-secondary); text-align: left;">Alimento</div>
+            ${fieldsHeaderHtml}
+        </div>
+    `;
+    
     const mealCard = document.createElement("div");
     mealCard.className = "workout-day-card";
     mealCard.id = `mealCard_${mId}`;
@@ -2402,10 +2416,11 @@ function addNutritionMeal(defaultName = "", prefillItems = null, defaultOrder = 
         </div>
 
         <div style="margin-top: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                <label style="font-size: 12px; color: var(--accent-green);">Alimentos / Ingredientes</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="font-size: 12px; color: var(--accent-green); font-weight: 700;">Alimentos / Ingredientes</label>
                 <button type="button" class="btn-nav" onclick="addFoodItemToMeal(${mId})" style="font-size: 11px;"><i class="fa-solid fa-plus"></i> Ingrediente</button>
             </div>
+            ${headerRowHtml}
             <div id="mealFoods_${mId}">
                 <!-- Alimentos -->
             </div>
@@ -2466,6 +2481,26 @@ function renderTargetMacrosForm(prefillPlan = null) {
     }
     
     grid.innerHTML = html;
+}
+
+function updateFieldsReadOnlyStatus(foodRow) {
+    const hasSelectedFood = !!foodRow.dataset.selectedFood;
+    const fields = foodRow.querySelectorAll('.food-field');
+    fields.forEach(input => {
+        const fId = parseInt(input.dataset.id);
+        if (fId === 1) return; // weight is always editable
+        if (hasSelectedFood) {
+            input.setAttribute('readonly', 'true');
+            input.style.background = 'rgba(255, 255, 255, 0.03)';
+            input.style.color = 'var(--color-text-muted)';
+            input.style.cursor = 'not-allowed';
+        } else {
+            input.removeAttribute('readonly');
+            input.style.background = '';
+            input.style.color = '';
+            input.style.cursor = '';
+        }
+    });
 }
 
 function addFoodItemToMeal(mId, prefillItem = null) {
@@ -2560,6 +2595,7 @@ function addFoodItemToMeal(mId, prefillItem = null) {
             }
         }
         scaleFoodFields(foodRow, food);
+        updateFieldsReadOnlyStatus(foodRow);
         dropdown.style.display = 'none';
     };
     
@@ -2630,7 +2666,10 @@ function addFoodItemToMeal(mId, prefillItem = null) {
                 }
             }
             scaleFoodFields(foodRow, matchedFood);
+        } else {
+            delete foodRow.dataset.selectedFood;
         }
+        updateFieldsReadOnlyStatus(foodRow);
     });
     
     nameInput.addEventListener('blur', () => {
@@ -2659,6 +2698,7 @@ function addFoodItemToMeal(mId, prefillItem = null) {
         }
     }
     
+    updateFieldsReadOnlyStatus(foodRow);
     container.appendChild(foodRow);
 }
 

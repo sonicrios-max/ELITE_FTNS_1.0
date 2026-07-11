@@ -179,6 +179,11 @@ async function loadClientData() {
                 }
             }
         }
+        
+        if (!activeDay) {
+            activeDay = "rest";
+            localStorage.setItem(storageKey, "rest");
+        }
         activeWorkoutDay = activeDay;
         
         displayClientHeader();
@@ -484,6 +489,10 @@ function renderWorkoutPlans() {
                     break;
                 }
             }
+        }
+        if (!activeWorkoutDay) {
+            activeWorkoutDay = "rest";
+            localStorage.setItem(storageKey, "rest");
         }
     }
 
