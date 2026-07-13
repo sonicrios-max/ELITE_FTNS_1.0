@@ -24,91 +24,77 @@
         .master-card {
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            text-align: center;
-            padding: 30px;
-            min-height: 250px;
-        }
-
-        .master-card .card-icon {
-            font-size: 48px;
-            color: var(--accent-gold);
-            margin-bottom: 15px;
-            text-shadow: var(--shadow-neon-gold);
+            justify-content: flex-start;
+            padding: 25px;
+            min-height: 280px;
         }
 
         .master-card h3 {
-            font-size: 22px;
-            margin-bottom: 10px;
-            color: var(--color-text-primary);
-        }
-
-        .master-card p {
-            color: var(--color-text-secondary);
-            font-size: 14px;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-
-        .clients-section {
-            margin-top: 50px;
-        }
-
-        .clients-section h2 {
-            border-bottom: 1px solid var(--glass-border);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            color: var(--accent-gold);
-        }
-
-        /* Login Modal styling overlay */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(8px);
-        }
-
-        .modal-content {
-            width: 420px;
-            max-width: 90%;
-            padding: 30px;
-            border-color: var(--accent-gold);
-            box-shadow: var(--shadow-neon-gold), 0 10px 30px rgba(0, 0, 0, 0.7);
-        }
-
-        .modal-header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .modal-header i {
-            font-size: 36px;
-            color: var(--accent-gold);
-            margin-bottom: 10px;
-        }
-
-        .modal-header h3 {
             font-size: 20px;
+            margin-bottom: 15px;
             color: var(--color-text-primary);
+            font-family: 'Anton', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .master-card .card-icon {
+            font-size: 24px;
+        }
+
+        .info-card-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+        
+        .info-card-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Presence indicator dots */
+        .online-indicator-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+            display: inline-block;
+            animation: pulse-online 2.5s infinite;
+        }
+
+        .offline-indicator-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #4b5563;
+            display: inline-block;
+        }
+
+        @keyframes pulse-online {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
 
         .error-message {
             color: #ef4444;
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid rgba(239, 68, 68, 0.3);
-            padding: 10px;
+            padding: 8px;
             border-radius: 6px;
-            font-size: 13px;
-            margin-bottom: 15px;
+            font-size: 12px;
+            margin-bottom: 12px;
             display: none;
             text-align: center;
         }
@@ -129,78 +115,94 @@
         </div>
     </header>
 
-    <div class="container">
-        <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="font-size: 38px; margin-bottom: 10px; background: linear-gradient(to right, var(--accent-gold), #ffffff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PANEL MAESTRO DE ACCESO</h1>
-            <p style="color: var(--color-text-secondary); max-width: 600px; margin: 0 auto;">Selecciona el portal correspondiente. Para ingresar, deberás proveer las credenciales asignadas de nickname y contraseña.</p>
+    <div class="container" style="max-width: 1000px; margin: 0 auto; padding-bottom: 50px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="font-size: 36px; margin-bottom: 10px; background: linear-gradient(to right, var(--accent-gold), #ffffff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-family: 'Anton', sans-serif;">PANEL MAESTRO DE ACCESO</h1>
+            <p style="color: var(--color-text-secondary); max-width: 650px; margin: 0 auto; font-size: 13.5px;">Inicia sesión directamente usando las tarjetas de acceso o consulta la actividad de la plataforma en las tablas de abajo.</p>
         </div>
 
-        <div class="master-grid">
-            <!-- Trainer Access Card -->
-            <div class="glass-card master-card">
-                <div>
-                    <i class="fa-solid fa-user-gear card-icon"></i>
-                    <h3>Portal del Entrenador</h3>
-                    <p>Administra clientes, asigna rutinas de fuerza y planes nutricionales, y visualiza la trazabilidad diaria de progreso y métricas corporales de forma integral.</p>
-                </div>
-                <button class="btn-primary" onclick="openLoginModal('trainer')"><i class="fa-solid fa-lock-open"></i> Acceder Entrenador</button>
-            </div>
-        </div>
-
-        <div class="clients-section">
-            <h2>Portales de Clientes Registrados</h2>
-            <div class="master-grid" id="clientsGrid">
-                <!-- Loaded Dynamically -->
-                <div style="grid-column: 1/-1; text-align: center; color: var(--color-text-secondary); padding: 40px;">
-                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px; display: block;"></i> Cargando clientes...
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal-overlay">
-        <div class="glass-card modal-content">
-            <div class="modal-header">
-                <i class="fa-solid fa-shield-check" id="modalIcon"></i>
-                <h3 id="modalTitle">Iniciar Sesión</h3>
-                <p id="modalSubtitle" style="font-size: 12px; color: var(--color-text-muted); margin-top: 5px;"></p>
-            </div>
+        <!-- ── SECCIÓN 1: ACCESO DIRECTO (LOGINS) ── -->
+        <div class="master-grid" style="margin-bottom: 45px;">
             
-            <div class="error-message" id="errorMessage">
-                Usuario o contraseña incorrectos.
+            <!-- Direct Trainer Login Box -->
+            <div class="glass-card master-card">
+                <h3 style="color: var(--accent-gold);"><i class="fa-solid fa-user-gear card-icon"></i> Acceso Entrenador</h3>
+                <div class="error-message" id="trainerErrorMessage"></div>
+                <form onsubmit="submitTrainerLogin(event)" style="width: 100%;">
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label style="font-size: 11px;">Nombre de Usuario (Nickname)</label>
+                        <input type="text" id="trainerNickname" required placeholder="Ej. brayan.guerrero" style="width: 100%;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label style="font-size: 11px;">Clave (Contraseña)</label>
+                        <input type="password" id="trainerPassword" required placeholder="••••••••" style="width: 100%;">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 10px;">
+                        <i class="fa-solid fa-right-to-bracket"></i> Entrar como Coach
+                    </button>
+                </form>
             </div>
 
-            <form onsubmit="submitLogin(event)">
-                <div class="form-group">
-                    <label>Nombre de Usuario (Nickname)</label>
-                    <input type="text" id="loginNickname" required placeholder="Ej. brayan.guerrero">
+            <!-- Direct Client Login Box -->
+            <div class="glass-card master-card">
+                <h3 style="color: var(--accent-cyan);"><i class="fa-solid fa-user-shield card-icon"></i> Acceso Cliente</h3>
+                <div class="error-message" id="clientErrorMessage"></div>
+                <form onsubmit="submitClientLogin(event)" style="width: 100%;">
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label style="font-size: 11px;">Nombre de Usuario (Nickname)</label>
+                        <input type="text" id="clientNickname" required placeholder="Ej. carlos.gomez" style="width: 100%;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 18px;">
+                        <label style="font-size: 11px;">Clave (Contraseña)</label>
+                        <input type="password" id="clientPassword" required placeholder="••••••••" style="width: 100%;">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 10px;">
+                        <i class="fa-solid fa-right-to-bracket"></i> Entrar como Cliente
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- ── SECCIÓN 2: INFORMACIÓN DE LA COMUNIDAD (TABLAS) ── -->
+        <div style="display: flex; flex-direction: column; gap: 35px;">
+            
+            <!-- List of Trainers -->
+            <div class="glass-card" style="padding: 25px;">
+                <h2 style="font-size: 18px; color: var(--accent-gold); margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; font-family: 'Anton', sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-chalkboard-user"></i> Entrenadores Disponibles en el Sistema
+                </h2>
+                <div id="trainersContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
+                    <div style="color: var(--color-text-secondary); text-align: center; padding: 20px; grid-column: 1/-1;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Cargando entrenadores...
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Clave (Contraseña)</label>
-                    <input type="password" id="loginPassword" required placeholder="••••••••">
+            </div>
+
+            <!-- Grouped List of Clients -->
+            <div class="glass-card" style="padding: 25px;">
+                <h2 style="font-size: 18px; color: var(--accent-cyan); margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; font-family: 'Anton', sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-users"></i> Clientes Registrados y Cumplimiento Diario
+                </h2>
+                <div id="clientsGroupedContainer" style="display: flex; flex-direction: column; gap: 25px;">
+                    <div style="color: var(--color-text-secondary); text-align: center; padding: 20px;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Cargando clientes...
+                    </div>
                 </div>
-                
-                <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
-                    <button type="button" class="btn-nav" onclick="closeLoginModal()">Cancelar</button>
-                    <button type="submit" class="btn-primary">Validar y Entrar</button>
-                </div>
-            </form>
+            </div>
+
         </div>
     </div>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const trainerId = urlParams.get('trainer') || '';
-        let selectedAuthType = null; // 'trainer' or 'client'
-        let selectedClientId = null; // user ID if client type
-        let selectedClientTrainerId = null; // Trainer ID of the selected client
 
         document.addEventListener("DOMContentLoaded", () => {
             if (trainerId) {
                 applyTrainerTheme();
             }
-            loadClients();
+            loadSystemData();
         });
 
         async function applyTrainerTheme() {
@@ -224,117 +226,160 @@
             }
         }
 
-        async function loadClients() {
+        async function loadSystemData() {
             try {
-                if (trainerId) {
-                    const headers = { 'X-Trainer-Id': trainerId };
-                    const response = await fetch('/api/clients', { headers });
-                    const clients = await response.json();
-                    renderClients(clients, trainerId);
+                const response = await fetch('/api/public/all_clients');
+                const resData = await response.json();
+                if (resData.success) {
+                    renderTrainersTable(resData.trainers);
+                    renderClientsGrouped(resData.clients, resData.trainers);
                 } else {
-                    const response = await fetch('/api/public/all_clients');
-                    const resData = await response.json();
-                    if (resData.success) {
-                        renderClients(resData.clients);
-                    } else {
-                        throw new Error(resData.error || "Failed to load clients list");
-                    }
+                    throw new Error(resData.error || "Failed to load database records");
                 }
             } catch (err) {
-                console.error("Error loading clients:", err);
-                document.getElementById("clientsGrid").innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; color: var(--accent-red); padding: 20px;">
-                        <i class="fa-solid fa-triangle-exclamation"></i> Error al conectar con el servidor.
+                console.error("Error loading system data:", err);
+                const errHtml = `
+                    <div style="text-align: center; color: var(--accent-red); padding: 20px;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Error al conectar con el servidor para obtener los registros.
                     </div>`;
+                document.getElementById("trainersContainer").innerHTML = errHtml;
+                document.getElementById("clientsGroupedContainer").innerHTML = errHtml;
             }
         }
 
-        function renderClients(clients, defaultTrainerId = null) {
-            const grid = document.getElementById("clientsGrid");
-            grid.innerHTML = "";
-            
-            if (!clients || clients.length === 0 || clients.error) {
-                grid.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; color: var(--color-text-secondary); padding: 40px;">
-                        No hay clientes registrados en el sistema.
-                    </div>`;
+        function renderTrainersTable(trainers) {
+            const container = document.getElementById("trainersContainer");
+            container.innerHTML = "";
+            if (!trainers || trainers.length === 0) {
+                container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--color-text-secondary);">No hay entrenadores registrados.</div>`;
                 return;
             }
-
-            clients.forEach(client => {
+            trainers.forEach(t => {
                 const card = document.createElement("div");
-                card.className = "glass-card master-card";
-                const cTrainerId = client.trainer_id || defaultTrainerId || 'admin';
-                const cTrainerName = client.trainer_name || 'Admin';
+                card.className = "info-card-item";
+                card.style.borderLeft = `3px solid ${t.theme_color || 'var(--accent-gold)'}`;
+                
+                const statusDot = t.is_online 
+                    ? `<span class="online-indicator-dot" title="En línea"></span>`
+                    : `<span class="offline-indicator-dot" title="Desconectado"></span>`;
+                    
                 card.innerHTML = `
-                    <div>
-                        <i class="fa-solid fa-user-check card-icon"></i>
-                        <h3>${client.first_name} ${client.last_name}</h3>
-                        <p style="margin-bottom: 5px;"><strong>E-mail:</strong> ${client.email}</p>
-                        <p style="margin-bottom: 12px; font-size: 11px; color: var(--accent-gold); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
-                            <i class="fa-solid fa-user-tie"></i> Entrenador: ${cTrainerName}
-                        </p>
-                        <p>Visualiza tu rutina activa, registra tus variables diarias e hidratación.</p>
+                    <div style="display:flex; align-items:center; gap:8px; justify-content:space-between; width:100%;">
+                        <h4 style="margin:0; font-size:14px; font-weight:600;">${t.name}</h4>
+                        ${statusDot}
                     </div>
-                    <button class="btn-primary" onclick="openLoginModal('client', ${client.id}, '${client.first_name} ${client.last_name}', '${cTrainerId}')">
-                        <i class="fa-solid fa-user-shield"></i> Acceder Portal
-                    </button>
                 `;
-                grid.appendChild(card);
+                container.appendChild(card);
             });
         }
 
-        function openLoginModal(type, id = null, name = '', clientTrainerId = null) {
-            selectedAuthType = type;
-            selectedClientId = id;
-            selectedClientTrainerId = clientTrainerId || trainerId || 'admin';
+        function renderClientsGrouped(clients, trainers) {
+            const container = document.getElementById("clientsGroupedContainer");
+            container.innerHTML = "";
             
-            const modal = document.getElementById("loginModal");
-            const title = document.getElementById("modalTitle");
-            const subtitle = document.getElementById("modalSubtitle");
-            const icon = document.getElementById("modalIcon");
-            const error = document.getElementById("errorMessage");
-            
-            error.style.display = "none";
-            document.getElementById("loginNickname").value = "";
-            document.getElementById("loginPassword").value = "";
-            
-            if (type === 'trainer') {
-                title.innerText = "Acceso Entrenador";
-                subtitle.innerText = trainerId ? `Credenciales del Entrenador (${trainerId})` : "Credenciales del Entrenador (Admin)";
-                icon.className = "fa-solid fa-user-gear";
-            } else {
-                title.innerText = `Acceso: ${name}`;
-                subtitle.innerText = `Ingresa credenciales del cliente (Entrenador: ${selectedClientTrainerId.toUpperCase()})`;
-                icon.className = "fa-solid fa-user-shield";
+            if (!clients || clients.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:var(--color-text-secondary); padding:20px;">No hay clientes registrados en el sistema.</div>`;
+                return;
+            }
+
+            // Group clients by trainer
+            const groups = {};
+            // Pre-initialize groups for all coaches to show empty ones too
+            if (trainers && Array.isArray(trainers)) {
+                trainers.forEach(t => {
+                    groups[t.nickname] = {
+                        trainerName: t.name,
+                        themeColor: t.theme_color,
+                        clients: []
+                    };
+                });
             }
             
-            modal.style.display = "flex";
-            document.getElementById("loginNickname").focus();
+            // Catch-all group for others
+            groups['admin'] = groups['admin'] || { trainerName: 'Administración Global', themeColor: 'var(--accent-gold)', clients: [] };
+
+            clients.forEach(c => {
+                const tId = c.trainer_id || 'admin';
+                if (!groups[tId]) {
+                    groups[tId] = {
+                        trainerName: c.trainer_name || 'Entrenador',
+                        themeColor: 'var(--accent-gold)',
+                        clients: []
+                    };
+                }
+                groups[tId].clients.push(c);
+            });
+
+            // Render each group
+            Object.entries(groups).forEach(([tId, g]) => {
+                const groupDiv = document.createElement("div");
+                groupDiv.style.border = "1px solid var(--glass-border)";
+                groupDiv.style.borderRadius = "10px";
+                groupDiv.style.padding = "20px";
+                groupDiv.style.background = "rgba(255,255,255,0.01)";
+                
+                const groupHeader = document.createElement("div");
+                groupHeader.style.fontSize = "13px";
+                groupHeader.style.fontWeight = "bold";
+                groupHeader.style.color = g.themeColor;
+                groupHeader.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+                groupHeader.style.paddingBottom = "8px";
+                groupHeader.style.marginBottom = "15px";
+                groupHeader.style.display = "flex";
+                groupHeader.style.alignItems = "center";
+                groupHeader.style.justifyContent = "space-between";
+                
+                const countText = `${g.clients.length} ${g.clients.length === 1 ? 'cliente' : 'clientes'}`;
+                groupHeader.innerHTML = `
+                    <span><i class="fa-solid fa-folder-open"></i> Grupo: ${g.trainerName} (${tId.toUpperCase()})</span>
+                    <span style="font-size:11px; font-weight:normal; opacity:0.8; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:10px;">${countText}</span>
+                `;
+                groupDiv.appendChild(groupHeader);
+
+                if (g.clients.length === 0) {
+                    const empty = document.createElement("div");
+                    empty.style.color = "var(--color-text-muted)";
+                    empty.style.fontSize = "12px";
+                    empty.style.fontStyle = "italic";
+                    empty.textContent = "Sin clientes registrados bajo este entrenador.";
+                    groupDiv.appendChild(empty);
+                } else {
+                    const grid = document.createElement("div");
+                    grid.style.display = "grid";
+                    grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(260px, 1fr))";
+                    grid.style.gap = "15px";
+                    
+                    g.clients.forEach(c => {
+                        const card = document.createElement("div");
+                        card.className = "info-card-item";
+                        
+                        const statusDot = c.is_online 
+                            ? `<span class="online-indicator-dot" title="En línea"></span>`
+                            : `<span class="offline-indicator-dot" title="Desconectado"></span>`;
+                            
+                        card.innerHTML = `
+                            <div style="display:flex; align-items:center; gap:8px; justify-content:space-between; width:100%;">
+                                <h4 style="margin:0; font-size:13.5px; font-weight:600;">${c.first_name} ${c.last_name}</h4>
+                                ${statusDot}
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+                    groupDiv.appendChild(grid);
+                }
+                container.appendChild(groupDiv);
+            });
         }
 
-        function closeLoginModal() {
-            document.getElementById("loginModal").style.display = "none";
-        }
-
-        async function submitLogin(event) {
+        async function submitTrainerLogin(event) {
             event.preventDefault();
-            
-            const nickname = document.getElementById("loginNickname").value;
-            const password = document.getElementById("loginPassword").value;
-            const error = document.getElementById("errorMessage");
+            const nickname = document.getElementById("trainerNickname").value.trim().lower();
+            const password = document.getElementById("trainerPassword").value.trim();
+            const error = document.getElementById("trainerErrorMessage");
             
             error.style.display = "none";
-            
-            const payload = {
-                type: selectedAuthType,
-                nickname: nickname,
-                password: password
-            };
-            
-            const activeTrainer = (selectedAuthType === 'client') ? selectedClientTrainerId : (trainerId || 'admin');
-            const headers = { 'Content-Type': 'application/json' };
-            headers['X-Trainer-Id'] = activeTrainer;
+            const payload = { type: 'trainer', nickname, password };
+            const headers = { 'Content-Type': 'application/json', 'X-Trainer-Id': nickname };
             
             try {
                 const response = await fetch('/api/auth', {
@@ -342,47 +387,56 @@
                     headers: headers,
                     body: JSON.stringify(payload)
                 });
-                
                 const result = await response.json();
-                
                 if (result.success) {
                     localStorage.setItem('jwtToken', result.token);
-                    if (selectedAuthType === 'trainer') {
-                        sessionStorage.setItem('trainerAuth', 'true');
-                        sessionStorage.setItem('trainerId', result.nickname);
-                        window.location.href = `/trainer/?trainer=${result.nickname}`;
-                    } else {
-                        // Validate that the user who logged in is indeed the one they clicked
-                        if (result.userId === selectedClientId) {
-                            sessionStorage.setItem(`clientAuth_${selectedClientId}`, 'true');
-                            sessionStorage.setItem('trainerId', activeTrainer);
-                            window.location.href = `/client/?userId=${selectedClientId}&trainer=${activeTrainer}`;
-                        } else {
-                            error.innerText = "Las credenciales ingresadas pertenecen a otro cliente.";
-                            error.style.display = "block";
-                        }
-                    }
+                    sessionStorage.setItem('trainerAuth', 'true');
+                    sessionStorage.setItem('trainerId', result.nickname);
+                    window.location.href = `/trainer/?trainer=${result.nickname}`;
                 } else {
                     error.innerText = result.error || "Usuario o clave incorrectos.";
                     error.style.display = "block";
                 }
             } catch (err) {
-                console.error("Auth call error:", err);
+                console.error("Trainer auth error:", err);
                 error.innerText = "Error de conexión con el servidor.";
                 error.style.display = "block";
             }
         }
-    </script>
-    
-    <!-- PWA Service Worker Registration -->
-    <script>
-      /* DESHABILITADO TEMPORALMENTE
-      if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('/service-worker.js')
-              .then(reg => console.log('Service Worker Registrado!', reg))
-              .catch(err => console.error('Error al registrar SW:', err));
-      }
-      */
+
+        async function submitClientLogin(event) {
+            event.preventDefault();
+            const nickname = document.getElementById("clientNickname").value.trim().lower();
+            const password = document.getElementById("clientPassword").value.trim();
+            const error = document.getElementById("clientErrorMessage");
+            
+            error.style.display = "none";
+            
+            const payload = { type: 'client', nickname, password };
+            const headers = { 'Content-Type': 'application/json' };
+            
+            try {
+                const response = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    localStorage.setItem('jwtToken', result.token);
+                    sessionStorage.setItem(`clientAuth_${result.userId}`, 'true');
+                    sessionStorage.setItem('trainerId', result.trainerId);
+                    window.location.href = `/client/?userId=${result.userId}&trainer=${result.trainerId}`;
+                } else {
+                    error.innerText = result.error || "Usuario o clave incorrectos.";
+                    error.style.display = "block";
+                }
+            } catch (err) {
+                console.error("Client auth error:", err);
+                error.innerText = "Error de conexión con el servidor.";
+                error.style.display = "block";
+            }
+        }
     </script>
 </body>
 </html>

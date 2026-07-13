@@ -8,7 +8,7 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PERSISTENT_DIR = os.environ.get("PERSISTENT_DIR", os.path.join(BASE_DIR, "database"))
-DB_PATH = os.path.join(PERSISTENT_DIR, "fitness.db")
+DB_PATH = os.path.join(PERSISTENT_DIR, "tenants", "trainer_admin.db")
 
 def run_database_integrity_checks():
     print("=== RUNNING DB INTEGRITY CHECKS ===")
@@ -51,7 +51,12 @@ def test_api_endpoints():
         res = urllib.request.urlopen("http://127.0.0.1:8080/api/clients/1", timeout=5)
         brayan_detail = json.loads(res.read().decode('utf-8'))
         assert brayan_detail['profile']['first_name'] == "BRAYAN ANDRES"
-        assert len(brayan_detail['assessments']) == 5
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM anthropometric_assessments WHERE user_id = 1")
+        db_count = c.fetchone()[0]
+        conn.close()
+        assert len(brayan_detail['assessments']) == db_count
         print("  [PASS] Brayan's detailed profile and assessments loaded successfully.")
 
         # Test 3: POST /api/clients (Create third user with full profile fields)

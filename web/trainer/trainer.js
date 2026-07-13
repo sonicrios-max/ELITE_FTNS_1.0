@@ -150,7 +150,7 @@ function renderClientList() {
                 </div>
                 <p style="margin:0;"><i class="fa-solid fa-envelope"></i> ${user.email}</p>
             </div>
-            <span class="${badgeClass}" style="${customStyle}; margin-top:5px; align-self:flex-start;">${badgeText} (${score.toFixed(1)})</span>
+            <span class="${badgeClass}" style="${customStyle}; margin-top:5px; align-self:flex-start;">${badgeText} (${Math.round((score / 10) * 30)}/30 d)</span>
         `;
         listContainer.appendChild(card);
     });

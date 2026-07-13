@@ -41,12 +41,21 @@ Estas ideas fueron propuestas para mejorar la inteligencia, automatización y co
   * **Opción B (Escalable)**: Migrar el backend (`server.py`) para utilizar una base de datos PostgreSQL en la nube gratuita (como **Supabase** o **Neon**), eliminando la dependencia de SQLite local.
 * **Mantener Servidor Activo (Keep-awake)**: Utilizar servicios gratuitos como **UptimeRobot** o **cron-job.org** para enviar un ping HTTP cada 10-12 minutos a la URL de Render, evitando que entre en modo de suspensión y eliminando la demora de 30 segundos de arranque inicial.
 
-## 7. Fórmulas Matemáticas Personalizadas e Indicadores Dinámicos
-* **Propósito**: Dar libertad a los entrenadores para crear sus propios indicadores (KPIs) usando las variables personalizadas de sus fichas antropométricas.
-* **Implementación**: 
-  * Permitir al entrenador definir fórmulas con sintaxis simple (ej. `(Pecho - Cintura) / Altura`).
-  * El sistema evaluará estas fórmulas dinámicamente usando eval seguro (o un parser matemático) para generar gráficas de progreso personalizadas.
-  * **Advertencias de Dependencia**: Si el entrenador intenta ocultar/eliminar un campo de la ficha base (ej. Peso) que está siendo utilizado en un indicador (ej. BMI o Fórmula Personalizada), el sistema lanzará una advertencia previniendo la ruptura de la lógica.
+## 7. Fórmulas Matemáticas Personalizadas e Indicadores Dinámicos (Biblioteca de KPIs)
+* **Propósito**: Permitir a los entrenadores definir indicadores personalizados (KPIs) utilizando fórmulas matemáticas basadas en datos históricos.
+* **Biblioteca de KPIs**:
+  * Ubicada en la barra de navegación del coach al lado de la "Biblioteca de Alimentos" y de "Alimentos".
+  * **Diseño del Panel**: Agrupar los catálogos ("Alimentos", "Ejercicios", "Rutinas", "KPIs") en un menú desplegable de "Bibliotecas" en la cabecera para evitar la sobrecarga visual.
+* **Orígenes de Datos**:
+  * **Fichas Antropométricas**: Peso, pliegues cutáneos (tríceps, abdominal, etc.) y circunferencias (cintura, pecho, etc.).
+  * **Reportes Diarios**: Pasos, horas de sueño, consumo de agua, RPE, etc.
+* **Operaciones y Agregaciones Temporales**:
+  * Sintaxis simple de fórmulas aritméticas: `+`, `-`, `*`, `/`, `()`.
+  * Funciones temporales configurables:
+    * *Valor Actual*: Último dato registrado en la fecha seleccionada.
+    * *Promedio*: Media histórica calculada sobre un número `N` de registros seleccionados.
+    * *Total*: Suma acumulada de la variable elegida a lo largo de un período de tiempo.
+* **Validación de Dependencias**: Si se intenta ocultar o eliminar un campo base de la ficha antropométrica o reporte diario que esté en uso en alguna fórmula de la biblioteca, el sistema alertará del bloqueo para evitar fallos matemáticos.
 
 ## 8. Ajuste de Breakpoints para Modo Horizontal (Landscape) en Dispositivos Muy Anchos
 * **Problema**: El modo horizontal (landscape) se adaptó al cambiar el breakpoint CSS/JS a `1024px`, lo que funciona perfecto en dispositivos como el iPhone 15 Pro Max o iPhone 12. Sin embargo, en dispositivos inusualmente anchos o largos como el Motorola Edge 50 Fusion, el ancho de pantalla horizontal supera los `1024px`, causando que la aplicación revierta al diseño web (escritorio) en lugar de mostrar la app móvil.

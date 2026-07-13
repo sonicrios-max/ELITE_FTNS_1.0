@@ -527,21 +527,69 @@ class FitnessHTTPRequestHandler(object):
                     "error": "Por favor ingresa usuario y contraseña."
                 })
                 return
-            conn = self.get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, first_name, last_name, password FROM users WHERE LOWER(nickname) = ?", (nickname,))
-            row = cursor.fetchone()
-            if row and not verify_password(password, row[3]):
-                row = None
-            conn.close()
             
-            if row:
-                token = create_access_token({"sub": nickname, "type": "client", "user_id": row[0]})
+            trainer_header = self.get_request_trainer()
+            matched_row = None
+            matched_trainer = None
+            
+            # 1. Try using the request's trainer (defaults to admin if none specified)
+            if trainer_header:
+                db_path = get_tenant_db_path(trainer_header)
+                if os.path.exists(db_path):
+                    try:
+                        conn = sqlite3.connect(db_path)
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT id, first_name, last_name, password FROM users WHERE LOWER(nickname) = ?", (nickname,))
+                        row = cursor.fetchone()
+                        if row and verify_password(password, row[3]):
+                            matched_row = row
+                            matched_trainer = trainer_header
+                        conn.close()
+                    except Exception:
+                        pass
+            
+            # 2. If not found or not matched, scan all available tenant databases to locate client
+            if not matched_row:
+                try:
+                    conn_master = sqlite3.connect(MASTER_DB_PATH)
+                    cursor_master = conn_master.cursor()
+                    cursor_master.execute("SELECT nickname FROM trainers ORDER BY id ASC")
+                    trainers_list = [r[0] for r in cursor_master.fetchall()]
+                    conn_master.close()
+                except Exception:
+                    trainers_list = []
+                
+                if "admin" not in trainers_list:
+                    trainers_list.append("admin")
+                
+                for t in trainers_list:
+                    # Skip if we already checked it
+                    if t == trainer_header:
+                        continue
+                    db_path = get_tenant_db_path(t)
+                    if os.path.exists(db_path):
+                        try:
+                            t_conn = sqlite3.connect(db_path)
+                            t_cursor = t_conn.cursor()
+                            t_cursor.execute("SELECT id, first_name, last_name, password FROM users WHERE LOWER(nickname) = ?", (nickname,))
+                            row = t_cursor.fetchone()
+                            if row and verify_password(password, row[3]):
+                                matched_row = row
+                                matched_trainer = t
+                                t_conn.close()
+                                break
+                            t_conn.close()
+                        except Exception:
+                            pass
+
+            if matched_row and matched_trainer:
+                token = create_access_token({"sub": nickname, "type": "client", "user_id": matched_row[0]})
                 self.send_json_response(200, {
                     "success": True, 
                     "type": "client",
-                    "userId": row[0],
-                    "name": f"{row[1]} {row[2]}",
+                    "userId": matched_row[0],
+                    "name": f"{matched_row[1]} {matched_row[2]}",
+                    "trainerId": matched_trainer,
                     "token": token
                 })
             else:
@@ -627,15 +675,15 @@ class FitnessHTTPRequestHandler(object):
         clients = []
         for row in rows:
             client = dict(row)
-            # Calculate adherence KPI (last 30 days)
+            # Calculate adherence KPI as daily log check-in frequency (last 30 days)
             cursor.execute("""
-                SELECT AVG(diet_adherence) as avg_adherence 
+                SELECT COUNT(DISTINCT date) as log_count 
                 FROM daily_logs 
                 WHERE user_id = ? AND date >= date('now', '-30 days')
-                AND diet_adherence IS NOT NULL
             """, (client['id'],))
             res = cursor.fetchone()
-            client['adherence_score'] = res['avg_adherence'] if res and res['avg_adherence'] else 0
+            log_count = res['log_count'] if res and res['log_count'] else 0
+            client['adherence_score'] = min(10.0, (log_count / 30.0) * 10.0)
             clients.append(client)
             
         conn.close()
@@ -2593,13 +2641,23 @@ async def api_get_public_all_clients():
     conn = sqlite3.connect(MASTER_DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    trainers = []
     try:
-        cursor.execute("SELECT nickname, name FROM trainers ORDER BY id ASC")
+        cursor.execute("SELECT nickname, name, theme_color, logo_url FROM trainers ORDER BY id ASC")
         trainer_rows = cursor.fetchall()
-        trainers = [{"nickname": r["nickname"], "name": r["name"]} for r in trainer_rows]
+        for r in trainer_rows:
+            nickname = r["nickname"]
+            is_online = (nickname, 0) in chat_manager.active_connections
+            trainers.append({
+                "nickname": nickname,
+                "name": r["name"],
+                "theme_color": r["theme_color"] or "#f3ca4c",
+                "logo_url": r["logo_url"],
+                "is_online": is_online
+            })
     except Exception as e:
         print("Error fetching trainers for public view:", e)
-        trainers = [{"nickname": "admin", "name": "Admin"}]
+        trainers = [{"nickname": "admin", "name": "Admin", "theme_color": "#f3ca4c", "logo_url": "", "is_online": False}]
     finally:
         conn.close()
 
@@ -2620,12 +2678,22 @@ async def api_get_public_all_clients():
                 client = dict(r)
                 client["trainer_id"] = trainer_nickname
                 client["trainer_name"] = trainer_name
+                # Calculate compliance KPI based on daily logs in the last 30 days
+                t_cursor.execute("""
+                    SELECT COUNT(DISTINCT date) as log_count 
+                    FROM daily_logs 
+                    WHERE user_id = ? AND date >= date('now', '-30 days')
+                """, (client['id'],))
+                res = t_cursor.fetchone()
+                log_count = res['log_count'] if res and res['log_count'] else 0
+                client['adherence_score'] = min(10.0, (log_count / 30.0) * 10.0)
+                client["is_online"] = (trainer_nickname, client["id"]) in chat_manager.active_connections
                 all_clients.append(client)
             t_conn.close()
         except Exception as e:
             print(f"Error fetching clients for trainer '{trainer_nickname}':", e)
             
-    return JSONResponse(content={"success": True, "clients": all_clients})
+    return JSONResponse(content={"success": True, "trainers": trainers, "clients": all_clients})
 
 @app.get("/api/trainer/config")
 async def api_get_trainer_config(request: Request):
