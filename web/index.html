@@ -373,7 +373,7 @@
 
         async function submitTrainerLogin(event) {
             event.preventDefault();
-            const nickname = document.getElementById("trainerNickname").value.trim().lower();
+            const nickname = document.getElementById("trainerNickname").value.trim().toLowerCase();
             const password = document.getElementById("trainerPassword").value.trim();
             const error = document.getElementById("trainerErrorMessage");
             
@@ -406,7 +406,7 @@
 
         async function submitClientLogin(event) {
             event.preventDefault();
-            const nickname = document.getElementById("clientNickname").value.trim().lower();
+            const nickname = document.getElementById("clientNickname").value.trim().toLowerCase();
             const password = document.getElementById("clientPassword").value.trim();
             const error = document.getElementById("clientErrorMessage");
             
