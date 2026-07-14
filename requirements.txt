@@ -6,3 +6,4 @@ bcrypt
 PyJWT
 websockets
 tzdata
+python-multipart
