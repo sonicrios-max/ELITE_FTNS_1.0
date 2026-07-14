@@ -2695,6 +2695,49 @@ async def api_get_public_all_clients():
             
     return JSONResponse(content={"success": True, "trainers": trainers, "clients": all_clients})
 
+@app.get("/api/admin/download_backup")
+async def api_download_backup(passcode: str = None):
+    import tempfile
+    import zipfile
+    from fastapi import BackgroundTasks
+    
+    if passcode != "dev123":
+        return JSONResponse(status_code=401, content={"success": False, "error": "No autorizado."})
+    
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    tmp_path = tmp.name
+    tmp.close()
+    
+    try:
+        with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            if os.path.exists(MASTER_DB_PATH):
+                zip_file.write(MASTER_DB_PATH, "master.db")
+            if os.path.exists(TENANTS_DIR):
+                for root, dirs, files in os.walk(TENANTS_DIR):
+                    for file in files:
+                        if file.endswith(".db"):
+                            file_path = os.path.join(root, file)
+                            arcname = os.path.join("tenants", file)
+                            zip_file.write(file_path, arcname)
+                            
+        # Clean up temp file in background after download completes
+        def remove_temp():
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+                
+        bg_tasks = BackgroundTasks()
+        bg_tasks.add_task(remove_temp)
+        
+        return FileResponse(tmp_path, media_type="application/zip", filename="elite_fitness_backup.zip", background=bg_tasks)
+    except Exception as e:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
 @app.get("/api/trainer/config")
 async def api_get_trainer_config(request: Request):
     handler = FitnessHTTPRequestHandler(request)
