@@ -213,8 +213,8 @@ async function selectClient(userId, overrideSubTab = null) {
             if (window.innerWidth <= 1024) {
                 if (overrideSubTab) {
                     switchTab(overrideSubTab);
-                } else if (!isRefreshing) {
-                    closeMobileSubPanel(); // Cierra los tabs para mostrar el menú del perfil para un nuevo cliente
+                } else {
+                    closeMobileSubPanel(); // Cierra los tabs para mostrar el menú del perfil del cliente
                 }
             } else {
                 switchTab(activeSubTab);
@@ -975,7 +975,7 @@ async function submitNewAssessment(event) {
         const result = await response.json();
         if (result.success) {
             alert("Evaluación guardada exitosamente.");
-            selectClient(activeUserId);
+            selectClient(activeUserId, activeTab);
         } else {
             alert("Error al guardar: " + result.error);
         }
@@ -992,7 +992,7 @@ async function deleteAssessment(id) {
         const data = await res.json();
         if (data.success) {
             alert("Valoración eliminada.");
-            selectClient(activeUserId);
+            selectClient(activeUserId, activeTab);
         } else {
             alert("Error: " + data.error);
         }
@@ -2021,7 +2021,7 @@ async function confirmAssignRoutine(planId) {
             
             // Si el cliente modificado es el que estamos viendo actualmente en la ficha principal, recargamos la pantalla
             if (parseInt(clientId) === activeUserId) {
-                selectClient(activeUserId);
+                selectClient(activeUserId, activeTab);
             }
         } else {
             alert("Error al asignar: " + result.error);
@@ -2800,7 +2800,7 @@ async function submitNewNutritionPlan(event) {
             if (isCreatingGlobalNutrition) {
                 fetchGlobalNutritionPlans();
             } else {
-                selectClient(activeUserId); // Recargar perfil
+                selectClient(activeUserId, activeTab); // Recargar perfil
             }
         } else {
             alert("Error al guardar: " + data.error);
@@ -2825,7 +2825,7 @@ async function deleteNutritionPlan(planId) {
             if (document.getElementById('nutritionLibView').style.display === 'block') {
                 fetchGlobalNutritionPlans();
             } else {
-                selectClient(activeUserId);
+                selectClient(activeUserId, activeTab);
             }
         } else {
             alert("Error: " + data.error);
@@ -3001,7 +3001,7 @@ async function confirmAssignNutritionToActiveClient() {
             alert("Plan de nutrición asignado correctamente al cliente.");
             const modal = document.getElementById('assignNutritionToClientModal');
             if (modal) modal.remove();
-            selectClient(activeUserId);
+            selectClient(activeUserId, activeTab);
         } else {
             alert("Error: " + data.error);
         }
