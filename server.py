@@ -2738,6 +2738,53 @@ async def api_download_backup(passcode: str = None):
             pass
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
+@app.post("/api/admin/restore_backup")
+async def api_restore_backup(request: Request, passcode: str = None):
+    import zipfile
+    import tempfile
+    import shutil
+    
+    if passcode != "dev123":
+        return JSONResponse(status_code=401, content={"success": False, "error": "No autorizado."})
+        
+    try:
+        form = await request.form()
+        file = form.get("file")
+        if not file:
+            return JSONResponse(status_code=400, content={"success": False, "error": "Archivo faltante."})
+            
+        contents = await file.read()
+        
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+        tmp_path = tmp.name
+        tmp.write(contents)
+        tmp.close()
+        
+        with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
+            temp_dir = tempfile.mkdtemp()
+            zip_ref.extractall(temp_dir)
+            
+            # 1. Restore master.db
+            temp_master = os.path.join(temp_dir, "master.db")
+            if os.path.exists(temp_master):
+                shutil.copy2(temp_master, MASTER_DB_PATH)
+                
+            # 2. Restore tenants databases
+            temp_tenants = os.path.join(temp_dir, "tenants")
+            if os.path.exists(temp_tenants):
+                for f in os.listdir(temp_tenants):
+                    if f.endswith(".db"):
+                        src_path = os.path.join(temp_tenants, f)
+                        dst_path = os.path.join(TENANTS_DIR, f)
+                        shutil.copy2(src_path, dst_path)
+                        
+            shutil.rmtree(temp_dir)
+            
+        os.unlink(tmp_path)
+        return JSONResponse(content={"success": True, "message": "Respaldo restaurado con éxito."})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
 @app.get("/api/trainer/config")
 async def api_get_trainer_config(request: Request):
     handler = FitnessHTTPRequestHandler(request)
