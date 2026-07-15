@@ -25,3 +25,6 @@ backups/
 
 # Virtual Environment
 venv/
+
+# Raw USDA dataset
+FoodData_Central_foundation_food_json_2026-04-30/

@@ -164,7 +164,7 @@ def initialize_tenant_db(trainer_nickname):
                 try:
                     admin_conn = sqlite3.connect(admin_db_path)
                     admin_cursor = admin_conn.cursor()
-                    admin_cursor.execute("SELECT name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data FROM food_library")
+                    admin_cursor.execute("SELECT name, name_en, category, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data FROM food_library")
                     admin_foods = admin_cursor.fetchall()
                     admin_conn.close()
                     
@@ -172,8 +172,8 @@ def initialize_tenant_db(trainer_nickname):
                         # Clear default foods to copy admin foods cleanly
                         cursor.execute("DELETE FROM food_library")
                         cursor.executemany("""
-                            INSERT OR IGNORE INTO food_library (name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            INSERT OR IGNORE INTO food_library (name, name_en, category, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, admin_foods)
                         conn.commit()
                         print(f"Copied food library from admin to tenant database '{trainer_nickname}'.")
@@ -345,6 +345,8 @@ def check_and_migrate_db(db_path):
             CREATE TABLE IF NOT EXISTS food_library (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
+                name_en TEXT,
+                category TEXT,
                 weight_g REAL NOT NULL DEFAULT 100,
                 calories_kcal INTEGER NOT NULL DEFAULT 0,
                 protein_g REAL NOT NULL DEFAULT 0,
@@ -354,6 +356,18 @@ def check_and_migrate_db(db_path):
             )
         ''')
         conn.commit()
+
+        cursor.execute("PRAGMA table_info(food_library)")
+        food_lib_columns = [row[1] for row in cursor.fetchall()]
+        if "name_en" not in food_lib_columns:
+            print("Migration: Adding column 'name_en' to 'food_library' table...")
+            cursor.execute("ALTER TABLE food_library ADD COLUMN name_en TEXT")
+            conn.commit()
+            
+        if "category" not in food_lib_columns:
+            print("Migration: Adding column 'category' to 'food_library' table...")
+            cursor.execute("ALTER TABLE food_library ADD COLUMN category TEXT")
+            conn.commit()
 
         # Seed default foods if empty
         cursor.execute("SELECT id FROM food_library")
@@ -400,6 +414,43 @@ def check_and_migrate_db(db_path):
         # Migration: Create index on sender_id/receiver_id
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_participants ON chat_messages(sender_id, receiver_id)")
         conn.commit()
+
+        # Migration: Create recipes and recipe_ingredients tables
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS recipes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS recipe_ingredients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                recipe_id INTEGER NOT NULL,
+                food_name TEXT NOT NULL,
+                weight_g REAL NOT NULL,
+                calories_kcal INTEGER NOT NULL,
+                protein_g REAL NOT NULL,
+                carbs_g REAL NOT NULL,
+                fat_g REAL NOT NULL,
+                custom_data TEXT,
+                FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+            )
+        ''')
+        conn.commit()
+
+        # Migration: Add recipe_id and recipe_name columns to meal_items
+        cursor.execute("PRAGMA table_info(meal_items)")
+        meal_items_cols = [row[1] for row in cursor.fetchall()]
+        if "recipe_id" not in meal_items_cols:
+            print("Migration: Adding column 'recipe_id' to 'meal_items' table...")
+            cursor.execute("ALTER TABLE meal_items ADD COLUMN recipe_id INTEGER")
+            conn.commit()
+        if "recipe_name" not in meal_items_cols:
+            print("Migration: Adding column 'recipe_name' to 'meal_items' table...")
+            cursor.execute("ALTER TABLE meal_items ADD COLUMN recipe_name TEXT")
+            conn.commit()
             
     except Exception as e:
         print("Error during migration:", e)
@@ -1771,10 +1822,11 @@ class FitnessHTTPRequestHandler(object):
                     if isinstance(custom_data_val, (dict, list)):
                         custom_data_val = json.dumps(custom_data_val)
                     cursor.execute("""
-                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data, recipe_id, recipe_name)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (meal_id, item.get("food_name"), item.get("weight_g", 0), item.get("calories_kcal", 0),
-                          item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", ""), custom_data_val))
+                          item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", ""), custom_data_val,
+                          item.get("recipe_id"), item.get("recipe_name")))
             conn.commit()
             self.send_json_response(200, {"success": True, "plan_id": plan_id})
         except Exception as e:
@@ -1788,49 +1840,67 @@ class FitnessHTTPRequestHandler(object):
         if not plan_id or not user_id:
             self.send_error_response(400, "plan_id y user_id son requeridos.")
             return
-            
+
         conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         try:
-            # Copy plan
+            # --- Step 1: Remove any existing nutrition plan(s) already assigned to the user ---
+            cursor.execute("SELECT id FROM nutrition_plans WHERE user_id = ?", (int(user_id),))
+            existing_plans = [row['id'] for row in cursor.fetchall()]
+            for old_id in existing_plans:
+                cursor.execute("SELECT id FROM meals WHERE nutrition_plan_id = ?", (old_id,))
+                old_meals = [r['id'] for r in cursor.fetchall()]
+                for om_id in old_meals:
+                    cursor.execute("DELETE FROM meal_items WHERE meal_id = ?", (om_id,))
+                cursor.execute("DELETE FROM meals WHERE nutrition_plan_id = ?", (old_id,))
+                cursor.execute("DELETE FROM nutrition_plans WHERE id = ?", (old_id,))
+
+            # --- Step 2: Fetch template plan (user_id = 0 means global template) ---
             cursor.execute("SELECT * FROM nutrition_plans WHERE id = ?", (plan_id,))
             plan_row = cursor.fetchone()
             if not plan_row:
-                self.send_error_response(404, "Plantilla de nutrición no encontrada.")
+                self.send_error_response(404, "Plantilla de nutrici\u00f3n no encontrada.")
                 return
-                
+
             p = dict(plan_row)
             cursor.execute("""
                 INSERT INTO nutrition_plans (user_id, title, description, start_date, end_date, target_calories, target_protein, target_carbs, target_fat)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (user_id, p['title'], p['description'], p['start_date'], p['end_date'], 
+            """, (int(user_id), p['title'], p['description'], p['start_date'], p['end_date'],
                   p['target_calories'], p['target_protein'], p['target_carbs'], p['target_fat']))
             new_plan_id = cursor.lastrowid
-            
-            # Copy meals
+
+            # --- Step 3: Copy meals ---
             cursor.execute("SELECT * FROM meals WHERE nutrition_plan_id = ?", (plan_id,))
             meals = cursor.fetchall()
             for meal_row in meals:
                 m = dict(meal_row)
-                cursor.execute("INSERT INTO meals (nutrition_plan_id, meal_name, order_index) VALUES (?, ?, ?)", 
-                    (new_plan_id, m['meal_name'], m['order_index']))
+                cursor.execute(
+                    "INSERT INTO meals (nutrition_plan_id, meal_name, order_index) VALUES (?, ?, ?)",
+                    (new_plan_id, m['meal_name'], m['order_index'])
+                )
                 new_meal_id = cursor.lastrowid
-                
-                # Copy meal items
+
+                # Copy meal items (including recipe grouping columns)
                 cursor.execute("SELECT * FROM meal_items WHERE meal_id = ?", (m['id'],))
                 items = cursor.fetchall()
                 for item_row in items:
                     i = dict(item_row)
                     cursor.execute("""
-                        INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (new_meal_id, i['food_name'], i['weight_g'], i['calories_kcal'],
-                          i['protein_g'], i['carbs_g'], i['fat_g'], i['notes'], i.get('custom_data')))
-                          
+                        INSERT INTO meal_items
+                            (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data, recipe_id, recipe_name)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        new_meal_id, i['food_name'], i['weight_g'], i['calories_kcal'],
+                        i['protein_g'], i['carbs_g'], i['fat_g'], i.get('notes'), i.get('custom_data'),
+                        i.get('recipe_id'), i.get('recipe_name')
+                    ))
+
             conn.commit()
             self.send_json_response(200, {"success": True, "new_plan_id": new_plan_id})
         except Exception as e:
+            conn.rollback()
             self.send_json_response(500, {"success": False, "error": str(e)})
         finally:
             conn.close()
@@ -1902,10 +1972,11 @@ class FitnessHTTPRequestHandler(object):
                         if isinstance(custom_data_val, (dict, list)):
                             custom_data_val = json.dumps(custom_data_val)
                         cursor.execute("""
-                            INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO meal_items (meal_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, notes, custom_data, recipe_id, recipe_name)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (meal_id, item.get("food_name"), item.get("weight_g", 0), item.get("calories_kcal", 0),
-                              item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", ""), custom_data_val))
+                              item.get("protein_g", 0), item.get("carbs_g", 0), item.get("fat_g", 0), item.get("notes", ""), custom_data_val,
+                              item.get("recipe_id"), item.get("recipe_name")))
             
             conn.commit()
             self.send_json_response(200, {"success": True, "message": "Plan de nutrición actualizado."})
@@ -1923,10 +1994,122 @@ class FitnessHTTPRequestHandler(object):
         conn = self.get_db_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute("PRAGMA foreign_keys = ON;")
+            # Cascade-delete meal_items -> meals -> nutrition_plan explicitly
+            cursor.execute("SELECT id FROM meals WHERE nutrition_plan_id = ?", (plan_id,))
+            meal_ids = [row[0] for row in cursor.fetchall()]
+            for mid in meal_ids:
+                cursor.execute("DELETE FROM meal_items WHERE meal_id = ?", (mid,))
+            cursor.execute("DELETE FROM meals WHERE nutrition_plan_id = ?", (plan_id,))
             cursor.execute("DELETE FROM nutrition_plans WHERE id = ?", (plan_id,))
             conn.commit()
-            self.send_json_response(200, {"success": True, "message": "Plan de nutrición eliminado."})
+            self.send_json_response(200, {"success": True, "message": "Plan de nutrici\u00f3n eliminado."})
+        except Exception as e:
+            conn.rollback()
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    # --- Recipe Handlers ---
+
+    def handle_get_recipes(self):
+        conn = self.get_db_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM recipes ORDER BY id ASC")
+            recipes = [dict(row) for row in cursor.fetchall()]
+            for r in recipes:
+                cursor.execute("SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY id ASC", (r['id'],))
+                ingredients = []
+                for ing in cursor.fetchall():
+                    item = dict(ing)
+                    if item.get("custom_data"):
+                        try:
+                            item["custom_data"] = json.loads(item["custom_data"])
+                        except Exception:
+                            pass
+                    ingredients.append(item)
+                r['ingredients'] = ingredients
+            self.send_json_response(200, recipes)
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_create_recipe(self, data):
+        name = data.get("name")
+        if not name:
+            self.send_error_response(400, "El nombre de la receta es requerido.")
+            return
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO recipes (user_id, name, description)
+                VALUES (0, ?, ?)
+            """, (name, data.get("description", "")))
+            recipe_id = cursor.lastrowid
+            
+            ingredients = data.get("ingredients", [])
+            for ing in ingredients:
+                custom_data_val = ing.get("custom_data")
+                if isinstance(custom_data_val, (dict, list)):
+                    custom_data_val = json.dumps(custom_data_val)
+                cursor.execute("""
+                    INSERT INTO recipe_ingredients (recipe_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (recipe_id, ing.get("food_name"), ing.get("weight_g", 0), ing.get("calories_kcal", 0),
+                      ing.get("protein_g", 0), ing.get("carbs_g", 0), ing.get("fat_g", 0), custom_data_val))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "recipe_id": recipe_id})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_update_recipe(self, data):
+        recipe_id = data.get("id")
+        name = data.get("name")
+        if not recipe_id or not name:
+            self.send_error_response(400, "El ID y nombre de la receta son requeridos.")
+            return
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                UPDATE recipes SET name = ?, description = ? WHERE id = ?
+            """, (name, data.get("description", ""), recipe_id))
+            
+            cursor.execute("DELETE FROM recipe_ingredients WHERE recipe_id = ?", (recipe_id,))
+            ingredients = data.get("ingredients", [])
+            for ing in ingredients:
+                custom_data_val = ing.get("custom_data")
+                if isinstance(custom_data_val, (dict, list)):
+                    custom_data_val = json.dumps(custom_data_val)
+                cursor.execute("""
+                    INSERT INTO recipe_ingredients (recipe_id, food_name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (recipe_id, ing.get("food_name"), ing.get("weight_g", 0), ing.get("calories_kcal", 0),
+                      ing.get("protein_g", 0), ing.get("carbs_g", 0), ing.get("fat_g", 0), custom_data_val))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "message": "Receta actualizada correctamente."})
+        except Exception as e:
+            self.send_json_response(500, {"success": False, "error": str(e)})
+        finally:
+            conn.close()
+
+    def handle_delete_recipe(self, data):
+        recipe_id = data.get("id")
+        if not recipe_id:
+            self.send_error_response(400, "El ID de la receta es requerido.")
+            return
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.execute("DELETE FROM recipes WHERE id = ?", (recipe_id,))
+            conn.commit()
+            self.send_json_response(200, {"success": True, "message": "Receta eliminada correctamente."})
         except Exception as e:
             self.send_json_response(500, {"success": False, "error": str(e)})
         finally:
@@ -2079,6 +2262,8 @@ class FitnessHTTPRequestHandler(object):
             
     def handle_create_food(self, data):
         name = data.get("name")
+        name_en = data.get("name_en")
+        category = data.get("category")
         weight_g = float(data.get("weight_g", 100.0))
         calories_kcal = int(data.get("calories_kcal", 0))
         protein_g = float(data.get("protein_g", 0.0))
@@ -2094,9 +2279,9 @@ class FitnessHTTPRequestHandler(object):
         cursor = conn.cursor()
         try:
             cursor.execute('''
-                INSERT INTO food_library (name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (name, weight_g, calories_kcal, protein_g, carbs_g, fat_g, json.dumps(custom_data) if custom_data else None))
+                INSERT INTO food_library (name, name_en, category, weight_g, calories_kcal, protein_g, carbs_g, fat_g, custom_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (name, name_en, category, weight_g, calories_kcal, protein_g, carbs_g, fat_g, json.dumps(custom_data) if custom_data else None))
             conn.commit()
             new_id = cursor.lastrowid
             self.send_json_response(200, {"success": True, "id": new_id})
@@ -2112,6 +2297,8 @@ class FitnessHTTPRequestHandler(object):
             return
             
         name = data.get("name")
+        name_en = data.get("name_en")
+        category = data.get("category")
         weight_g = data.get("weight_g")
         calories_kcal = data.get("calories_kcal")
         protein_g = data.get("protein_g")
@@ -2127,6 +2314,12 @@ class FitnessHTTPRequestHandler(object):
             if name is not None:
                 updates.append("name = ?")
                 params.append(name)
+            if name_en is not None:
+                updates.append("name_en = ?")
+                params.append(name_en)
+            if category is not None:
+                updates.append("category = ?")
+                params.append(category)
             if weight_g is not None:
                 updates.append("weight_g = ?")
                 params.append(float(weight_g))
@@ -2435,6 +2628,13 @@ async def api_create_food(request: Request):
     handler.handle_create_food(data)
     return make_api_response(handler)
 
+@app.post("/api/recipes")
+async def api_create_recipe(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_create_recipe(data)
+    return make_api_response(handler)
+
 @app.post("/api/assessments")
 async def api_create_assessment(request: Request):
     data = await request.json()
@@ -2505,6 +2705,13 @@ async def api_update_food(request: Request):
     data = await request.json()
     handler = FitnessHTTPRequestHandler(request)
     handler.handle_update_food(data)
+    return make_api_response(handler)
+
+@app.put("/api/recipes")
+async def api_update_recipe(request: Request):
+    data = await request.json()
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_update_recipe(data)
     return make_api_response(handler)
 
 async def get_delete_data(request: Request):
@@ -2590,6 +2797,13 @@ async def api_delete_food(request: Request):
     data = await get_delete_data(request)
     handler = FitnessHTTPRequestHandler(request)
     handler.handle_delete_food(data)
+    return make_api_response(handler)
+
+@app.delete("/api/recipes")
+async def api_delete_recipe(request: Request):
+    data = await get_delete_data(request)
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_delete_recipe(data)
     return make_api_response(handler)
 
 # --- GET Endpoints ---
@@ -2813,6 +3027,12 @@ async def api_get_nutrition_config(request: Request):
 async def api_get_foods(request: Request):
     handler = FitnessHTTPRequestHandler(request)
     handler.handle_get_foods()
+    return make_api_response(handler)
+
+@app.get("/api/recipes")
+async def api_get_recipes(request: Request):
+    handler = FitnessHTTPRequestHandler(request)
+    handler.handle_get_recipes()
     return make_api_response(handler)
 
 # --- Chat SQLite Helpers ---
@@ -3095,6 +3315,28 @@ async def read_client():
     return FileResponse(os.path.join(BASE_DIR, "web", "client", "client.html"), media_type="text/html")
 
 # --- Static Files Mount ---
+
+@app.get("/shared/style.css")
+async def get_themed_style():
+    # Detect theme from PORT environment variable
+    port = int(os.environ.get("PORT", 8080))
+    if port == 8081:
+        css_file = "style_prop1.css"
+    elif port == 8082:
+        css_file = "style_prop2.css"
+    elif port == 8083:
+        css_file = "style_prop3.css"
+    elif port == 8084:
+        css_file = "style_prop4.css"
+    elif port == 8085:
+        css_file = "style_prop5.css"
+    else:
+        css_file = "style.css"
+        
+    file_path = os.path.join(BASE_DIR, "web", "shared", css_file)
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="text/css")
+    return FileResponse(os.path.join(BASE_DIR, "web", "shared", "style.css"), media_type="text/css")
 
 app.mount("/", StaticFiles(directory=os.path.join(BASE_DIR, "web")), name="web")
 

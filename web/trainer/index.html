@@ -41,7 +41,8 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Portal del Entrenador - Elite Coaching</title>
-    <link rel="stylesheet" href="/shared/style.css?v=2.0.10">
+    <link rel="stylesheet" href="/shared/style.css?v=2.0.12">
+
     <!-- Chart.js for beautiful interactive analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for clean premium icons -->
@@ -134,7 +135,6 @@
 
             <!-- Main Panel: Selected Client details -->
             <div class="main-content" id="mainContentPanel">
-                <button class="mobile-back-btn" onclick="closeMobileSlidePanel()"><i class="fa-solid fa-arrow-left"></i> Volver a la lista</button>
                 
                 <!-- Welcome Placeholder Panel -->
                 <div class="glass-card" id="selectClientPlaceholder" style="padding: 40px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; gap: 15px;">
@@ -145,6 +145,7 @@
 
                 <!-- Profile Header Details & Mini KPIs -->
                 <div class="glass-card" id="profileHeaderCard" style="display: none; padding: 15px; text-align: center;">
+                    <button class="mobile-back-btn" onclick="closeMobileSlidePanel()"><i class="fa-solid fa-arrow-left"></i></button>
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
                         <h2 id="clientFullName" style="font-size: 20px; margin: 0; line-height: 1.2;">Nombre del Cliente</h2>
                         <div class="compliance-badge" id="clientStatusBadge" style="font-size: 10px; padding: 2px 8px;">ACTIVO</div>
@@ -179,12 +180,50 @@
 
                 <!-- Main Tabs & Panels -->
                 <div class="glass-card" id="tabsCard" style="display: none;">
-                    <div class="tabs-container">
-                        <button class="tab-btn active" onclick="switchTab('tabFicha')"><i class="fa-solid fa-address-book"></i> Ficha Antropométrica</button>
-                        <button class="tab-btn" onclick="switchTab('tabSeguimiento')"><i class="fa-solid fa-chart-line"></i> Trazabilidad Diaria</button>
-                        <button class="tab-btn" onclick="switchTab('tabRutinas')"><i class="fa-solid fa-calendar-days"></i> Rutina Asignada</button>
-                        <button class="tab-btn" onclick="switchTab('tabNutricion')"><i class="fa-solid fa-plate-wheat"></i> Dieta Asignada</button>
-                        <button class="tab-btn" onclick="switchTab('tabChat')"><i class="fa-solid fa-comments" style="position:relative;"><span id="tabChatBadge" style="display: none; position: absolute; top: -5px; right: -5px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span></i> Chat con Cliente</button>
+                <div class="tabs-container" id="mainTabsNav">
+                        <button class="tab-btn active" id="tabBtn-tabFicha" onclick="switchTab('tabFicha')">
+                            <div class="tab-btn-icon-wrap"><i class="fa-solid fa-address-book"></i></div>
+                            <div class="tab-btn-text-wrap">
+                                <span class="tab-btn-label">Ficha Antropométrica</span>
+                                <span class="tab-btn-sub">Medidas · Evaluaciones · KPIs</span>
+                            </div>
+                            <div class="tab-btn-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                        </button>
+                        <button class="tab-btn" id="tabBtn-tabSeguimiento" onclick="switchTab('tabSeguimiento')">
+                            <div class="tab-btn-icon-wrap"><i class="fa-solid fa-chart-line"></i></div>
+                            <div class="tab-btn-text-wrap">
+                                <span class="tab-btn-label">Trazabilidad Diaria</span>
+                                <span class="tab-btn-sub">Pasos · Sueño · Adherencia</span>
+                            </div>
+                            <div class="tab-btn-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                        </button>
+                        <button class="tab-btn" id="tabBtn-tabRutinas" onclick="switchTab('tabRutinas')">
+                            <div class="tab-btn-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+                            <div class="tab-btn-text-wrap">
+                                <span class="tab-btn-label">Rutina Asignada</span>
+                                <span class="tab-btn-sub">Días · Ejercicios · Progreso</span>
+                            </div>
+                            <div class="tab-btn-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                        </button>
+                        <button class="tab-btn" id="tabBtn-tabNutricion" onclick="switchTab('tabNutricion')">
+                            <div class="tab-btn-icon-wrap"><i class="fa-solid fa-plate-wheat"></i></div>
+                            <div class="tab-btn-text-wrap">
+                                <span class="tab-btn-label">Dieta Asignada</span>
+                                <span class="tab-btn-sub">Comidas · Macros · Recetas</span>
+                            </div>
+                            <div class="tab-btn-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                        </button>
+                        <button class="tab-btn" id="tabBtn-tabChat" onclick="switchTab('tabChat')">
+                            <div class="tab-btn-icon-wrap" style="position:relative;">
+                                <i class="fa-solid fa-comments"></i>
+                                <span id="tabChatBadge" style="display: none; position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; border: 2px solid var(--bg-secondary);"></span>
+                            </div>
+                            <div class="tab-btn-text-wrap">
+                                <span class="tab-btn-label">Chat con Cliente</span>
+                                <span class="tab-btn-sub">Mensajes · Notificaciones</span>
+                            </div>
+                            <div class="tab-btn-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                        </button>
                     </div>
 
                     <!-- TAB 1: FICHA ANTROPOMETRICA FORM & RECORDS -->
@@ -423,21 +462,57 @@
 
         <div class="glass-card" style="margin-top: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 15px;"><i class="fa-solid fa-layer-group" style="color: var(--accent-purple);"></i> Recetas y Comidas Preparadas</h3>
+                <button class="btn-primary" style="background: var(--accent-purple); border-color: var(--accent-purple); padding: 6px 12px; font-size: 11px;" onclick="openRecipeModal()"><i class="fa-solid fa-plus"></i> Nueva Receta</button>
+            </div>
+            <div id="globalRecipesList">
+                <!-- Llenado dinámico -->
+            </div>
+        </div>
+
+        <div class="glass-card" style="margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                 <h3 style="margin: 0; font-size: 15px;"><i class="fa-solid fa-carrot" style="color: var(--accent-green);"></i> Biblioteca de Alimentos / Ingredientes</h3>
-                <button class="btn-primary" style="background: var(--accent-green); padding: 6px 12px; font-size: 11px;" onclick="openFoodModal()"><i class="fa-solid fa-plus"></i> Nuevo Alimento</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="btn-nav" id="btnToggleFoodsTable" onclick="toggleFoodsTable()" style="padding: 6px 10px; font-size: 11px; display: flex; align-items: center; gap: 5px;"><i class="fa-solid fa-chevron-down"></i> Mostrar Catálogo</button>
+                    <button class="btn-primary" style="background: var(--accent-green); padding: 6px 12px; font-size: 11px;" onclick="openFoodModal()"><i class="fa-solid fa-plus"></i> Nuevo Alimento</button>
+                </div>
+            </div>
+
+            <!-- Buscador y Filtros -->
+            <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
+                <div style="position: relative; flex: 1; min-width: 250px;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 9px; color: var(--color-text-muted); font-size: 12px;"></i>
+                    <input type="text" id="foodSearchInput" oninput="filterFoodsList()" placeholder="Buscar alimento por nombre (español o inglés)..." style="width: 100%; padding: 6px 10px 6px 30px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.25); color: white; font-size: 11px;">
+                </div>
+            </div>
+
+            <!-- Píldoras de Categorías -->
+            <div id="foodCategoryFilters" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <!-- Llenado dinámico en trainer.js -->
             </div>
             
-            <div style="overflow-x: auto; width: 100%;">
-            <table class="data-table" style="width: 100%; min-width: 600px; font-size: 11px;">
-                <thead>
-                    <tr id="globalFoodsHeader">
+            <!-- Placeholder cuando está colapsado y sin búsquedas -->
+            <div id="globalFoodsTablePlaceholder" style="text-align: center; padding: 30px; color: var(--color-text-secondary); font-size: 11px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.05); margin-bottom: 10px;">
+                <i class="fa-solid fa-info-circle" style="margin-right: 5px; color: var(--accent-green);"></i>
+                Catálogo minimizado. Selecciona una categoría, escribe una palabra clave o haz clic en "Mostrar Catálogo".
+            </div>
+
+            <!-- Contenedor Colapsable de la Tabla -->
+            <div id="globalFoodsTableContainer" style="display: none; overflow-x: auto; width: 100%;">
+                <table class="data-table" style="width: 100%; min-width: 600px; font-size: 11px;">
+                    <thead>
+                        <tr id="globalFoodsHeader">
+                            <!-- Llenado dinámico -->
+                        </tr>
+                    </thead>
+                    <tbody id="globalFoodsList">
                         <!-- Llenado dinámico -->
-                    </tr>
-                </thead>
-                <tbody id="globalFoodsList">
-                    <!-- Llenado dinámico -->
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+                <div id="globalFoodsTableMoreContainer" style="display: none; text-align: center; padding: 10px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.04);">
+                    <button class="btn-nav" style="padding: 6px 16px; font-size: 11px;" onclick="showMoreFoods()">Mostrar más alimentos...</button>
+                </div>
             </div>
         </div>
     </div>
@@ -831,8 +906,11 @@
 
                 <!-- Dynamic Meals Builder -->
                 <div id="nutritionMealsBuilder" style="margin-top: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
                         <h4>Comidas del Día</h4>
+                        <div style="font-size: 11px; background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 6px; padding: 4px 10px; color: var(--accent-cyan); font-weight: 700;" id="planTotalCalculatedMacros">
+                            Total Plan: 0 Kcal | P: 0g | C: 0g | G: 0g
+                        </div>
                         <button type="button" class="btn-nav" onclick="addNutritionMeal()"><i class="fa-solid fa-plus"></i> Agregar Comida</button>
                     </div>
                     <div id="mealsContainer">
@@ -964,9 +1042,26 @@
                 <input type="hidden" id="editFoodId">
                 
                 <div class="form-grid">
-                    <div class="form-group" style="grid-column: span 2;">
-                        <label>Nombre del Alimento</label>
+                    <div class="form-group">
+                        <label>Nombre (Español)</label>
                         <input type="text" id="foodName" required placeholder="Ej. Pechuga de Pollo">
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre (Inglés)</label>
+                        <input type="text" id="foodNameEn" placeholder="Ej. Chicken Breast">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Categoría / Grupo de Alimento</label>
+                        <select id="foodCategory" required style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-secondary); color: white;">
+                            <option value="Carnes y Pescados">Carnes y Pescados</option>
+                            <option value="Frutas">Frutas</option>
+                            <option value="Verduras">Verduras</option>
+                            <option value="Granos y Cereales">Granos y Cereales</option>
+                            <option value="Lácteos y Huevos">Lácteos y Huevos</option>
+                            <option value="Aceites y Grasas">Aceites y Grasas</option>
+                            <option value="Nueces y Semillas">Nueces y Semillas</option>
+                            <option value="Otros">Otros</option>
+                        </select>
                     </div>
                 </div>
                 
@@ -981,6 +1076,83 @@
                     <button type="submit" class="btn-primary" style="background: var(--accent-green);">Guardar Alimento</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Recipe Modal (Biblioteca de Recetas) -->
+    <div id="addRecipeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 750px; max-width: 95%; max-height: 90vh; overflow-y: auto;">
+            <h3 style="color: var(--accent-purple); margin-bottom: 15px;" id="recipeModalTitle"><i class="fa-solid fa-layer-group"></i> Nueva Receta de Cocina</h3>
+            <form onsubmit="submitRecipeForm(event)">
+                <input type="hidden" id="editRecipeId">
+                
+                <div class="form-group">
+                    <label>Nombre de la Receta</label>
+                    <input type="text" id="recipeName" required placeholder="Ej. Panqueques de Avena y Plátano">
+                </div>
+                
+                <div class="form-group">
+                    <label>Descripción / Instrucciones de Preparación</label>
+                    <textarea id="recipeDescription" placeholder="Instrucciones paso a paso para el cliente..." style="width:100%; height:80px; border-radius:8px; border:1px solid var(--glass-border); background:var(--bg-secondary); color:white; padding:8px; font-family:inherit; resize:vertical; font-size:12px;"></textarea>
+                </div>
+                
+                <div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 15px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                        <h4 style="margin:0; color: var(--accent-purple);">Ingredientes de la Receta</h4>
+                        <button type="button" class="btn-nav" style="font-size: 11px; color: var(--accent-purple);" onclick="addIngredientToRecipeBuilder()"><i class="fa-solid fa-plus"></i> Añadir Ingrediente</button>
+                    </div>
+                    
+                    <div class="food-header-row" style="display: flex; gap: 5px; margin-bottom: 5px; padding-right: 28px; opacity: 0.8;">
+                        <div style="flex: 2; min-width: 120px; font-size: 10px; font-weight: 700; color: var(--color-text-secondary); text-align: left;">Ingrediente</div>
+                        <div style="flex: 1; font-size: 10px; font-weight: 700; color: var(--color-text-secondary); text-align: left;">Peso (g)</div>
+                        <div style="flex: 1; font-size: 10px; font-weight: 700; color: var(--color-text-secondary); text-align: left;">Calorías (kcal)</div>
+                        <div style="flex: 1; font-size: 10px; font-weight: 700; color: var(--color-text-secondary); text-align: left;">Proteína (g)</div>
+                        <div style="flex: 1; font-size: 10px; font-weight: 700; color: var(--color-text-secondary); text-align: left;">Carbs (g)</div>
+                        <div style="flex: 1; font-size: 10px; font-weight: 700; color: var(--color-text-secondary); text-align: left;">Grasas (g)</div>
+                    </div>
+                    
+                    <div id="recipeIngredientsContainer">
+                        <!-- Llenado dinámico de filas de ingredientes -->
+                    </div>
+                    
+                    <!-- Recipe Totals Block -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:10px 15px; border-radius:8px; margin-top: 15px; border:1px solid rgba(255,255,255,0.04);">
+                        <strong style="color:var(--color-text-primary); font-size:12px;">Total por Porción Completa:</strong>
+                        <div style="font-size:11px; color:var(--accent-cyan); font-weight:700;">
+                            Calorías: <span id="recipeTotalCalories">0</span> kcal | 
+                            P: <span id="recipeTotalProtein">0</span>g | 
+                            C: <span id="recipeTotalCarbs">0</span>g | 
+                            G: <span id="recipeTotalFat">0</span>g
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-nav" onclick="closeRecipeModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary" style="background: var(--accent-purple); border-color: var(--accent-purple);">Guardar Receta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Añadir Receta a una Comida -->
+    <div id="addRecipeToMealModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 450px; max-width: 95%;">
+            <h3 style="color: var(--accent-purple); margin-bottom: 15px;"><i class="fa-solid fa-layer-group"></i> Seleccionar Receta</h3>
+            <div class="form-group">
+                <label>Receta de Cocina</label>
+                <select id="recipeToMealSelect" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-secondary); color: white;">
+                    <!-- Llenado dinámico -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Porción / Multiplicador</label>
+                <input type="number" id="recipeToMealMultiplier" step="0.1" value="1.0" min="0.1" required style="width: 100%;">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="btn-nav" onclick="closeAddRecipeToMealModal()">Cancelar</button>
+                <button type="button" class="btn-primary" style="background: var(--accent-purple); border-color: var(--accent-purple);" onclick="confirmAddRecipeToMeal()">Agregar a la Comida</button>
+            </div>
         </div>
     </div>
 

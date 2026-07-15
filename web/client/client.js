@@ -767,7 +767,107 @@ function renderNutritionPlans() {
         let foodItemsHtml = "";
         let totals = {};
         
+        // Group items by recipe
+        const recipes = {};
+        const standaloneItems = [];
+        
         meal.items.forEach(food => {
+            if (food.recipe_id) {
+                const groupKey = `${food.recipe_id}_${food.recipe_name}`;
+                if (!recipes[groupKey]) {
+                    recipes[groupKey] = [];
+                }
+                recipes[groupKey].push(food);
+            } else {
+                standaloneItems.push(food);
+            }
+        });
+        
+        // Draw recipe blocks
+        for (const [groupKey, items] of Object.entries(recipes)) {
+            const [recipeId, recipeName] = groupKey.split('_');
+            
+            let recipeCal = 0, recipePro = 0, recipeCarb = 0, recipeFat = 0;
+            let recipeIngListHtml = "";
+            
+            items.forEach(food => {
+                activeFields.forEach(field => {
+                    let val = null;
+                    if (field.is_default && field.db_column) {
+                        val = food[field.db_column];
+                    } else if (food.custom_data && food.custom_data[field.field_name] !== undefined) {
+                        val = food.custom_data[field.field_name];
+                    }
+                    
+                    if (typeof val === 'number') {
+                        totals[field.field_name] = (totals[field.field_name] || 0) + val;
+                        
+                        if (field.db_column === 'calories_kcal') recipeCal += val;
+                        else if (field.db_column === 'protein_g') recipePro += val;
+                        else if (field.db_column === 'carbs_g') recipeCarb += val;
+                        else if (field.db_column === 'fat_g') recipeFat += val;
+                    }
+                });
+                
+                const isChecked = todayCompletedMeals.includes(food.id);
+                const hasWeight = activeFields.some(f => f.db_column === 'weight_g');
+                const weightLabel = hasWeight ? ` (${food.weight_g}g)` : '';
+                
+                let macrosParts = [];
+                activeFields.forEach(field => {
+                    let val = null;
+                    if (field.is_default && field.db_column) {
+                        val = food[field.db_column];
+                    } else if (food.custom_data && food.custom_data[field.field_name] !== undefined) {
+                        val = food.custom_data[field.field_name];
+                    }
+                    if (val !== null && val !== undefined) {
+                        if (field.db_column === 'weight_g') return;
+                        if (field.db_column === 'calories_kcal') return;
+                        macrosParts.push(`${field.field_name}: ${val}${field.unit ? field.unit : ''}`);
+                    }
+                });
+                
+                const caloriesLabel = `<strong style="color:var(--accent-purple); margin-left:10px;">${food.calories_kcal} Kcal</strong>`;
+                
+                recipeIngListHtml += `
+                    <div class="client-recipe-ingredient-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                        <div style="flex: 1; display: flex; align-items: center; gap: 6px;">
+                            <input type="checkbox" id="check-meal-${food.id}" ${isChecked ? 'checked' : ''} onchange="toggleMealCheck(${food.id}, this.checked)" style="width: 12px; height: 12px; cursor: pointer;">
+                            <span class="food-name" style="font-size: 11px;">${food.food_name}</span>
+                            <span style="color:var(--color-text-muted); font-size:11px;">${weightLabel}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <span class="food-macros" style="font-size: 10px;">${macrosParts.join(' | ')}</span>
+                            ${caloriesLabel}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            const allChecked = items.every(f => todayCompletedMeals.includes(f.id));
+            const itemIdsJson = JSON.stringify(items.map(f => f.id));
+            
+            foodItemsHtml += `
+                <div class="client-recipe-card">
+                    <div class="client-recipe-card-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" ${allChecked ? 'checked' : ''} onchange="toggleRecipeCheck(${itemIdsJson}, this.checked)" style="width: 14px; height: 14px; cursor: pointer;">
+                            <span class="client-recipe-title"><i class="fa-solid fa-layer-group" style="color:var(--accent-purple);"></i> ${recipeName}</span>
+                        </div>
+                        <span class="client-recipe-macros" style="color:var(--accent-cyan); font-weight:700;">
+                            ${recipeCal.toFixed(0)} Kcal | P: ${recipePro.toFixed(1)}g | C: ${recipeCarb.toFixed(1)}g | G: ${recipeFat.toFixed(1)}g
+                        </span>
+                    </div>
+                    <div class="client-recipe-ingredients">
+                        ${recipeIngListHtml}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Draw standalone items
+        standaloneItems.forEach(food => {
             let macrosParts = [];
             activeFields.forEach(field => {
                 let val = null;
@@ -796,7 +896,7 @@ function renderNutritionPlans() {
             
             const isChecked = todayCompletedMeals.includes(food.id);
             foodItemsHtml += `
-                <div class="food-item" style="display: flex; align-items: center; gap: 8px;">
+                <div class="food-item" style="display: flex; align-items: center; gap: 8px; margin-bottom:8px;">
                     <input type="checkbox" id="check-meal-${food.id}" ${isChecked ? 'checked' : ''} onchange="toggleMealCheck(${food.id}, this.checked)" style="width: 14px; height: 14px; cursor: pointer;">
                     <div style="flex: 1;">
                         <span class="food-name">${food.food_name}</span>
@@ -1252,6 +1352,33 @@ async function toggleMealCheck(foodId, checked) {
     } else {
         todayCompletedMeals = todayCompletedMeals.filter(id => id !== foodId);
     }
+    await saveChecklistStateToServer();
+    
+    // Check if we need to update any parent recipe checkbox
+    const itemCheckbox = document.getElementById(`check-meal-${foodId}`);
+    if (itemCheckbox) {
+        const recipeCard = itemCheckbox.closest('.client-recipe-card');
+        if (recipeCard) {
+            const checkboxes = recipeCard.querySelectorAll('.client-recipe-ingredients input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            const parentCb = recipeCard.querySelector('.client-recipe-card-header input[type="checkbox"]');
+            if (parentCb) parentCb.checked = allChecked;
+        }
+    }
+}
+
+async function toggleRecipeCheck(itemIds, checked) {
+    itemIds.forEach(foodId => {
+        if (checked) {
+            if (!todayCompletedMeals.includes(foodId)) {
+                todayCompletedMeals.push(foodId);
+            }
+        } else {
+            todayCompletedMeals = todayCompletedMeals.filter(id => id !== foodId);
+        }
+        const itemCheckbox = document.getElementById(`check-meal-${foodId}`);
+        if (itemCheckbox) itemCheckbox.checked = checked;
+    });
     await saveChecklistStateToServer();
 }
 

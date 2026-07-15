@@ -278,3 +278,37 @@ Característica: Instalación PWA y Service Worker Offline
     Entonces el Service Worker intercepta las peticiones y las almacena en la caché local usando la estrategia Network-First
     Y si el usuario se queda sin conexión a internet, puede seguir visualizando la interfaz y los datos cacheados
     Y las peticiones dirigidas a la API "/api/" no se almacenan en caché para garantizar datos frescos del backend
+
+# =============================================================================
+
+Característica: Biblioteca de Recetas y Agrupación Visual de Ingredientes
+  Como Entrenador y Cliente
+  Queremos crear recetas reutilizables y verlas agrupadas de manera premium en los planes de nutrición
+  Para optimizar el tiempo de diseño y mejorar la lectura de la dieta.
+
+  Escenario: Crear una receta en la biblioteca
+    Dado que el entrenador se encuentra en la pestaña "Nutrición"
+    Y hace clic en "Nueva Receta"
+    Cuando introduce el nombre "Panqueques de Proteína"
+    Y añade los ingredientes "Avena" (50g) y "Huevo" (100g)
+    Y guarda la receta
+    Entonces el backend registra la receta a través de "POST /api/recipes"
+    Y la biblioteca de recetas se actualiza mostrando la nueva receta y sus macronutrientes totales
+
+  Escenario: Agregar una receta y escalar sus porciones en un plan de nutrición
+    Dado que el entrenador abre el creador de planes de alimentación
+    Y hace clic en "+ Receta" en la sección de "Desayuno"
+    Cuando selecciona "Panqueques de Proteína" con un multiplicador de "2.0"
+    Entonces todos los ingredientes de la receta se cargan de manera agrupada bajo un contenedor visual ".recipe-group-container"
+    Y los gramos de cada ingrediente se multiplican automáticamente por 2.0 (ej. Avena 100g)
+    Y se recalcula y muestra la suma total de macronutrientes acumulados en el plan de alimentación en tiempo real
+
+  Escenario: Visualización y checklist agrupado de recetas para el cliente
+    Dado que el entrenador asigna el plan de alimentación con la receta agrupada al cliente
+    Cuando el cliente ingresa a su portal y navega a la sección de "Nutrición"
+    Entonces visualiza los ingredientes agrupados bajo una tarjeta premium ".client-recipe-card"
+    Y muestra el nombre de la receta y sus macronutrientes consolidados
+    Cuando el cliente marca el checkbox principal de la receta
+    Entonces todos los checkboxes internos de sus ingredientes se seleccionan de forma sincronizada
+    Y se actualiza el diario del cliente guardando el estado en la base de datos
+

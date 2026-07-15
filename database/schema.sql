@@ -242,6 +242,8 @@ CREATE TABLE IF NOT EXISTS meal_items (
     fat_g REAL NOT NULL,
     notes TEXT,
     custom_data TEXT, -- JSON representation of custom dynamic nutritional values
+    recipe_id INTEGER, -- Optional: links item to a recipe
+    recipe_name TEXT, -- Optional: name of the recipe this item belongs to
     FOREIGN KEY (meal_id) REFERENCES meals(id) ON DELETE CASCADE
 );
 
@@ -261,6 +263,8 @@ CREATE TABLE IF NOT EXISTS nutrition_config (
 CREATE TABLE IF NOT EXISTS food_library (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
+    name_en TEXT, -- English name for internationalization support
+    category TEXT, -- Food category/group (e.g. 'Carnes y Pescados', 'Granos y Cereales')
     weight_g REAL NOT NULL DEFAULT 100,
     calories_kcal INTEGER NOT NULL DEFAULT 0,
     protein_g REAL NOT NULL DEFAULT 0,
@@ -280,3 +284,25 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_participants ON chat_messages(sender_id, receiver_id);
+
+-- 17. Recipes Library (Comidas Preparadas)
+CREATE TABLE IF NOT EXISTS recipes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL, -- 0 for global templates / or trainer user_id
+    name TEXT NOT NULL,
+    description TEXT
+);
+
+-- 18. Recipe Ingredients
+CREATE TABLE IF NOT EXISTS recipe_ingredients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipe_id INTEGER NOT NULL,
+    food_name TEXT NOT NULL,
+    weight_g REAL NOT NULL,
+    calories_kcal INTEGER NOT NULL,
+    protein_g REAL NOT NULL,
+    carbs_g REAL NOT NULL,
+    fat_g REAL NOT NULL,
+    custom_data TEXT, -- JSON representation of custom dynamic nutritional values
+    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+);
