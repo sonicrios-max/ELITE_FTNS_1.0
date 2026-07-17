@@ -29,9 +29,13 @@
                 //     document.documentElement.style.setProperty('--accent-cyan', config.theme_color);
                 //     document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
                 // }
-                const logoSpan = document.querySelector('.logo span');
-                if (logoSpan) {
-                    logoSpan.innerText = `ELITE COACHING | ${config.name.toUpperCase()}`;
+                const logoText = document.getElementById('logoText');
+                if (logoText) {
+                    logoText.innerText = 'ELITE COACHING';
+                }
+                const nameBadge = document.getElementById('trainerNameBadge');
+                if (nameBadge) {
+                    nameBadge.innerHTML = `<i class="fa-solid fa-user-shield"></i> ${config.name.toUpperCase()}`;
                 }
             }
         } catch (e) {

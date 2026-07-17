@@ -69,16 +69,16 @@
     </script>
 
     <header>
-        <div class="logo" style="display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-dumbbell logo-icon"></i>
-            <span>ELITE COACHING</span>
-            <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" style="color: #ef4444; margin-left: 10px; cursor: pointer; text-decoration: none; font-size: inherit; font-family: inherit; font-weight: inherit;" title="Salir">
-                <i class="fa-solid fa-right-from-bracket"></i> SALIR
-            </a>
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fa-solid fa-dumbbell logo-icon"></i>
+                <span id="logoText">ELITE COACHING</span>
+            </div>
+            <span id="trainerNameBadge" class="trainer-badge">ADMIN</span>
         </div>
         <div class="nav-links">
             <a href="#" onclick="showGlobalView('clients')" class="btn-nav active" id="navClients"><i class="fa-solid fa-users"></i> Mis Asesorados</a>
-            <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment" style="border-left: 1px solid rgba(255,255,255,0.15); padding-left: 15px;"><i class="fa-solid fa-ruler-combined"></i> Campos de Valoración</a>
+            <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment"><i class="fa-solid fa-ruler-combined"></i> Campos de Valoración</a>
             <a href="#" onclick="showGlobalView('training')" class="btn-nav" id="navTraining"><i class="fa-solid fa-dumbbell"></i> Biblioteca de Rutinas</a>
             <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Biblioteca de Alimentos</a>
             <a href="#" onclick="showGlobalView('settings')" class="btn-nav" id="navSettings"><i class="fa-solid fa-gear"></i> Ajustes</a>
@@ -102,6 +102,10 @@
             </div>
             
             <button class="btn-primary" onclick="openAddClientModal()"><i class="fa-solid fa-user-plus"></i> Nuevo Cliente</button>
+
+            <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" class="btn-salir" title="Cerrar Sesión">
+                <i class="fa-solid fa-right-from-bracket"></i> SALIR
+            </a>
         </div>
     </header>
 
