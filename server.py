@@ -3323,11 +3323,15 @@ async def read_admin():
 @app.api_route("/trainer", methods=["GET", "HEAD"])
 @app.api_route("/trainer/", methods=["GET", "HEAD"])
 async def read_trainer():
+    if PORT == 8081:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "trainer_blue.html"), media_type="text/html")
     return FileResponse(os.path.join(BASE_DIR, "web", "trainer", "index.html"), media_type="text/html")
 
 @app.api_route("/client", methods=["GET", "HEAD"])
 @app.api_route("/client/", methods=["GET", "HEAD"])
 async def read_client():
+    if PORT == 8081:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "client_blue.html"), media_type="text/html")
     return FileResponse(os.path.join(BASE_DIR, "web", "client", "client.html"), media_type="text/html")
 
 # --- Test UX HTML Views ---
@@ -3342,29 +3346,25 @@ async def read_test_trainer():
 async def read_test_client():
     return FileResponse(os.path.join(BASE_DIR, "test_ux", "client_blue.html"), media_type="text/html")
 
-# --- Static Files Mount ---
+# --- Static Override Endpoints for Test Port 8081 ---
 
 @app.get("/shared/style.css")
 async def get_themed_style():
-    # Detect theme from PORT environment variable
-    port = int(os.environ.get("PORT", 8080))
-    if port == 8081:
-        css_file = "style_prop1.css"
-    elif port == 8082:
-        css_file = "style_prop2.css"
-    elif port == 8083:
-        css_file = "style_prop3.css"
-    elif port == 8084:
-        css_file = "style_prop4.css"
-    elif port == 8085:
-        css_file = "style_prop5.css"
-    else:
-        css_file = "style.css"
-        
-    file_path = os.path.join(BASE_DIR, "web", "shared", css_file)
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="text/css")
+    if PORT == 8081:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "style_blue.css"), media_type="text/css")
     return FileResponse(os.path.join(BASE_DIR, "web", "shared", "style.css"), media_type="text/css")
+
+@app.get("/trainer/trainer.js")
+async def get_trainer_js():
+    if PORT == 8081:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "trainer_blue.js"), media_type="application/javascript")
+    return FileResponse(os.path.join(BASE_DIR, "web", "trainer", "trainer.js"), media_type="application/javascript")
+
+@app.get("/client/client.js")
+async def get_client_js():
+    if PORT == 8081:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "client_blue.js"), media_type="application/javascript")
+    return FileResponse(os.path.join(BASE_DIR, "web", "client", "client.js"), media_type="application/javascript")
 
 app.mount("/test_ux", StaticFiles(directory=os.path.join(BASE_DIR, "test_ux")), name="test_ux")
 app.mount("/", StaticFiles(directory=os.path.join(BASE_DIR, "web")), name="web")
