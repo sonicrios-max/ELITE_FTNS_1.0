@@ -3320,17 +3320,19 @@ async def read_root():
 async def read_admin():
     return FileResponse(os.path.join(BASE_DIR, "web", "admin", "index.html"), media_type="text/html")
 
+TEST_PORTS = [8081, 8082, 8083, 8084, 8085]
+
 @app.api_route("/trainer", methods=["GET", "HEAD"])
 @app.api_route("/trainer/", methods=["GET", "HEAD"])
 async def read_trainer():
-    if PORT == 8081:
+    if PORT in TEST_PORTS:
         return FileResponse(os.path.join(BASE_DIR, "test_ux", "trainer_blue.html"), media_type="text/html")
     return FileResponse(os.path.join(BASE_DIR, "web", "trainer", "index.html"), media_type="text/html")
 
 @app.api_route("/client", methods=["GET", "HEAD"])
 @app.api_route("/client/", methods=["GET", "HEAD"])
 async def read_client():
-    if PORT == 8081:
+    if PORT in TEST_PORTS:
         return FileResponse(os.path.join(BASE_DIR, "test_ux", "client_blue.html"), media_type="text/html")
     return FileResponse(os.path.join(BASE_DIR, "web", "client", "client.html"), media_type="text/html")
 
@@ -3346,23 +3348,49 @@ async def read_test_trainer():
 async def read_test_client():
     return FileResponse(os.path.join(BASE_DIR, "test_ux", "client_blue.html"), media_type="text/html")
 
-# --- Static Override Endpoints for Test Port 8081 ---
+# --- Static Override Endpoints for Test Ports ---
+
+@app.get("/test_ux/style_blue.css")
+async def get_test_style():
+    file_path = os.path.join(BASE_DIR, "test_ux", "style_blue.css")
+    if not os.path.exists(file_path):
+        return Response(status_code=404)
+        
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+        
+    # Replace display font dynamically based on PORT
+    if PORT == 8081:
+        font_family = "'Plus Jakarta Sans', sans-serif"
+    elif PORT == 8082:
+        font_family = "'Poppins', sans-serif"
+    elif PORT == 8083:
+        font_family = "'Outfit', sans-serif"
+    elif PORT == 8084:
+        font_family = "'Montserrat', sans-serif"
+    elif PORT == 8085:
+        font_family = "'Inter', sans-serif"
+    else:
+        font_family = "'Outfit', sans-serif"
+        
+    content = content.replace("--font-display: 'Outfit', sans-serif;", f"--font-display: {font_family};")
+    return Response(content, media_type="text/css")
 
 @app.get("/shared/style.css")
 async def get_themed_style():
-    if PORT == 8081:
-        return FileResponse(os.path.join(BASE_DIR, "test_ux", "style_blue.css"), media_type="text/css")
+    if PORT in TEST_PORTS:
+        return await get_test_style()
     return FileResponse(os.path.join(BASE_DIR, "web", "shared", "style.css"), media_type="text/css")
 
 @app.get("/trainer/trainer.js")
 async def get_trainer_js():
-    if PORT == 8081:
+    if PORT in TEST_PORTS:
         return FileResponse(os.path.join(BASE_DIR, "test_ux", "trainer_blue.js"), media_type="application/javascript")
     return FileResponse(os.path.join(BASE_DIR, "web", "trainer", "trainer.js"), media_type="application/javascript")
 
 @app.get("/client/client.js")
 async def get_client_js():
-    if PORT == 8081:
+    if PORT in TEST_PORTS:
         return FileResponse(os.path.join(BASE_DIR, "test_ux", "client_blue.js"), media_type="application/javascript")
     return FileResponse(os.path.join(BASE_DIR, "web", "client", "client.js"), media_type="application/javascript")
 
