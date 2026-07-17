@@ -30,7 +30,7 @@
     --accent-purple-glow: rgba(139, 92, 246, 0.2);
     
     --font-sans: 'Inter', 'Plus Jakarta Sans', sans-serif;
-    --font-display: 'Anton', 'Plus Jakarta Sans', sans-serif;
+    --font-display: 'Plus Jakarta Sans', sans-serif;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
     --shadow-neon-cyan: 0 0 15px rgba(56, 189, 248, 0.35);
@@ -59,9 +59,8 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
-    font-weight: 400; /* Anton only supports 400 */
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
 }
 
 /* Scrollbar */
