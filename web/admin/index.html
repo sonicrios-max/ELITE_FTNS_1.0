@@ -677,7 +677,10 @@
 
             try {
                 const response = await fetch('/api/clients', {
-                    headers: { 'X-Trainer-Id': nickname }
+                    headers: { 
+                        'X-Trainer-Id': nickname,
+                        'X-Admin-Passcode': adminPasscode
+                    }
                 });
                 const clients = await response.json();
                 

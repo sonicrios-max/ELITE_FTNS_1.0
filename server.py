@@ -732,7 +732,12 @@ class FitnessHTTPRequestHandler(object):
         conn = self.get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT id, first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, nickname FROM users WHERE id != 0 ORDER BY id ASC")
+        # Only expose password hash when the request is authenticated as admin (dev console)
+        is_admin = self.check_admin_auth()
+        if is_admin:
+            cursor.execute("SELECT id, first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, nickname, password FROM users WHERE id != 0 ORDER BY id ASC")
+        else:
+            cursor.execute("SELECT id, first_name, last_name, email, phone, birthdate, height_cm, blood_type, allergies, medications, nickname FROM users WHERE id != 0 ORDER BY id ASC")
         rows = cursor.fetchall()
         
         clients = []
@@ -747,6 +752,9 @@ class FitnessHTTPRequestHandler(object):
             res = cursor.fetchone()
             log_count = res['log_count'] if res and res['log_count'] else 0
             client['adherence_score'] = min(10.0, (log_count / 30.0) * 10.0)
+            # Never expose password to non-admin callers
+            if not is_admin:
+                client.pop('password', None)
             clients.append(client)
             
         conn.close()
@@ -1593,7 +1601,7 @@ class FitnessHTTPRequestHandler(object):
         conn = sqlite3.connect(MASTER_DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, nickname, email, theme_color, logo_url, subscription_status, created_at FROM trainers ORDER BY id ASC")
+        cursor.execute("SELECT id, name, nickname, email, password, theme_color, logo_url, subscription_status, created_at FROM trainers ORDER BY id ASC")
         rows = cursor.fetchall()
         trainers = [dict(row) for row in rows]
         conn.close()
