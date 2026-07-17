@@ -23,11 +23,12 @@
             const response = await originalFetch(`/api/trainer/config?trainer=${trainerId}`);
             const config = await response.json();
             if (config.success) {
-                if (config.theme_color) {
-                    document.documentElement.style.setProperty('--accent-gold', config.theme_color);
-                    document.documentElement.style.setProperty('--accent-cyan', config.theme_color);
-                    document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
-                }
+                // Respect the testbed obsidian-blue theme styling
+                // if (config.theme_color) {
+                //     document.documentElement.style.setProperty('--accent-gold', config.theme_color);
+                //     document.documentElement.style.setProperty('--accent-cyan', config.theme_color);
+                //     document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
+                // }
                 const logoSpan = document.querySelector('.logo span');
                 // The logo will be updated in displayClientHeader with the client's name
             }
