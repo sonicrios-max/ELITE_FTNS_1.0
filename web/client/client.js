@@ -202,10 +202,13 @@ async function loadClientData() {
 
 function displayClientHeader() {
     const user = clientFullData.profile;
-    document.getElementById("clientNameHeader").innerText = `${user.first_name} ${user.last_name}`;
-    const logoSpan = document.querySelector('.logo span');
-    if (logoSpan) {
-        logoSpan.innerText = `ELITE COACHING | ${user.first_name.toUpperCase()}`;
+    const badge = document.getElementById("clientNameHeader");
+    if (badge) {
+        badge.innerHTML = `<i class="fa-solid fa-user"></i> ${user.first_name.toUpperCase()} ${user.last_name.toUpperCase()}`;
+    }
+    const logoText = document.getElementById("logoText");
+    if (logoText) {
+        logoText.innerText = "ELITE COACHING";
     }
 }
 

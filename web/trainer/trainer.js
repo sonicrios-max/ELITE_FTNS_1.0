@@ -23,14 +23,19 @@
             const response = await originalFetch(`/api/trainer/config?trainer=${trainerId}`);
             const config = await response.json();
             if (config.success) {
-                if (config.theme_color) {
-                    document.documentElement.style.setProperty('--accent-gold', config.theme_color);
-                    document.documentElement.style.setProperty('--accent-cyan', config.theme_color);
-                    document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
+                // Dynamic accent color disabled — blue design system uses fixed cyan palette
+                // if (config.theme_color) {
+                //     document.documentElement.style.setProperty('--accent-gold', config.theme_color);
+                //     document.documentElement.style.setProperty('--accent-cyan', config.theme_color);
+                //     document.documentElement.style.setProperty('--accent-gold-glow', `${config.theme_color}40`);
+                // }
+                const logoText = document.getElementById('logoText');
+                if (logoText) {
+                    logoText.innerText = 'ELITE COACHING';
                 }
-                const logoSpan = document.querySelector('.logo span');
-                if (logoSpan) {
-                    logoSpan.innerText = `ELITE COACHING | ${config.name.toUpperCase()}`;
+                const nameBadge = document.getElementById('trainerNameBadge');
+                if (nameBadge) {
+                    nameBadge.innerHTML = `<i class="fa-solid fa-user-shield"></i> ${config.name.toUpperCase()}`;
                 }
             }
         } catch (e) {

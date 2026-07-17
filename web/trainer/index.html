@@ -41,7 +41,7 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Portal del Entrenador - Elite Coaching</title>
-    <link rel="stylesheet" href="/shared/style.css?v=2.0.12">
+    <link rel="stylesheet" href="/shared/style.css?v=2.0.13">
 
     <!-- Chart.js for beautiful interactive analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -50,16 +50,16 @@
     
     <!-- PWA Setup -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#d4af37">
+    <meta name="theme-color" content="#080916">
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
 </head>
 <body>
     <script>
         if (sessionStorage.getItem('trainerAuth') !== 'true') {
             document.body.innerHTML = `
-                <div style="background:#121212; color:#ffffff; font-family:'Inter', sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding: 20px;">
-                    <i class="fa-solid fa-lock" style="font-size: 50px; color:#f3ca4c; margin-bottom: 20px; text-shadow: 0 0 15px rgba(243,202,76,0.3);"></i>
-                    <h1 style="color:#f3ca4c; font-family:'Anton', sans-serif; font-size:32px; margin-bottom:10px; text-transform:uppercase;">ACCESO DENEGADO</h1>
+                <div style="background:#080916; color:#ffffff; font-family:'Poppins', sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding: 20px;">
+                    <i class="fa-solid fa-lock" style="font-size: 50px; color:#38bdf8; margin-bottom: 20px; text-shadow: 0 0 15px rgba(56,189,248,0.3);"></i>
+                    <h1 style="color:#38bdf8; font-family:'Poppins', sans-serif; font-size:32px; margin-bottom:10px; text-transform:uppercase; font-weight:800;">ACCESO DENEGADO</h1>
                     <p style="color:#bbbbbb; font-size: 16px;">No tienes permiso para acceder al Portal del Entrenador.</p>
                     <p style="color:#777777; font-size: 13px; margin-top:10px;">Serás redirigido al panel maestro de inicio...</p>
                 </div>`;
@@ -69,16 +69,16 @@
     </script>
 
     <header>
-        <div class="logo" style="display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-dumbbell logo-icon"></i>
-            <span>ELITE COACHING</span>
-            <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" style="color: #ef4444; margin-left: 10px; cursor: pointer; text-decoration: none; font-size: inherit; font-family: inherit; font-weight: inherit;" title="Salir">
-                <i class="fa-solid fa-right-from-bracket"></i> SALIR
-            </a>
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fa-solid fa-dumbbell logo-icon"></i>
+                <span id="logoText">ELITE COACHING</span>
+            </div>
+            <span id="trainerNameBadge" class="trainer-badge">ADMIN</span>
         </div>
         <div class="nav-links">
             <a href="#" onclick="showGlobalView('clients')" class="btn-nav active" id="navClients"><i class="fa-solid fa-users"></i> Mis Asesorados</a>
-            <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment" style="border-left: 1px solid rgba(255,255,255,0.15); padding-left: 15px;"><i class="fa-solid fa-ruler-combined"></i> Campos de Valoración</a>
+            <a href="#" onclick="showGlobalView('assessment')" class="btn-nav" id="navAssessment"><i class="fa-solid fa-ruler-combined"></i> Campos de Valoración</a>
             <a href="#" onclick="showGlobalView('training')" class="btn-nav" id="navTraining"><i class="fa-solid fa-dumbbell"></i> Biblioteca de Rutinas</a>
             <a href="#" onclick="showGlobalView('nutrition')" class="btn-nav" id="navNutrition"><i class="fa-solid fa-apple-whole"></i> Biblioteca de Alimentos</a>
             <a href="#" onclick="showGlobalView('settings')" class="btn-nav" id="navSettings"><i class="fa-solid fa-gear"></i> Ajustes</a>
@@ -102,6 +102,10 @@
             </div>
             
             <button class="btn-primary" onclick="openAddClientModal()"><i class="fa-solid fa-user-plus"></i> Nuevo Cliente</button>
+
+            <a href="/" onclick="sessionStorage.removeItem('trainerAuth')" class="btn-salir" title="Cerrar Sesión">
+                <i class="fa-solid fa-right-from-bracket"></i> SALIR
+            </a>
         </div>
     </header>
 

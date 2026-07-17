@@ -1,41 +1,40 @@
 /* Modern Fitness Coaching Platform - Premium Design System (Vanilla CSS) */
 
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-    --bg-primary: #121212;
-    --bg-secondary: #1a1a1a;
-    --color-bg-card: rgba(26, 26, 26, 0.96);
-    --glass-bg: rgba(26, 26, 26, 0.75);
-    --glass-border: rgba(243, 202, 76, 0.15);
-    --glass-highlight: rgba(243, 202, 76, 0.03);
+    --bg-primary: #080916;
+    --bg-secondary: #0f1124;
+    --color-bg-card: rgba(15, 17, 36, 0.94);
+    --glass-bg: rgba(15, 17, 36, 0.75);
+    --glass-border: rgba(56, 189, 248, 0.12);
+    --glass-highlight: rgba(56, 189, 248, 0.02);
     
     --color-text-primary: #ffffff;
-    --color-text-secondary: #bbbbbb;
-    --color-text-muted: #777777;
+    --color-text-secondary: #a3aed0;
+    --color-text-muted: #5e6680;
     
-    --accent-gold: #f3ca4c;
-    --accent-gold-glow: rgba(243, 202, 76, 0.25);
-    --accent-gold-dark: #d4a92c;
-    --accent-green: #25d366;
-    --accent-green-glow: rgba(37, 211, 102, 0.25);
-    --accent-orange: #e09b12;
-    --accent-orange-glow: rgba(224, 155, 18, 0.25);
+    --accent-gold: #38bdf8;
+    --accent-gold-glow: rgba(56, 189, 248, 0.25);
+    --accent-gold-dark: #0284c7;
+    --accent-green: #10b981;
+    --accent-green-glow: rgba(16, 185, 129, 0.25);
+    --accent-orange: #f59e0b;
+    --accent-orange-glow: rgba(245, 158, 11, 0.25);
     --accent-red: #ef4444;
     
     /* Mapping old variables for backward-compatibility with other HTML/JS components */
-    --accent-cyan: #f3ca4c;
-    --accent-cyan-glow: rgba(243, 202, 76, 0.25);
-    --accent-purple: #ffffff;
-    --accent-purple-glow: rgba(255, 255, 255, 0.15);
-    
-    --font-sans: 'Inter', 'Plus Jakarta Sans', sans-serif;
-    --font-display: 'Anton', 'Plus Jakarta Sans', sans-serif;
+    --accent-cyan: #38bdf8;
+    --accent-cyan-glow: rgba(56, 189, 248, 0.25);
+    --accent-purple: #8b5cf6;
+    --accent-purple-glow: rgba(139, 92, 246, 0.2);
+    --font-sans: 'Poppins', sans-serif;
+    --font-display: 'Poppins', sans-serif;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
-    --shadow-neon-cyan: 0 0 15px rgba(243, 202, 76, 0.35);
-    --shadow-neon-purple: 0 0 15px rgba(255, 255, 255, 0.2);
-    --shadow-neon-gold: 0 0 15px rgba(243, 202, 76, 0.35);
+    --shadow-neon-cyan: 0 0 15px rgba(56, 189, 248, 0.35);
+    --shadow-neon-purple: 0 0 15px rgba(139, 92, 246, 0.2);
+    --shadow-neon-gold: 0 0 15px rgba(56, 189, 248, 0.35);
 }
 
 * {
@@ -47,8 +46,8 @@
 body {
     background-color: var(--bg-primary);
     background-image: 
-        radial-gradient(at 10% 20%, rgba(243, 202, 76, 0.05) 0px, transparent 50%),
-        radial-gradient(at 90% 80%, rgba(0, 0, 0, 0.3) 0px, transparent 50%);
+        radial-gradient(at 10% 20%, rgba(56, 189, 248, 0.04) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(139, 92, 246, 0.04) 0px, transparent 50%);
     color: var(--color-text-primary);
     font-family: var(--font-sans);
     font-size: 13.5px;
@@ -59,9 +58,8 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
-    font-weight: 400; /* Anton only supports 400 */
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
 }
 
 /* Scrollbar */
@@ -1899,4 +1897,353 @@ body:has(.admin-modal[style*='display: block']) {
     position: absolute;
     left: 2px;
 }
+
+/* ==========================================================================
+   FLATTEN UX: REMOVE CARD-WITHIN-CARD NESTED BORDERS AND BACKGROUNDS
+   ========================================================================== */
+
+/* Remove nested glass cards inside parent panels or tabs */
+.glass-card .glass-card,
+.tab-panel .glass-card:not(.chart-card):not(.calendar-dashboard) {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+}
+
+/* Flatten charts and calendars inside tabsCard */
+.glass-card .chart-card,
+.glass-card .calendar-dashboard {
+    background: rgba(255, 255, 255, 0.01) !important;
+    border: 1px solid rgba(255, 255, 255, 0.04) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-radius: 12px !important;
+}
+
+/* Flatten workout blocks listed in the routine builder */
+.glass-card .workout-day-card {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 0 !important;
+    padding: 12px 0 !important;
+    margin-bottom: 0 !important;
+}
+.glass-card .workout-day-card:last-child {
+    border-bottom: none !important;
+}
+.glass-card .workout-day-card h4 {
+    border-left: 3px solid var(--accent-cyan) !important;
+    padding-left: 8px !important;
+    margin-bottom: 6px !important;
+}
+
+/* Redesign recipes in the client portal diet list (flat list items with solid left line) */
+.client-recipe-card {
+    background: transparent !important;
+    border: none !important;
+    border-left: 3px solid var(--accent-purple) !important;
+    border-radius: 0 !important;
+    padding: 4px 0 4px 12px !important;
+    margin-bottom: 15px !important;
+}
+.client-recipe-card-header {
+    border-bottom: none !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 4px !important;
+}
+
+/* Redesign recipes in the trainer diet planner */
+.recipe-group-container {
+    background: transparent !important;
+    border: none !important;
+    border-left: 3px solid var(--accent-purple) !important;
+    border-radius: 0 !important;
+    padding: 4px 0 4px 12px !important;
+    margin-bottom: 15px !important;
+    transition: all 0.25s ease;
+}
+.recipe-group-container:hover {
+    border-left-color: var(--accent-cyan) !important;
+}
+.recipe-group-header {
+    border-bottom: none !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 4px !important;
+}
+
+/* ==========================================================================
+   DNI CARD UX COMPONENT
+   ========================================================================== */
+
+.dni-card {
+    max-width: 1100px;
+    margin: 0 auto 20px auto;
+}
+
+.dni-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 28px;
+    margin-bottom: 5px;
+}
+
+.dni-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1.1;
+}
+
+.dni-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(139, 92, 246, 0.1));
+    border: 1.5px solid rgba(56, 189, 248, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-cyan);
+    font-size: 36px;
+    flex-shrink: 0;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.08);
+}
+
+.dni-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+}
+
+.dni-label-small {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--accent-cyan);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.dni-name {
+    font-family: var(--font-sans);
+    font-size: 25px;
+    font-weight: 800;
+    color: white;
+    margin: 0;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+}
+
+.dni-divider {
+    width: 1px;
+    align-self: stretch;
+    background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.06) 20%, rgba(255,255,255,0.06) 80%, transparent);
+}
+
+.dni-right {
+    flex: 2.2;
+}
+
+.dni-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px 16px;
+}
+
+.dni-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dni-field-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dni-field-value {
+    font-size: 13px;
+    color: white;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dni-kpis {
+    display: flex;
+    justify-content: flex-start;
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.dni-kpi-item {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.015);
+    padding: 6px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    min-width: 120px;
+    transition: all 0.2s ease;
+}
+
+.dni-kpi-item:hover {
+    background: rgba(56, 189, 248, 0.03);
+    border-color: rgba(56, 189, 248, 0.15);
+}
+
+.dni-kpi-label {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.dni-kpi-value {
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.dni-kpi-value.cyan { color: var(--accent-cyan); }
+.dni-kpi-value.purple { color: var(--accent-purple); }
+.dni-kpi-value.green { color: var(--accent-green); }
+
+/* Responsive details for DNI card */
+@media (max-width: 1024px) {
+    .dni-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    .dni-divider {
+        width: 100%;
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent);
+    }
+    .dni-right {
+        width: 100%;
+    }
+    .dni-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ==========================================================================
+   HEADER NAVIGATION IMPROVEMENTS
+   ========================================================================== */
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 32px !important;
+    background: rgba(8, 9, 22, 0.94) !important;
+    backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.08) !important;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 19px !important;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, var(--accent-cyan), #ffffff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.logo-icon {
+    font-size: 19px !important;
+    color: var(--accent-cyan) !important;
+    text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.trainer-badge {
+    background: rgba(56, 189, 248, 0.08) !important;
+    border: 1px solid rgba(56, 189, 248, 0.18) !important;
+    color: var(--accent-cyan) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    padding: 4px 10px !important;
+    border-radius: 20px !important;
+    letter-spacing: 0.5px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    text-transform: uppercase !important;
+    font-family: var(--font-sans) !important;
+}
+
+.nav-links {
+    display: flex;
+    gap: 12px !important;
+}
+
+.btn-nav {
+    font-size: 13.5px !important;
+    padding: 8px 14px !important;
+    font-weight: 500 !important;
+    border-radius: 6px !important;
+    color: var(--color-text-secondary) !important;
+    transition: all 0.2s ease !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+}
+
+.btn-nav:hover {
+    color: white !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.btn-nav.active {
+    color: var(--accent-cyan) !important;
+    background: rgba(56, 189, 248, 0.08) !important;
+    border: 1px solid rgba(56, 189, 248, 0.15) !important;
+    font-weight: 600 !important;
+}
+
+.btn-salir {
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.06) !important;
+    border: 1px solid rgba(239, 68, 68, 0.12) !important;
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    transition: all 0.2s ease !important;
+    font-family: var(--font-sans) !important;
+}
+
+.btn-salir:hover {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border-color: rgba(239, 68, 68, 0.25) !important;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.1) !important;
+}
+
 
