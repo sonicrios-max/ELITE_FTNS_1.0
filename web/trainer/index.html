@@ -147,37 +147,78 @@
                     <p style="color: var(--color-text-secondary); max-width: 320px; font-size: 13px; line-height: 1.5; margin: 0;">Selecciona un cliente de la lista de la izquierda para ver su ficha antropométrica, rutinas, planes de nutrición y trazabilidad diaria.</p>
                 </div>
 
-                <!-- Profile Header Details & Mini KPIs -->
-                <div class="glass-card" id="profileHeaderCard" style="display: none; padding: 15px; text-align: center;">
+                <!-- Profile Header Details & Mini KPIs (DNI Format) -->
+                <div class="glass-card dni-card" id="profileHeaderCard" style="display: none; padding: 20px; text-align: left; position: relative;">
                     <button class="mobile-back-btn" onclick="closeMobileSlidePanel()"><i class="fa-solid fa-arrow-left"></i></button>
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
-                        <h2 id="clientFullName" style="font-size: 20px; margin: 0; line-height: 1.2;">Nombre del Cliente</h2>
-                        <div class="compliance-badge" id="clientStatusBadge" style="font-size: 10px; padding: 2px 8px;">ACTIVO</div>
-                        <p id="clientEmailPhone" style="font-size: 11px; color: var(--color-text-secondary); margin: 0;">email@example.com | +300 000 0000</p>
-                    </div>
                     
-                    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 15px; font-size: 11px;">
-                        <div><strong style="color:var(--color-text-muted);">Edad:</strong> <span id="clientAge">-</span></div>
-                        <div><strong style="color:var(--color-text-muted);">Estatura:</strong> <span id="clientHeight">-</span></div>
-                        <div><strong style="color:var(--color-text-muted);">Sangre:</strong> <span id="clientBlood">-</span></div>
-                        <div><strong style="color:var(--color-text-muted);">Alergias:</strong> <span id="clientAllergies">-</span></div>
-                        <div><strong style="color:var(--color-text-muted);">Meds:</strong> <span id="clientMedications">-</span></div>
-                        <div><strong style="color:var(--color-text-muted);">Disp:</strong> <span id="clientSchedule">-</span></div>
+                    <div class="dni-container">
+                        <!-- DNI Left Side: Avatar and Name -->
+                        <div class="dni-left">
+                            <div class="dni-avatar">
+                                <i class="fa-solid fa-user-circle"></i>
+                            </div>
+                            <div class="dni-identity">
+                                <span class="dni-label-small">ASESORADO OFICIAL</span>
+                                <h2 id="clientFullName" class="dni-name">Nombre del Cliente</h2>
+                                <div class="compliance-badge" id="clientStatusBadge" style="font-size: 10px; padding: 2px 8px; margin-top: 4px; display: inline-block;">ACTIVO</div>
+                            </div>
+                        </div>
+                        
+                        <!-- DNI Vertical Divider -->
+                        <div class="dni-divider"></div>
+                        
+                        <!-- DNI Right Side: Grid of Metadata -->
+                        <div class="dni-right">
+                            <div class="dni-grid">
+                                <div class="dni-field">
+                                    <span class="dni-field-label">Email:</span>
+                                    <span id="clientEmail" class="dni-field-value">-</span>
+                                </div>
+                                <div class="dni-field">
+                                    <span class="dni-field-label">Teléfono:</span>
+                                    <span id="clientPhone" class="dni-field-value">-</span>
+                                </div>
+                                <div class="dni-field">
+                                    <span class="dni-field-label">Edad:</span>
+                                    <span id="clientAge" class="dni-field-value">-</span>
+                                </div>
+                                <div class="dni-field">
+                                    <span class="dni-field-label">Estatura:</span>
+                                    <span id="clientHeight" class="dni-field-value">-</span>
+                                </div>
+                                <div class="dni-field">
+                                    <span class="dni-field-label">Grupo Sanguíneo:</span>
+                                    <span id="clientBlood" class="dni-field-value">-</span>
+                                </div>
+                                <div class="dni-field">
+                                    <span class="dni-field-label">Alergias:</span>
+                                    <span id="clientAllergies" class="dni-field-value">-</span>
+                                </div>
+                                <div class="dni-field">
+                                    <span class="dni-field-label">Medicamentos:</span>
+                                    <span id="clientMedications" class="dni-field-value">-</span>
+                                </div>
+                                <div class="dni-field">
+                                    <span class="dni-field-label">Disponibilidad:</span>
+                                    <span id="clientSchedule" class="dni-field-value">-</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Mini KPIs inline -->
-                    <div id="kpiContainer" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
-                        <div style="display:flex; flex-direction:column; background:rgba(0,0,0,0.2); padding:5px 10px; border-radius:6px; border:1px solid rgba(243,202,76,0.1);">
-                            <span style="font-size:9px; text-transform:uppercase; color:var(--color-text-muted);">Masa Libre Grasa</span>
-                            <span id="kpiFFMI" style="font-size:14px; font-weight:bold; color:var(--accent-cyan);">0.0</span>
+                    <!-- Mini KPIs inline at the bottom -->
+                    <div id="kpiContainer" class="dni-kpis">
+                        <div class="dni-kpi-item">
+                            <span class="dni-kpi-label">Masa Libre Grasa</span>
+                            <span id="kpiFFMI" class="dni-kpi-value cyan">0.0</span>
                         </div>
-                        <div style="display:flex; flex-direction:column; background:rgba(0,0,0,0.2); padding:5px 10px; border-radius:6px; border:1px solid rgba(243,202,76,0.1);">
-                            <span style="font-size:9px; text-transform:uppercase; color:var(--color-text-muted);">Grasa Corporal</span>
-                            <span id="kpiFatPct" style="font-size:14px; font-weight:bold; color:var(--accent-purple);">0.0%</span>
+                        <div class="dni-kpi-item">
+                            <span class="dni-kpi-label">Grasa Corporal</span>
+                            <span id="kpiFatPct" class="dni-kpi-value purple">0.0%</span>
                         </div>
-                        <div style="display:flex; flex-direction:column; background:rgba(0,0,0,0.2); padding:5px 10px; border-radius:6px; border:1px solid rgba(243,202,76,0.1);">
-                            <span style="font-size:9px; text-transform:uppercase; color:var(--color-text-muted);">Cintura/Altura</span>
-                            <span id="kpiWtHR" style="font-size:14px; font-weight:bold; color:var(--accent-green);">0.00</span>
+                        <div class="dni-kpi-item">
+                            <span class="dni-kpi-label">Cintura/Altura</span>
+                            <span id="kpiWtHR" class="dni-kpi-value green">0.00</span>
                         </div>
                     </div>
                 </div>
