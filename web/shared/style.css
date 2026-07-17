@@ -2148,9 +2148,11 @@ body:has(.admin-modal[style*='display: block']) {
     }
     .dni-name {
         font-size: clamp(16px, 5.2vw, 22px);
-        word-break: break-word;
-        overflow-wrap: break-word;
         max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
     }
     .dni-divider {
         width: 100%;
@@ -2159,6 +2161,7 @@ body:has(.admin-modal[style*='display: block']) {
     }
     .dni-right {
         width: 100%;
+        overflow: hidden;
     }
     .dni-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -2166,20 +2169,31 @@ body:has(.admin-modal[style*='display: block']) {
     }
     .dni-field-value {
         font-size: clamp(11px, 3.2vw, 13px);
-        word-break: break-word;
-        overflow-wrap: break-word;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        max-width: 100%;
     }
     .dni-kpis {
         gap: 8px !important;
         justify-content: space-between !important;
+        width: 100%;
     }
     .dni-kpi-item {
-        padding: 8px 6px !important;
+        padding: 8px 4px !important;
         max-width: none !important;
+        min-width: unset !important; /* Override desktop min-width to prevent overflow */
+        flex: 1;
+        overflow: hidden;
     }
     .dni-kpi-label {
         font-size: 8.5px !important;
         text-align: center;
+        white-space: normal !important; /* Allow label text to wrap to 2 lines */
+        line-height: 1.2 !important;
+        display: block;
+        width: 100%;
     }
     .dni-kpi-value {
         font-size: 14px !important;
