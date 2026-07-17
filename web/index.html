@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elite Coaching - Portal Maestro</title>
-    <link rel="stylesheet" href="/shared/style.css?v=2.0.10">
+    <link rel="stylesheet" href="/shared/style.css?v=2.0.13">
     <!-- FontAwesome for premium fitness icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- PWA Setup -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#d4af37">
+    <meta name="theme-color" content="#080916">
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
     <style>
         /* Specific adjustments for Master Page */
@@ -33,7 +33,8 @@
             font-size: 20px;
             margin-bottom: 15px;
             color: var(--color-text-primary);
-            font-family: 'Anton', sans-serif;
+            font-family: var(--font-sans);
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             display: flex;
@@ -117,7 +118,7 @@
 
     <div class="container" style="max-width: 1000px; margin: 0 auto; padding-bottom: 50px;">
         <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="font-size: 36px; margin-bottom: 10px; background: linear-gradient(to right, var(--accent-gold), #ffffff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-family: 'Anton', sans-serif;">PANEL MAESTRO DE ACCESO</h1>
+            <h1 style="font-size: 36px; margin-bottom: 10px; background: linear-gradient(to right, var(--accent-gold), #ffffff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-family: var(--font-sans); font-weight: 800;">PANEL MAESTRO DE ACCESO</h1>
             <p style="color: var(--color-text-secondary); max-width: 650px; margin: 0 auto; font-size: 13.5px;">Inicia sesión directamente usando las tarjetas de acceso o consulta la actividad de la plataforma en las tablas de abajo.</p>
         </div>
 
@@ -169,7 +170,7 @@
             
             <!-- List of Trainers -->
             <div class="glass-card" style="padding: 25px;">
-                <h2 style="font-size: 18px; color: var(--accent-gold); margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; font-family: 'Anton', sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">
+                <h2 style="font-size: 18px; color: var(--accent-gold); margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; font-family: var(--font-sans); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
                     <i class="fa-solid fa-chalkboard-user"></i> Entrenadores Disponibles en el Sistema
                 </h2>
                 <div id="trainersContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
@@ -181,7 +182,7 @@
 
             <!-- Grouped List of Clients -->
             <div class="glass-card" style="padding: 25px;">
-                <h2 style="font-size: 18px; color: var(--accent-cyan); margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; font-family: 'Anton', sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">
+                <h2 style="font-size: 18px; color: var(--accent-cyan); margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; font-family: var(--font-sans); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
                     <i class="fa-solid fa-users"></i> Clientes Registrados
                 </h2>
                 <div id="clientsGroupedContainer" style="display: flex; flex-direction: column; gap: 25px;">
