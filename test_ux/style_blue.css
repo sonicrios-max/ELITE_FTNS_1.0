@@ -1,6 +1,6 @@
 /* Modern Fitness Coaching Platform - Premium Design System (Vanilla CSS) */
 
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
     --bg-primary: #080916;
@@ -30,7 +30,7 @@
     --accent-purple-glow: rgba(139, 92, 246, 0.2);
     
     --font-sans: 'Inter', 'Plus Jakarta Sans', sans-serif;
-    --font-display: 'Plus Jakarta Sans', sans-serif;
+    --font-display: 'Poppins', sans-serif;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
     --shadow-neon-cyan: 0 0 15px rgba(56, 189, 248, 0.35);
