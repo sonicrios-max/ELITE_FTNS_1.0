@@ -237,7 +237,15 @@ async function selectClient(userId, overrideSubTab = null) {
 function displayUserProfile() {
     const user = selectedUserFullData.profile;
     document.getElementById("clientFullName").innerText = `${user.first_name} ${user.last_name}`;
-    document.getElementById("clientEmailPhone").innerText = `${user.email} | Tel: ${user.phone || 'N/A'}`;
+    if (document.getElementById("clientEmail")) {
+        document.getElementById("clientEmail").innerText = user.email;
+    }
+    if (document.getElementById("clientPhone")) {
+        document.getElementById("clientPhone").innerText = user.phone || 'N/A';
+    }
+    if (document.getElementById("clientEmailPhone")) {
+        document.getElementById("clientEmailPhone").innerText = `${user.email} | Tel: ${user.phone || 'N/A'}`;
+    }
     
     // Compute age
     let age = "N/A";

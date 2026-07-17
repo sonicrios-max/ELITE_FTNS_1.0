@@ -1978,4 +1978,172 @@ body:has(.admin-modal[style*='display: block']) {
     margin-bottom: 4px !important;
 }
 
+/* ==========================================================================
+   DNI CARD UX COMPONENT
+   ========================================================================== */
+
+.dni-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 5px;
+}
+
+.dni-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1.2;
+}
+
+.dni-avatar {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(139, 92, 246, 0.1));
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-cyan);
+    font-size: 32px;
+    flex-shrink: 0;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.05);
+}
+
+.dni-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.dni-label-small {
+    font-size: 8px;
+    font-weight: 800;
+    color: var(--accent-cyan);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.dni-name {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+    margin: 0;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+}
+
+.dni-divider {
+    width: 1px;
+    align-self: stretch;
+    background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.06) 20%, rgba(255,255,255,0.06) 80%, transparent);
+}
+
+.dni-right {
+    flex: 2;
+}
+
+.dni-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px 12px;
+}
+
+.dni-field {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.dni-field.full-width {
+    grid-column: span 3;
+}
+
+.dni-field-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dni-field-value {
+    font-size: 11.5px;
+    color: white;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dni-kpis {
+    display: flex;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.dni-kpi-item {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.01);
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    min-width: 105px;
+    transition: all 0.2s ease;
+}
+
+.dni-kpi-item:hover {
+    background: rgba(56, 189, 248, 0.02);
+    border-color: rgba(56, 189, 248, 0.1);
+}
+
+.dni-kpi-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 1px;
+}
+
+.dni-kpi-value {
+    font-size: 13.5px;
+    font-weight: 800;
+}
+
+.dni-kpi-value.cyan { color: var(--accent-cyan); }
+.dni-kpi-value.purple { color: var(--accent-purple); }
+.dni-kpi-value.green { color: var(--accent-green); }
+
+/* Responsive details for DNI card */
+@media (max-width: 1024px) {
+    .dni-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    .dni-divider {
+        width: 100%;
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent);
+    }
+    .dni-right {
+        width: 100%;
+    }
+    .dni-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .dni-field.full-width {
+        grid-column: span 2;
+    }
+}
+
 
