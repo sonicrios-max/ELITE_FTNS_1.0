@@ -452,6 +452,18 @@ def check_and_migrate_db(db_path):
             cursor.execute("ALTER TABLE meal_items ADD COLUMN recipe_name TEXT")
             conn.commit()
             
+        # Create database indexes on foreign keys to optimize query performance (Big O)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_assessments_user_id ON anthropometric_assessments(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_logs_user_id ON daily_logs(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_workout_plans_user_id ON workout_plans(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_workout_days_plan_id ON workout_days(plan_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_workout_day_blocks_day_id ON workout_day_blocks(workout_day_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_workout_exercises_block_id ON workout_exercises(workout_block_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_nutrition_plans_user_id ON nutrition_plans(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meals_plan_id ON meals(nutrition_plan_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meal_items_meal_id ON meal_items(meal_id)")
+        conn.commit()
+            
     except Exception as e:
         print("Error during migration:", e)
     finally:
@@ -746,7 +758,11 @@ class FitnessHTTPRequestHandler(object):
         cursor = conn.cursor()
         
         # 1. Fetch User Profile
-        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        cursor.execute("""
+            SELECT id, first_name, last_name, email, phone, birthdate, height_cm, 
+                   blood_type, allergies, medications, availability_schedule, nickname, created_at 
+            FROM users WHERE id = ?
+        """, (user_id,))
         user_row = cursor.fetchone()
         if not user_row:
             self.send_error_response(404, f"Client {user_id} not found.")
@@ -1527,7 +1543,7 @@ class FitnessHTTPRequestHandler(object):
 
     def check_admin_auth(self):
         passcode = self.headers.get("X-Admin-Passcode")
-        return passcode == "dev123"
+        return passcode == os.environ.get("ADMIN_PASSCODE", "dev123")
 
     def handle_admin_reset_password(self, data):
         target_type = data.get('target_type')
@@ -1577,7 +1593,7 @@ class FitnessHTTPRequestHandler(object):
         conn = sqlite3.connect(MASTER_DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, nickname, email, password, theme_color, logo_url, subscription_status, created_at FROM trainers ORDER BY id ASC")
+        cursor.execute("SELECT id, name, nickname, email, theme_color, logo_url, subscription_status, created_at FROM trainers ORDER BY id ASC")
         rows = cursor.fetchall()
         trainers = [dict(row) for row in rows]
         conn.close()
@@ -2915,7 +2931,7 @@ async def api_download_backup(passcode: str = None):
     import zipfile
     from fastapi import BackgroundTasks
     
-    if passcode != "dev123":
+    if passcode != os.environ.get("ADMIN_PASSCODE", "dev123"):
         return JSONResponse(status_code=401, content={"success": False, "error": "No autorizado."})
     
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
@@ -2958,7 +2974,7 @@ async def api_restore_backup(request: Request, passcode: str = None):
     import tempfile
     import shutil
     
-    if passcode != "dev123":
+    if passcode != os.environ.get("ADMIN_PASSCODE", "dev123"):
         return JSONResponse(status_code=401, content={"success": False, "error": "No autorizado."})
         
     try:
