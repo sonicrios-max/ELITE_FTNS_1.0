@@ -3313,6 +3313,16 @@ async def api_get_chat_unread_counts(request: Request):
 @app.api_route("/", methods=["GET", "HEAD"])
 @app.api_route("/index.html", methods=["GET", "HEAD"])
 async def read_root():
+    if PORT in TEST_PORTS:
+        file_path = os.path.join(BASE_DIR, "web", "index.html")
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            # Replace inline 'Anton' font declarations with var(--font-display) for test ports
+            content = content.replace("font-family: 'Anton', sans-serif", "font-family: var(--font-display)")
+            content = content.replace("font-family: 'Anton'", "font-family: var(--font-display)")
+            content = content.replace("font-family:'Anton'", "font-family: var(--font-display)")
+            return Response(content, media_type="text/html")
     return FileResponse(os.path.join(BASE_DIR, "web", "index.html"), media_type="text/html")
 
 @app.api_route("/admin", methods=["GET", "HEAD"])
