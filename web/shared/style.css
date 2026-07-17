@@ -2138,6 +2138,8 @@ body:has(.admin-modal[style*='display: block']) {
     }
     .dni-left {
         gap: 12px;
+        width: 100%;
+        overflow: hidden;
     }
     .dni-avatar {
         width: 60px;
@@ -2145,7 +2147,10 @@ body:has(.admin-modal[style*='display: block']) {
         font-size: 28px;
     }
     .dni-name {
-        font-size: 20px;
+        font-size: clamp(16px, 5.2vw, 22px);
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
     }
     .dni-divider {
         width: 100%;
@@ -2158,6 +2163,33 @@ body:has(.admin-modal[style*='display: block']) {
     .dni-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 10px 12px;
+    }
+    .dni-field-value {
+        font-size: clamp(11px, 3.2vw, 13px);
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+    .dni-kpis {
+        gap: 8px !important;
+        justify-content: space-between !important;
+    }
+    .dni-kpi-item {
+        padding: 8px 6px !important;
+        max-width: none !important;
+    }
+    .dni-kpi-label {
+        font-size: 8.5px !important;
+        text-align: center;
+    }
+    .dni-kpi-value {
+        font-size: 14px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .dni-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px 0 !important;
     }
 }
 
