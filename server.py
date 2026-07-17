@@ -3362,29 +3362,7 @@ async def read_test_client():
 
 @app.get("/test_ux/style_blue.css")
 async def get_test_style():
-    file_path = os.path.join(BASE_DIR, "test_ux", "style_blue.css")
-    if not os.path.exists(file_path):
-        return Response(status_code=404)
-        
-    with open(file_path, "r", encoding="utf-8") as f:
-        content = f.read()
-        
-    # Replace display font dynamically based on PORT
-    if PORT == 8081:
-        font_family = "'Plus Jakarta Sans', sans-serif"
-    elif PORT == 8082:
-        font_family = "'Poppins', sans-serif"
-    elif PORT == 8083:
-        font_family = "'Outfit', sans-serif"
-    elif PORT == 8084:
-        font_family = "'Montserrat', sans-serif"
-    elif PORT == 8085:
-        font_family = "'Inter', sans-serif"
-    else:
-        font_family = "'Outfit', sans-serif"
-        
-    content = content.replace("--font-display: 'Outfit', sans-serif;", f"--font-display: {font_family};")
-    return Response(content, media_type="text/css")
+    return FileResponse(os.path.join(BASE_DIR, "test_ux", "style_blue.css"), media_type="text/css")
 
 @app.get("/shared/style.css")
 async def get_themed_style():

@@ -28,9 +28,8 @@
     --accent-cyan-glow: rgba(56, 189, 248, 0.25);
     --accent-purple: #8b5cf6;
     --accent-purple-glow: rgba(139, 92, 246, 0.2);
-    
-    --font-sans: 'Inter', 'Plus Jakarta Sans', sans-serif;
-    --font-display: 'Outfit', sans-serif;
+    --font-sans: 'Poppins', sans-serif;
+    --font-display: 'Poppins', sans-serif;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
     --shadow-neon-cyan: 0 0 15px rgba(56, 189, 248, 0.35);

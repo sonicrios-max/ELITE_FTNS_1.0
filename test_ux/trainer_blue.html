@@ -57,7 +57,7 @@
     <script>
         if (sessionStorage.getItem('trainerAuth') !== 'true') {
             document.body.innerHTML = `
-                <div style="background:#121212; color:#ffffff; font-family:'Inter', sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding: 20px;">
+                <div style="background:#121212; color:#ffffff; font-family: var(--font-sans), sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding: 20px;">
                     <i class="fa-solid fa-lock" style="font-size: 50px; color:#f3ca4c; margin-bottom: 20px; text-shadow: 0 0 15px rgba(243,202,76,0.3);"></i>
                     <h1 style="color:#f3ca4c; font-family: var(--font-display), sans-serif; font-size:32px; margin-bottom:10px; text-transform:uppercase;">ACCESO DENEGADO</h1>
                     <p style="color:#bbbbbb; font-size: 16px;">No tienes permiso para acceder al Portal del Entrenador.</p>
