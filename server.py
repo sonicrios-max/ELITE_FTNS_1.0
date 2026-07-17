@@ -3330,6 +3330,18 @@ async def read_trainer():
 async def read_client():
     return FileResponse(os.path.join(BASE_DIR, "web", "client", "client.html"), media_type="text/html")
 
+# --- Test UX HTML Views ---
+
+@app.api_route("/test_ux/trainer", methods=["GET", "HEAD"])
+@app.api_route("/test_ux/trainer/", methods=["GET", "HEAD"])
+async def read_test_trainer():
+    return FileResponse(os.path.join(BASE_DIR, "test_ux", "trainer_blue.html"), media_type="text/html")
+
+@app.api_route("/test_ux/client", methods=["GET", "HEAD"])
+@app.api_route("/test_ux/client/", methods=["GET", "HEAD"])
+async def read_test_client():
+    return FileResponse(os.path.join(BASE_DIR, "test_ux", "client_blue.html"), media_type="text/html")
+
 # --- Static Files Mount ---
 
 @app.get("/shared/style.css")
@@ -3354,6 +3366,7 @@ async def get_themed_style():
         return FileResponse(file_path, media_type="text/css")
     return FileResponse(os.path.join(BASE_DIR, "web", "shared", "style.css"), media_type="text/css")
 
+app.mount("/test_ux", StaticFiles(directory=os.path.join(BASE_DIR, "test_ux")), name="test_ux")
 app.mount("/", StaticFiles(directory=os.path.join(BASE_DIR, "web")), name="web")
 
 if __name__ == "__main__":

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        // Force clearing old cached PWA files if any service worker is stuck
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(keys) {
+                keys.forEach(function(key) {
+                    caches.delete(key);
+                });
+            });
+        }
+    </script>
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const div = document.createElement('div');
+            div.style.position = 'fixed';
+            div.style.top = '0';
+            div.style.left = '0';
+            div.style.width = '100%';
+            div.style.background = '#ef4444';
+            div.style.color = '#ffffff';
+            div.style.padding = '15px';
+            div.style.zIndex = '9999';
+            div.style.fontFamily = 'monospace';
+            div.style.fontSize = '14px';
+            div.style.whiteSpace = 'pre-wrap';
+            div.style.boxShadow = '0 5px 15px rgba(0,0,0,0.5)';
+            div.innerHTML = `<strong>Error de JS detectado:</strong><br>${message}<br>en ${source}:${lineno}:${colno}`;
+            document.body.appendChild(div);
+            return false;
+        };
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mi Progreso - Elite Coaching Client</title>
+    <link rel="stylesheet" href="/test_ux/style_blue.css">
+    <!-- Chart.js for progress graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA Setup -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#d4af37">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+</head>
+<body>
+    <script>
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userId = urlParams.get('userId') || '1';
+            if (sessionStorage.getItem('clientAuth_' + userId) !== 'true' && sessionStorage.getItem('trainerAuth') !== 'true') {
+                document.body.innerHTML = `
+                    <div style="background:#121212; color:#ffffff; font-family:'Inter', sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding: 20px;">
+                        <i class="fa-solid fa-user-lock" style="font-size: 50px; color:#f3ca4c; margin-bottom: 20px; text-shadow: 0 0 15px rgba(243,202,76,0.3);"></i>
+                        <h1 style="color:#f3ca4c; font-family:'Anton', sans-serif; font-size:32px; margin-bottom:10px; text-transform:uppercase;">ACCESO DENEGADO</h1>
+                        <p style="color:#bbbbbb; font-size: 16px;">No tienes permiso para acceder a este Portal de Cliente.</p>
+                        <p style="color:#777777; font-size: 13px; margin-top:10px;">Serás redirigido al panel maestro de inicio...</p>
+                    </div>`;
+                setTimeout(() => { window.location.href = "/"; }, 2000);
+                window.stop();
+            }
+        })();
+    </script>
+
+    <header>
+        <div class="logo" style="display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-dumbbell logo-icon"></i>
+            <span>ELITE COACHING</span>
+            <a href="/" onclick="sessionStorage.removeItem('clientAuth_' + (new URLSearchParams(window.location.search).get('userId') || '1'))" style="color: #ef4444; margin-left: 10px; cursor: pointer; text-decoration: none; font-size: inherit; font-family: inherit; font-weight: inherit;" title="Salir">
+                <i class="fa-solid fa-right-from-bracket"></i> SALIR
+            </a>
+        </div>
+        <div class="nav-links">
+            <a href="#" class="btn-nav active" onclick="switchGlobalTab('clientHomeView', this)"><i class="fa-solid fa-house-user"></i> Inicio</a>
+            <a href="#" class="btn-nav" onclick="switchGlobalTab('clientWorkoutView', this)"><i class="fa-solid fa-dumbbell"></i> Rutina</a>
+            <a href="#" class="btn-nav" onclick="switchGlobalTab('clientNutritionView', this)"><i class="fa-solid fa-carrot"></i> Dieta</a>
+            <a href="#" class="btn-nav" onclick="switchGlobalTab('clientProgressView', this)"><i class="fa-solid fa-chart-line"></i> Progreso</a>
+        </div>
+        <div class="header-right-group" style="display: flex; align-items: center; gap: 15px;">
+            <span id="clientNameHeader" style="font-weight:700; font-size:14px; color:var(--accent-cyan);">Cargando...</span>
+            <button class="btn-primary" onclick="exportToPDF()" style="background: linear-gradient(135deg, var(--accent-orange), var(--accent-red)); box-shadow: 0 0 10px rgba(245, 158, 11, 0.3); padding: 6px 12px; font-size: 12px;"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+        </div>
+    </header>
+
+    <!-- VIEW 1: HOME (Dashboard, Form, KPIs) -->
+    <div class="container global-tab-content active" id="clientHomeView" style="max-width: 800px; margin: 0 auto; display: block; padding-bottom: 80px;">
+        
+        <!-- KPIs -->
+        <div id="mainIndicatorsBanner" class="glass-card" style="margin-bottom: 20px; padding: 15px;">
+            <h4 style="font-size: 13px; color: var(--accent-gold); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fa-solid fa-chart-pie"></i> Mis Indicadores Actuales</span>
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center;">
+                <div class="summary-stat-box" style="padding: 8px; width: 100%;">
+                    <span style="font-size: 10px; display: block;">Peso Actual</span>
+                    <strong id="clientKpiWeight" style="font-size: 14px; color: var(--accent-cyan);">- kg</strong>
+                </div>
+                <div class="summary-stat-box" style="padding: 8px; width: 100%;">
+                    <span style="font-size: 10px; display: block;">% Grasa</span>
+                    <strong id="clientKpiFat" style="font-size: 14px; color: var(--accent-purple);">- %</strong>
+                </div>
+                <div class="summary-stat-box" style="padding: 8px; width: 100%;">
+                    <span style="font-size: 10px; display: block;">Meta Calórica</span>
+                    <strong id="clientKpiCalories" style="font-size: 14px; color: var(--accent-green);">- Kcal</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Latest Assessment Banner -->
+        <div id="latestAssessmentBanner" class="glass-card" style="display: none; margin-bottom: 20px; padding: 15px;">
+            <h4 style="font-size: 13px; color: var(--accent-cyan); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fa-solid fa-user-doctor"></i> Mi Última Valoración</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="assessmentDateLabel" style="color: var(--color-text-secondary); font-size: 11px; font-weight: normal;"></span>
+                    <button type="button" id="btnToggleAssessmentCollapse" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; padding: 2px 6px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; border-radius: 4px; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                        <i class="fa-solid fa-chevron-up" id="toggleAssessmentIcon"></i>
+                    </button>
+                </div>
+            </h4>
+            <div id="latestAssessmentGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                <!-- Dynamic content will be injected here -->
+            </div>
+        </div>
+
+        <!-- Quick Metric Banner -->
+        <div class="glass-card water-tracker-widget" style="padding: 20px; margin-bottom: 20px;">
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary); display: block; margin-bottom: 2px;">Rastreador de Hidratación</span>
+                <span class="water-progress-text" id="waterProgressLabel">0 ml / 2500 ml</span>
+            </div>
+            <div class="water-btns" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-water-add" onclick="addWater(250)" style="flex: 1; min-width: 100px;">+250 ml <i class="fa-solid fa-glass-water"></i></button>
+                <button class="btn-water-add" onclick="addWater(500)" style="flex: 1; min-width: 100px;">+500 ml <i class="fa-solid fa-bottle-water"></i></button>
+                <button class="btn-water-remove" onclick="addWater(-250)" style="flex: 1; min-width: 100px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; border-radius: 8px; padding: 10px 14px; font-weight: bold; cursor: pointer; transition: 0.2s;"><i class="fa-solid fa-minus"></i> 250 ml</button>
+                <button class="btn-water-remove" onclick="addWater(-500)" style="flex: 1; min-width: 100px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; border-radius: 8px; padding: 10px 14px; font-weight: bold; cursor: pointer; transition: 0.2s;"><i class="fa-solid fa-minus"></i> 500 ml</button>
+            </div>
+        </div>
+
+        <!-- Sidebar: Log Daily Metrics Form -->
+        <div class="glass-card">
+            <div class="list-title" style="color:var(--accent-cyan); margin-bottom: 15px;">
+                <span><i class="fa-solid fa-pen-to-square"></i> Registrar Hoy</span>
+            </div>
+            
+            <form id="dailyLogForm" onsubmit="submitDailyLog(event)">
+                <div class="form-group">
+                    <label>Peso de Hoy (kg)</label>
+                    <input type="number" step="0.1" id="logWeight" placeholder="Ej. 73.0">
+                </div>
+                <div class="form-group">
+                    <label>Pasos Caminados</label>
+                    <input type="number" id="logSteps" placeholder="Ej. 10450">
+                </div>
+                <div class="form-group">
+                    <label>Horas de Sueño</label>
+                    <input type="number" step="0.1" id="logSleep" placeholder="Ej. 7.5">
+                </div>
+                <div class="form-group">
+                    <label>Calidad de Sueño (1-10): <span id="sleepQualityVal" style="font-weight:bold; color:var(--accent-cyan);">8</span></label>
+                    <input type="range" id="logSleepQuality" min="1" max="10" value="8" style="padding:0;">
+                </div>
+                <div class="form-group">
+                    <label>Adherencia Dieta (1-10): <span id="dietAdherenceVal" style="font-weight:bold; color:var(--accent-cyan);">9</span></label>
+                    <input type="range" id="logDietAdherence" min="1" max="10" value="9" style="padding:0;">
+                </div>
+                <div class="form-group">
+                    <label>Nivel de Energía (1-5)</label>
+                    <select id="logEnergy">
+                        <option value="5">5 - Excelente</option>
+                        <option value="4" selected>4 - Muy Buena</option>
+                        <option value="3">3 - Normal</option>
+                        <option value="2">2 - Cansado</option>
+                        <option value="1">1 - Agotado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Salud Digestiva (1-5)</label>
+                    <select id="logDigestion">
+                        <option value="5" selected>5 - Excelente (Sin pesadez)</option>
+                        <option value="4">4 - Buena</option>
+                        <option value="3">3 - Regular</option>
+                        <option value="2">2 - Inflamado</option>
+                        <option value="1">1 - Mala digestión</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Frecuencia Cardíaca Reposo (si aplica)</label>
+                    <input type="number" id="logRhr" placeholder="Ej. 62">
+                </div>
+                <div class="form-group">
+                    <label>Notas / Sensaciones</label>
+                    <textarea id="logNotes" rows="2" placeholder="¿Cómo te sentiste hoy?"></textarea>
+                </div>
+                
+                <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Registro Diario
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- VIEW 2: WORKOUT -->
+    <div class="container global-tab-content" id="clientWorkoutView" style="display: none; max-width: 800px; margin: 0 auto; padding-bottom: 80px;">
+        <div id="workoutPlanContainer">
+            <!-- Loaded dynamically -->
+        </div>
+    </div>
+
+    <!-- VIEW 3: NUTRITION -->
+    <div class="container global-tab-content" id="clientNutritionView" style="display: none; max-width: 800px; margin: 0 auto; padding-bottom: 80px;">
+        <div id="nutritionPlanContainer">
+            <!-- Loaded dynamically -->
+        </div>
+    </div>
+
+    <!-- VIEW 4: PROGRESS -->
+    <div class="container global-tab-content" id="clientProgressView" style="display: none; max-width: 800px; margin: 0 auto; padding-bottom: 80px;">
+        <h3 style="margin-bottom: 5px;">Mi Evolución Histórica</h3>
+        <p style="color:var(--color-text-secondary); margin-bottom: 20px;">Monitorea tus cambios corporales y tus registros de actividad.</p>
+        
+        <div class="calendar-dashboard glass-card" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="color: var(--accent-cyan);"><i class="fa-regular fa-calendar"></i> Registro Diario</h4>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="btn-nav" onclick="changeClientCalendarMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                    <span id="clientCalendarMonthLabel" style="font-weight: bold; min-width: 100px; text-align: center; color: var(--accent-cyan);"></span>
+                    <button class="btn-nav" onclick="changeClientCalendarMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+            <!-- Days of week header -->
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; margin-bottom: 5px; font-weight: bold; color: var(--color-text-secondary); font-size: 11px;">
+                <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+            </div>
+            <div id="clientCalendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center;">
+                <!-- Dinámico -->
+            </div>
+        </div>
+
+        <!-- Panel de Detalles del Día -->
+        <div id="clientDayDetailPanel" class="glass-card" style="display: none; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="color: var(--accent-cyan);"><i class="fa-solid fa-clipboard-check"></i> Detalles: <span id="clientDayDetailDate"></span></h4>
+                <button class="btn-nav" onclick="document.getElementById('clientDayDetailPanel').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="clientDayDetailContent" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <!-- Dinámico -->
+            </div>
+        </div>
+
+        <div class="glass-card" style="padding: 12px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <span style="font-weight: bold; color: var(--accent-cyan);"><i class="fa-solid fa-filter"></i> Filtrar Rango de Progreso:</span>
+            <select id="chartDateFilter" onchange="changeChartFilter(this.value)" style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); color: white; border-radius: 8px; padding: 6px 12px; outline: none; cursor: pointer;">
+                <option value="all" selected>Todos los registros</option>
+                <option value="7">Últimos 7 días</option>
+                <option value="30">Últimos 30 días</option>
+                <option value="90">Últimos 3 meses</option>
+            </select>
+        </div>
+
+        <div class="charts-grid" style="grid-template-columns: 1fr;">
+            <div class="glass-card chart-card" style="margin-bottom: 20px;">
+                <h3>Mi Historial de Peso</h3>
+                <canvas id="chartClientWeight"></canvas>
+            </div>
+            <div class="glass-card chart-card" style="margin-bottom: 20px;">
+                <h3>Mis Pasos Diarios</h3>
+                <canvas id="chartClientSteps"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 5: CHAT CON EL ENTRENADOR -->
+    <div class="container global-tab-content" id="clientChatView" style="max-width: 800px; margin: 0 auto;">
+        <div class="glass-card" style="display: flex; flex-direction: column; height: 100%; padding: 15px; gap: 10px;">
+            <!-- Header of Chat -->
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="position: relative;">
+                        <div id="coachChatAvatar" style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; text-shadow: 0 0 10px rgba(255,255,255,0.5);">
+                            CO
+                        </div>
+                        <span id="coachOnlineStatusDot" style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; border-radius: 50%; background: #6b7280; border: 2px solid var(--color-bg-dark);"></span>
+                    </div>
+                    <div>
+                        <h4 id="coachChatName" style="margin: 0; font-size: 15px; color: var(--color-text-primary);">Mi Entrenador</h4>
+                        <span id="coachOnlineStatusText" style="font-size: 11px; color: var(--color-text-secondary);">Desconectado</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Stream -->
+            <div id="clientChatStream" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 10px 5px; scroll-behavior: smooth;">
+                <button id="clientChatLoadMoreBtn" class="btn-nav" style="align-self: center; font-size: 11px; display: none; opacity: 0.7; margin-bottom: 10px;">Cargar chats anteriores</button>
+                <div id="clientChatMessagesContainer" style="display: flex; flex-direction: column; gap: 12px;"></div>
+            </div>
+
+            <!-- Input area -->
+            <div style="display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                <input type="text" id="clientChatInput" placeholder="Escribe un mensaje..." style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; border-radius: 20px; padding: 10px 20px; font-size: 13px; outline: none;" onkeydown="handleClientChatKeydown(event)">
+                <button class="btn-primary" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0;" onclick="sendClientChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <div class="bottom-nav">
+        <a href="#" class="bottom-nav-item active" onclick="switchGlobalTab('clientHomeView', this)"><i class="fa-solid fa-house-user"></i><span>Inicio</span></a>
+        <a href="#" class="bottom-nav-item" onclick="switchGlobalTab('clientWorkoutView', this)"><i class="fa-solid fa-dumbbell"></i><span>Rutina</span></a>
+        <a href="#" class="bottom-nav-item" onclick="switchGlobalTab('clientNutritionView', this)"><i class="fa-solid fa-carrot"></i><span>Dieta</span></a>
+        <a href="#" class="bottom-nav-item" onclick="switchGlobalTab('clientProgressView', this)"><i class="fa-solid fa-chart-line"></i><span>Progreso</span></a>
+        <a href="#" class="bottom-nav-item" onclick="switchGlobalTab('clientChatView', this)"><i class="fa-solid fa-comment-dots" style="position: relative;"><span id="clientChatBadge" style="display: none; position: absolute; top: -5px; right: -5px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span></i><span>Chat</span></a>
+    </div>
+
+    <script src="/test_ux/client_blue.js"></script>
+    
+    <!-- PWA Service Worker Registration & Sensor Demo Logic -->
+    <script>
+      /* DESHABILITADO TEMPORALMENTE
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('Service Worker registrado: ', reg.scope))
+            .catch(err => console.error('Error Service Worker: ', err));
+        });
+      }
+      */
+    </script>
+</body>
+</html>

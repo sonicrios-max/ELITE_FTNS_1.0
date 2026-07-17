@@ -1,0 +1,1981 @@
+/* Modern Fitness Coaching Platform - Premium Design System (Vanilla CSS) */
+
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --bg-primary: #080916;
+    --bg-secondary: #0f1124;
+    --color-bg-card: rgba(15, 17, 36, 0.94);
+    --glass-bg: rgba(15, 17, 36, 0.75);
+    --glass-border: rgba(56, 189, 248, 0.12);
+    --glass-highlight: rgba(56, 189, 248, 0.02);
+    
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #a3aed0;
+    --color-text-muted: #5e6680;
+    
+    --accent-gold: #38bdf8;
+    --accent-gold-glow: rgba(56, 189, 248, 0.25);
+    --accent-gold-dark: #0284c7;
+    --accent-green: #10b981;
+    --accent-green-glow: rgba(16, 185, 129, 0.25);
+    --accent-orange: #f59e0b;
+    --accent-orange-glow: rgba(245, 158, 11, 0.25);
+    --accent-red: #ef4444;
+    
+    /* Mapping old variables for backward-compatibility with other HTML/JS components */
+    --accent-cyan: #38bdf8;
+    --accent-cyan-glow: rgba(56, 189, 248, 0.25);
+    --accent-purple: #8b5cf6;
+    --accent-purple-glow: rgba(139, 92, 246, 0.2);
+    
+    --font-sans: 'Inter', 'Plus Jakarta Sans', sans-serif;
+    --font-display: 'Anton', 'Plus Jakarta Sans', sans-serif;
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    --shadow-neon-cyan: 0 0 15px rgba(56, 189, 248, 0.35);
+    --shadow-neon-purple: 0 0 15px rgba(139, 92, 246, 0.2);
+    --shadow-neon-gold: 0 0 15px rgba(56, 189, 248, 0.35);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-primary);
+    background-image: 
+        radial-gradient(at 10% 20%, rgba(56, 189, 248, 0.04) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(139, 92, 246, 0.04) 0px, transparent 50%);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 400; /* Anton only supports 400 */
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-gold);
+}
+
+/* Glass Card */
+.glass-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 24px;
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(130deg, var(--glass-highlight) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.glass-card:hover {
+    border-color: rgba(243, 202, 76, 0.3);
+    box-shadow: var(--shadow-neon-gold), 0 12px 40px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* Header & Navigation */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: rgba(18, 18, 18, 0.85);
+
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 24px;
+    font-family: var(--font-display);
+    letter-spacing: 1px;
+    background: linear-gradient(to right, var(--accent-gold), #ffffff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+
+.logo-icon {
+    font-size: 24px;
+    color: var(--accent-gold);
+    -webkit-text-fill-color: initial;
+    text-shadow: var(--shadow-neon-gold);
+}
+
+.nav-links {
+    display: flex;
+    gap: 20px;
+}
+
+.btn-nav {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: 1px solid transparent;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    text-decoration: none;
+}
+
+.btn-nav:hover, .btn-nav.active {
+    color: var(--accent-gold);
+    background: rgba(243, 202, 76, 0.05);
+    border-color: rgba(243, 202, 76, 0.2);
+}
+
+.btn-icon {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--color-text-secondary);
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: var(--transition-smooth);
+    padding: 0;
+}
+
+.btn-icon:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.btn-icon:active {
+    transform: translateY(0);
+}
+
+
+.btn-primary {
+    background: var(--accent-gold);
+    border: none;
+    color: #121212;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    box-shadow: var(--shadow-neon-gold);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    background: var(--accent-gold-dark);
+    box-shadow: 0 0 20px rgba(243, 202, 76, 0.5);
+}
+
+
+/* Layout Containers */
+.container {
+    max-width: 1800px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 30px 24px;
+}
+
+
+.grid-dashboard {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 30px;
+}
+
+@media (max-width: 1024px) {
+    .grid-dashboard {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Client Selector / List Side */
+.sidebar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.list-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.client-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.client-card-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.client-card-item:hover, .client-card-item.active {
+    background: rgba(243, 202, 76, 0.05);
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 10px rgba(243, 202, 76, 0.2);
+}
+
+.client-info h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
+}
+
+.client-info p {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.compliance-badge {
+    background: rgba(37, 211, 102, 0.15);
+    color: var(--accent-green);
+    border: 1px solid rgba(37, 211, 102, 0.3);
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.compliance-badge.warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-orange);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Main Panel Views */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    min-width: 0;
+}
+
+.client-profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 20px;
+}
+
+.profile-meta h2 {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.profile-grid-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.summary-stat-box {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 10px 15px;
+    text-align: center;
+}
+
+.summary-stat-box span {
+    display: block;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.summary-stat-box strong {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+
+/* KPIs grid */
+.kpis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+}
+
+.kpi-card {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.kpi-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+}
+
+.kpi-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin-bottom: 2px;
+}
+
+.kpi-value.cyan { color: var(--accent-cyan); text-shadow: var(--shadow-neon-gold); }
+.kpi-value.purple { color: var(--accent-purple); text-shadow: var(--shadow-neon-purple); }
+.kpi-value.green { color: var(--accent-green); text-shadow: 0 0 15px rgba(37, 211, 102, 0.3); }
+
+.kpi-desc {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+/* Charts Grid */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+@media (max-width: 1024px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart-card {
+    aspect-ratio: 1 / 1;
+    max-width: 320px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+}
+
+
+.chart-card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: var(--color-text-primary);
+}
+
+.chart-card canvas {
+    max-height: calc(100% - 35px) !important;
+    width: 100% !important;
+}
+
+
+/* Tab contents and panels */
+/* =============================================
+   PREMIUM TAB NAVIGATION — Numpad Grid Style
+   SCOPED to #mainTabsNav (Trainer portal only)
+   ============================================= */
+
+#mainTabsNav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 10px;
+    border-bottom: none;
+    margin-bottom: 24px;
+    padding-bottom: 0;
+}
+
+/* Chat button spans full row */
+#mainTabsNav .tab-btn:nth-child(5) {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    padding: 18px 28px;
+    gap: 20px;
+    align-items: center;
+    min-height: unset;
+}
+
+#mainTabsNav .tab-btn:nth-child(5) .tab-btn-icon-wrap {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+}
+
+#mainTabsNav .tab-btn:nth-child(5) .tab-btn-text-wrap {
+    align-items: flex-start;
+}
+
+#mainTabsNav .tab-btn:nth-child(5) .tab-btn-label {
+    font-size: 15px;
+    text-transform: none;
+}
+
+#mainTabsNav .tab-btn:nth-child(5) .tab-btn-arrow {
+    display: flex;
+    margin-left: auto;
+    color: var(--color-text-muted);
+    font-size: 14px;
+}
+
+/* Tab accent colours per section */
+#mainTabsNav .tab-btn:nth-child(1) { --tab-accent: #22d3ee; }
+#mainTabsNav .tab-btn:nth-child(2) { --tab-accent: #a78bfa; }
+#mainTabsNav .tab-btn:nth-child(3) { --tab-accent: #fbbf24; }
+#mainTabsNav .tab-btn:nth-child(4) { --tab-accent: #4ade80; }
+#mainTabsNav .tab-btn:nth-child(5) { --tab-accent: #f472b6; }
+
+#mainTabsNav .tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 20px;
+    padding: 28px 16px 22px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    min-height: 160px;
+}
+
+/* Radial glow backdrop */
+#mainTabsNav .tab-btn::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--tab-accent, #22d3ee);
+    opacity: 0;
+    filter: blur(40px);
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+/* Bottom accent line */
+#mainTabsNav .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20%;
+    width: 60%;
+    height: 2px;
+    background: var(--tab-accent, #22d3ee);
+    opacity: 0;
+    border-radius: 2px;
+    transition: opacity 0.25s ease;
+}
+
+#mainTabsNav .tab-btn:hover {
+    border-color: rgba(255, 255, 255, 0.14);
+    transform: scale(1.03);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+#mainTabsNav .tab-btn:hover::before { opacity: 0.25; }
+#mainTabsNav .tab-btn:hover::after  { opacity: 0.6; }
+
+#mainTabsNav .tab-btn.active {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: var(--tab-accent, #22d3ee);
+    color: var(--color-text-primary);
+    box-shadow:
+        0 0 0 1px var(--tab-accent, #22d3ee) inset,
+        0 8px 30px rgba(0, 0, 0, 0.3);
+    transform: scale(1.01);
+}
+
+#mainTabsNav .tab-btn.active::before { opacity: 0.3; }
+#mainTabsNav .tab-btn.active::after  { opacity: 1; }
+
+/* --- ICON CIRCLE --- */
+#mainTabsNav .tab-btn-icon-wrap {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--tab-accent, #22d3ee);
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
+#mainTabsNav .tab-btn:hover .tab-btn-icon-wrap {
+    border-color: var(--tab-accent, #22d3ee);
+    box-shadow: 0 0 20px -4px var(--tab-accent, #22d3ee);
+    background: rgba(0, 0, 0, 0.4);
+}
+
+#mainTabsNav .tab-btn.active .tab-btn-icon-wrap {
+    border-color: var(--tab-accent, #22d3ee);
+    box-shadow:
+        0 0 24px -4px var(--tab-accent, #22d3ee),
+        0 0 0 4px rgba(0,0,0,0.2);
+    background: rgba(0, 0, 0, 0.45);
+}
+
+/* --- TEXT --- */
+#mainTabsNav .tab-btn-text-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+#mainTabsNav .tab-btn-label {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    color: inherit;
+    text-transform: uppercase;
+}
+
+#mainTabsNav .tab-btn-sub {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-weight: 400;
+    line-height: 1.3;
+}
+
+#mainTabsNav .tab-btn.active .tab-btn-sub {
+    color: var(--color-text-secondary);
+}
+
+#mainTabsNav .tab-btn-arrow {
+    display: none;
+}
+
+/* --- PANELS (generic, shared) --- */
+.tab-panel {
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+.tab-panel.active {
+    display: flex;
+}
+
+/* Tablet: keep 2-col numpad, just adjust min-height */
+@media (max-width: 1400px) and (min-width: 1025px) {
+    #mainTabsNav {
+        grid-template-columns: 1fr 1fr;
+    }
+    #mainTabsNav .tab-btn {
+        min-height: 145px;
+    }
+}
+
+/* Desktop: display grid menu side-by-side with active panel content */
+@media (min-width: 1025px) {
+    #tabsCard {
+        display: grid !important;
+        grid-template-columns: 350px 1fr;
+        gap: 30px;
+        align-items: start;
+        padding: 24px;
+    }
+    
+    #mainTabsNav {
+        border-right: 1px solid var(--glass-border);
+        padding-right: 24px;
+        margin-bottom: 0;
+    }
+}
+
+
+
+/* Training list styles */
+.workout-day-card {
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.workout-day-card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    margin-bottom: 10px;
+    border-left: 3px solid var(--accent-cyan);
+    padding-left: 8px;
+}
+
+.exercise-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.exercise-table th, .exercise-table td {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.exercise-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.exercise-table td {
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.exercise-name {
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.exercise-video-link {
+    color: var(--accent-cyan);
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.exercise-video-link:hover {
+    text-decoration: underline;
+}
+
+/* Video Player Modal/Container */
+.media-preview-container {
+    margin-top: 15px;
+    display: none;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+}
+
+.media-preview-container video {
+    width: 100%;
+    display: block;
+}
+
+/* Forms styling */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+@media (max-width: 580px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+}
+
+.form-group input, .form-group textarea {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    outline: none;
+    transition: var(--transition-smooth);
+}
+
+.form-group select {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    outline: none;
+    transition: var(--transition-smooth);
+    width: 100%;
+}
+
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 8px rgba(243, 202, 76, 0.25);
+}
+
+/* Custom styling for select dropdown options to ensure dark mode theme consistency */
+select {
+    background-color: var(--bg-secondary) !important;
+    color: var(--color-text-primary) !important;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    outline: none;
+    transition: var(--transition-smooth);
+}
+
+select:focus {
+    border-color: var(--accent-gold) !important;
+    box-shadow: 0 0 8px rgba(243, 202, 76, 0.25) !important;
+}
+
+select option {
+    background-color: var(--bg-secondary) !important;
+    color: var(--color-text-primary) !important;
+}
+
+/* Clases de select dinámicos generados desde JavaScript */
+.block-id,
+.day-block-id,
+.form-input {
+    background-color: var(--bg-secondary) !important;
+    color: var(--color-text-primary) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 8px !important;
+    font-family: var(--font-sans) !important;
+    font-size: 13px !important;
+    outline: none !important;
+}
+
+.block-id:focus,
+.day-block-id:focus,
+.form-input:focus {
+    border-color: var(--accent-gold) !important;
+    box-shadow: 0 0 8px rgba(243, 202, 76, 0.25) !important;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 14px !important;
+    font-size: 14px !important;
+}
+
+/* Diet UI */
+.diet-meal-box {
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.diet-meal-box h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.diet-meal-box h4 span {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    font-weight: 400;
+}
+
+.food-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.food-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+
+.food-name {
+    font-weight: 600;
+}
+
+.food-macros {
+    color: var(--color-text-secondary);
+    font-size: 12px;
+}
+
+/* 3D Mannequin Simulation container */
+.canvas-container-3d {
+    background: #161616;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    height: 350px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.canvas-placeholder-text {
+    position: absolute;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.overlay-stats-3d {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    background: rgba(26, 26, 26, 0.85);
+    border: 1px solid var(--glass-border);
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 11px;
+    z-index: 10;
+}
+
+/* Interactive Water Tracker Widget */
+.water-tracker-widget {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, rgba(243, 202, 76, 0.05) 0%, rgba(26, 26, 26, 0.05) 100%);
+    border: 1px solid rgba(243, 202, 76, 0.2);
+}
+
+.water-progress-text {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent-gold);
+}
+
+.water-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-water-add {
+    background: rgba(243, 202, 76, 0.1);
+    color: var(--accent-gold);
+    border: 1px solid var(--accent-gold);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 12px;
+    transition: var(--transition-smooth);
+}
+
+.btn-water-add:hover {
+    background: var(--accent-gold);
+    color: #121212;
+    box-shadow: var(--shadow-neon-gold);
+}
+/* Block exercise row editor styling */
+.block-exercise-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+    width: 100%;
+}
+
+.block-exercise-row select,
+.block-exercise-row input {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    outline: none;
+    transition: var(--transition-smooth);
+    min-width: 0;
+}
+
+.block-exercise-row select:focus,
+.block-exercise-row input:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 8px rgba(243, 202, 76, 0.25);
+}
+
+.block-exercise-row select {
+    background-color: var(--bg-secondary);
+}
+
+.block-exercise-row .block-ex-id {
+    flex: 3;
+}
+
+.block-exercise-row .ex-sets {
+    flex: 1;
+    text-align: center;
+}
+
+.block-exercise-row .ex-reps {
+    flex: 1.5;
+    text-align: center;
+}
+
+.block-exercise-row .ex-rpe {
+    flex: 1;
+    text-align: center;
+}
+
+.block-exercise-row .ex-rest {
+    flex: 1.2;
+    text-align: center;
+}
+
+.block-exercise-row button.btn-nav {
+    padding: 8px 12px;
+    color: var(--accent-red);
+}
+
+.block-exercise-row button.btn-nav:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Header row for block exercise columns */
+.block-exercise-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-right: 40px; /* Accounts for the delete button width at the end */
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 15px;
+}
+
+.block-exercise-header span {
+    text-align: center;
+}
+
+.block-exercise-header span:first-child {
+    text-align: left;
+}
+
+/* --- MOBILE COMPONENTS (Hidden on Desktop) --- */
+.bottom-nav, .fab-btn, .mobile-sub-back-btn, .mobile-back-btn, .mobile-history-container {
+    display: none !important;
+}
+
+/* Accordion Component */
+.mobile-assessment-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.mobile-assessment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.badge-weight {
+    background: rgba(6, 182, 212, 0.15);
+    color: var(--accent-cyan);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.chevron-icon {
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.mobile-assessment-details {
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.assessment-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+}
+
+.assessment-detail-row .detail-label {
+    color: var(--color-text-secondary);
+}
+
+.assessment-detail-row .detail-value {
+    color: var(--color-text-primary);
+    font-weight: bold;
+}
+
+/* --- MOBILE RESPONSIVE OPTIMIZATIONS --- */
+@media (max-width: 1024px) {
+    html, body {
+        overflow-x: hidden !important;
+        width: 100vw !important;
+    }
+
+    /* 1. Header simplification */
+    header {
+        padding: 10px 15px !important;
+        justify-content: center !important;
+        position: static !important;
+    }
+    
+    header .nav-links,
+    header > div:last-child {
+        display: none !important;
+    }
+    
+    .logo {
+        font-size: 20px;
+    }
+
+    /* 2. Client Profile Header compacting */
+    .client-profile-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: center;
+        text-align: center;
+    }
+    
+    #profileHeaderCard {
+        padding-top: 55px !important;
+    }
+    
+    .profile-meta h2 { font-size: 22px !important; }
+    
+    .profile-grid-summary {
+        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
+        gap: 8px;
+    }
+    
+    .kpis-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    /* 3. Tab Buttons become numpad grid — Trainer only */
+    #mainTabsNav {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        flex-direction: unset !important;
+        gap: 10px;
+        overflow: visible !important;
+        border: none !important;
+        padding-bottom: 0 !important;
+        white-space: normal !important;
+    }
+
+    /* Chat full-row on mobile too */
+    #mainTabsNav .tab-btn:nth-child(5) {
+        grid-column: 1 / -1 !important;
+        min-height: unset !important;
+        padding: 16px 20px !important;
+    }
+
+    #mainTabsNav .tab-btn {
+        width: 100% !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 20px 10px !important;
+        gap: 12px !important;
+        border-radius: 16px !important;
+        transform: none !important;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        min-height: 130px !important;
+    }
+
+    #mainTabsNav .tab-btn:hover {
+        transform: none !important;
+    }
+
+    #mainTabsNav .tab-btn.active {
+        transform: none !important;
+    }
+
+    #mainTabsNav .tab-btn-icon-wrap {
+        width: 58px !important;
+        height: 58px !important;
+        font-size: 26px !important;
+        flex-shrink: 0 !important;
+    }
+
+    #mainTabsNav .tab-btn-text-wrap {
+        align-items: center !important;
+    }
+
+    #mainTabsNav .tab-btn-label {
+        font-size: 11px !important;
+    }
+
+    #mainTabsNav .tab-btn-sub {
+        font-size: 9px !important;
+    }
+
+    /* Arrow only for the chat row */
+    #mainTabsNav .tab-btn:nth-child(5) .tab-btn-arrow {
+        display: flex !important;
+        align-items: center;
+        color: var(--color-text-muted);
+        font-size: 13px;
+        margin-left: auto;
+    }
+
+    #mainTabsNav .tab-btn-arrow {
+        display: none;
+    }
+
+    
+    /* Fix containing block for fixed tab-panels */
+    #tabsCard {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        overflow: visible !important;
+        transform: none !important;
+        position: static !important;
+    }
+    
+    /* Reduce sizes for Profile and KPIs so they fit on screen */
+    .profile-meta h2 {
+        font-size: 20px !important;
+        line-height: 1.2 !important;
+        word-break: break-word;
+    }
+    
+    .kpi-card {
+        padding: 15px !important;
+    }
+    
+    .kpi-value {
+        font-size: 32px !important;
+    }
+    
+    /* 4. Tab Panels become full-screen overlays */
+    .tab-panel {
+        display: none !important;
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: var(--bg-primary) !important;
+        z-index: 10100 !important;
+        padding: 40px 16px 100px 16px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+    
+    .tab-panel.active {
+        display: block !important;
+    }
+    
+    /* Show mobile-specific buttons inside tab panels */
+    .mobile-sub-back-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: rgba(255,255,255,0.05);
+        color: var(--accent-gold);
+        border: 1px solid var(--glass-border);
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 20px;
+        width: 100%;
+        cursor: pointer;
+    }
+    
+    /* 5. Bottom Nav & FAB */
+    .bottom-nav {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: rgba(18, 18, 18, 0.96);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        z-index: 990;
+        padding: 12px 0 24px 0;
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); /* Extra space for mobile gesture bar */
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    }
+    
+    .bottom-nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-text-muted);
+        text-decoration: none;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    
+    .bottom-nav-item i {
+        font-size: 22px;
+        margin-bottom: 4px;
+    }
+    
+    .bottom-nav-item.active {
+        color: var(--accent-gold);
+    }
+    
+    .bottom-nav-item.active i {
+        transform: scale(1.1);
+        text-shadow: 0 0 10px var(--accent-gold-glow);
+    }
+
+    .fab-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        bottom: 80px;
+        right: 16px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent-gold), #b89122);
+        color: #121212;
+        font-size: 24px;
+        border: none;
+        box-shadow: 0 4px 15px rgba(243, 202, 76, 0.4);
+        z-index: 990;
+        cursor: pointer;
+    }
+    
+    .fab-btn:active {
+        transform: scale(0.9);
+    }
+    
+    /* 6. Assessment History Containers */
+    .desktop-history-container {
+        display: none !important;
+    }
+    
+    .mobile-history-container {
+        display: flex !important;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    /* 7. Nutrition UI Fixes (Prevent text overlap) */
+    .food-item {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+    }
+    
+    .food-item > div:last-child {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 5px;
+        padding-top: 5px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .diet-meal-box h4 {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    /* 8. Main Client View Slider */
+    .main-content {
+        display: none;
+    }
+    .main-content.mobile-open {
+        display: flex !important;
+        flex-direction: column;
+        gap: 12px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: var(--bg-primary);
+        z-index: 10000;
+        padding: 40px 15px 100px 15px;
+        overflow-y: auto;
+    }
+    .mobile-back-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06) !important;
+        border: 1px solid var(--glass-border) !important;
+        color: var(--accent-gold) !important;
+        font-size: 16px;
+        cursor: pointer;
+        z-index: 10;
+        transition: var(--transition-smooth);
+        padding: 0 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .mobile-back-btn:hover {
+        background: rgba(255, 255, 255, 0.15) !important;
+        color: #ffffff !important;
+        transform: scale(1.05);
+    }
+
+
+}
+
+/* Food item row editor styling (Nutrition Modal) */
+.food-item-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+    width: 100%;
+}
+
+.food-item-row input {
+    background: rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+    color: var(--color-text-primary) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 13px !important;
+    outline: none !important;
+    transition: var(--transition-smooth) !important;
+    min-width: 0 !important;
+    height: 38px !important;
+}
+
+.food-item-row input:focus {
+    border-color: var(--accent-gold) !important;
+    box-shadow: 0 0 8px rgba(243, 202, 76, 0.25) !important;
+}
+
+.food-item-row button {
+    flex-shrink: 0 !important;
+    width: 38px !important;
+    height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+}
+
+/* --- PRINT STYLES --- */
+@media print {
+    body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        font-family: var(--font-sans);
+        font-size: 11pt !important;
+    }
+    
+    header, 
+    .sidebar-list, 
+    .tabs-container, 
+    .water-tracker-widget, 
+    button, 
+    .btn-primary, 
+    .btn-nav, 
+    #mannequinCard, 
+    .canvas-container-3d, 
+    select,
+    #newAssessmentFormContainer,
+    form {
+        display: none !important;
+    }
+    
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .grid-dashboard {
+        display: block !important;
+    }
+    
+    .main-content {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 20px !important;
+    }
+    
+    .glass-card {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        padding: 15px !important;
+        margin-bottom: 20px !important;
+        page-break-inside: avoid;
+    }
+    
+    .glass-card::before {
+        display: none !important;
+    }
+    
+    .glass-card h2, 
+    .glass-card h3, 
+    .glass-card h4, 
+    .glass-card strong,
+    .list-title,
+    .exercise-name,
+    .food-name {
+        color: #0f172a !important;
+    }
+    
+    .profile-meta h2 {
+        font-size: 20pt !important;
+        font-weight: 800 !important;
+    }
+
+    .profile-meta p {
+        color: #475569 !important;
+        font-size: 10pt !important;
+    }
+    
+    .summary-stat-box {
+        border: 1px solid #cbd5e1 !important;
+        background: #f8fafc !important;
+    }
+    
+    .summary-stat-box span {
+        color: #475569 !important;
+    }
+    
+    .summary-stat-box strong {
+        color: #0f172a !important;
+    }
+
+    .kpi-card {
+        border: 1px solid #e2e8f0 !important;
+        background: #f8fafc !important;
+        page-break-inside: avoid;
+    }
+    
+    .kpi-title {
+        color: #475569 !important;
+    }
+    
+    .kpi-value {
+        color: #0f172a !important;
+        text-shadow: none !important;
+    }
+    
+    .kpi-desc {
+        color: #64748b !important;
+    }
+    
+    .exercise-table th {
+        color: #475569 !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+        background: #f1f5f9 !important;
+    }
+    
+    .exercise-table td {
+        color: #0f172a !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+    }
+    
+    .compliance-badge {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+    
+    .tab-panel {
+        display: none !important;
+    }
+    
+    .tab-panel.active {
+        display: block !important;
+    }
+    
+    .charts-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 15px !important;
+    }
+    
+    .chart-card {
+        border: 1px solid #cbd5e1 !important;
+        background: #ffffff !important;
+        page-break-inside: avoid !important;
+        max-width: 100% !important;
+        height: 250px !important;
+    }
+    
+    .chart-card h3 {
+        color: #0f172a !important;
+        font-size: 11pt !important;
+    }
+
+    .workout-day-card, .diet-meal-box {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        page-break-inside: avoid;
+    }
+
+    .workout-day-card h4 {
+        color: #0f172a !important;
+        border-left: 3px solid #0f172a !important;
+    }
+
+    .diet-meal-box h4 {
+        color: #0f172a !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        padding-bottom: 5px;
+    }
+
+    .food-item {
+        background: #f8fafc !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+    }
+}
+
+
+/* Fix para evitar el rebote de scroll (scroll bleed) en modales */
+div[id*='Modal'], .modal-overlay, .admin-modal {
+    overscroll-behavior: contain;
+    z-index: 30000 !important;
+}
+
+/* Bloquear scroll de body al abrir modales */
+body:has(div[id*='Modal'][style*='display: flex']), 
+body:has(div[id*='Modal'][style*='display: block']), 
+body:has(.modal-overlay[style*='display: flex']), 
+body:has(.modal-overlay[style*='display: block']), 
+body:has(.admin-modal[style*='display: flex']), 
+body:has(.admin-modal[style*='display: block']) { 
+    overflow: hidden !important;
+}
+
+/* Forzar que todos los modales se muestren sobre el panel deslizable de la ficha del cliente en móvil (z-index: 10000) */
+#editClientModal,
+#resetClientPasswordModal,
+#addClientModal,
+#addExerciseModal,
+#addBlockModal,
+#addRoutineModal,
+#addNutritionModal,
+#dayDetailModal,
+#assessmentConfigModal,
+#nutritionConfigModal,
+#foodModal,
+#assignRoutineModal,
+#assignNutritionModal,
+#assignNutritionToClientModal,
+#assignRoutineToClientModal {
+    z-index: 20000 !important;
+}
+
+/* --- Estilos del Chat en Tiempo Real --- */
+
+#clientChatView {
+    display: none;
+    flex-direction: column;
+    height: calc(100dvh - 160px);
+    height: calc(100vh - 160px);
+}
+
+#tabChat {
+    display: none;
+    flex-direction: column;
+    height: calc(100dvh - 280px);
+    height: calc(100vh - 280px);
+    min-height: 400px;
+}
+
+@media (max-width: 900px) {
+    #tabChat {
+        height: calc(100dvh - 350px);
+        height: calc(100vh - 350px);
+        min-height: 350px;
+    }
+}
+
+@media (max-width: 600px) {
+    #clientChatView {
+        height: calc(100dvh - 145px - env(safe-area-inset-bottom, 0px));
+        height: calc(100vh - 145px - env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* Efecto de pulsación lenta para el punto verde de en línea */
+@keyframes pulse-green {
+    0% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    }
+}
+
+#coachOnlineStatusDot, #trainerChatClientStatusDot, #floatingChatStatusDot {
+    animation: pulse-green 2s infinite;
+}
+
+/* Scrollbars estilizadas para el feed de chat */
+#clientChatStream::-webkit-scrollbar,
+#trainerChatStream::-webkit-scrollbar,
+#floatingChatStream::-webkit-scrollbar {
+    width: 6px;
+}
+#clientChatStream::-webkit-scrollbar-thumb,
+#trainerChatStream::-webkit-scrollbar-thumb,
+#floatingChatStream::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+#clientChatStream::-webkit-scrollbar-thumb:hover,
+#trainerChatStream::-webkit-scrollbar-thumb:hover,
+#floatingChatStream::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Animación para las burbujas flotantes en entrenador */
+.floating-chat-bubble:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(14, 165, 233, 0.4);
+}
+
+/* Píldoras de filtrado de categoría de alimentos */
+.filter-pill {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+.filter-pill:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--color-text-primary);
+}
+.filter-pill.active {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    color: #121212;
+    font-weight: bold;
+    box-shadow: 0 0 12px rgba(0, 200, 100, 0.35);
+}
+
+/* Contenedor visual de grupos de receta en el creador de planes */
+.recipe-group-container {
+    background: rgba(139, 92, 246, 0.04);
+    border: 1px dashed rgba(139, 92, 246, 0.3);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    transition: all 0.25s ease;
+}
+.recipe-group-container:hover {
+    border-color: rgba(139, 92, 246, 0.6);
+    background: rgba(139, 92, 246, 0.06);
+}
+.recipe-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+.recipe-group-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent-purple);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.recipe-group-multiplier {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.recipe-group-multiplier input {
+    width: 60px;
+    padding: 2px 4px;
+    font-size: 11px;
+    text-align: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+    color: white;
+}
+.recipe-ingredient-row {
+    margin-left: 15px;
+    border-left: 2px solid rgba(139, 92, 246, 0.15);
+    padding-left: 10px;
+}
+
+/* Tarjeta de receta agrupada en el portal del cliente */
+.client-recipe-card {
+    background: rgba(139, 92, 246, 0.04);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 12px;
+}
+.client-recipe-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+.client-recipe-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--accent-purple);
+}
+.client-recipe-macros {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+}
+.client-recipe-ingredients {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.client-recipe-ingredient-item {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    display: flex;
+    justify-content: space-between;
+    padding-left: 12px;
+    position: relative;
+}
+.client-recipe-ingredient-item::before {
+    content: "•";
+    color: var(--accent-purple);
+    position: absolute;
+    left: 2px;
+}
+
+/* ==========================================================================
+   FLATTEN UX: REMOVE CARD-WITHIN-CARD NESTED BORDERS AND BACKGROUNDS
+   ========================================================================== */
+
+/* Remove nested glass cards inside parent panels or tabs */
+.glass-card .glass-card,
+.tab-panel .glass-card:not(.chart-card):not(.calendar-dashboard) {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+}
+
+/* Flatten charts and calendars inside tabsCard */
+.glass-card .chart-card,
+.glass-card .calendar-dashboard {
+    background: rgba(255, 255, 255, 0.01) !important;
+    border: 1px solid rgba(255, 255, 255, 0.04) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-radius: 12px !important;
+}
+
+/* Flatten workout blocks listed in the routine builder */
+.glass-card .workout-day-card {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 0 !important;
+    padding: 12px 0 !important;
+    margin-bottom: 0 !important;
+}
+.glass-card .workout-day-card:last-child {
+    border-bottom: none !important;
+}
+.glass-card .workout-day-card h4 {
+    border-left: 3px solid var(--accent-cyan) !important;
+    padding-left: 8px !important;
+    margin-bottom: 6px !important;
+}
+
+/* Redesign recipes in the client portal diet list (flat list items with solid left line) */
+.client-recipe-card {
+    background: transparent !important;
+    border: none !important;
+    border-left: 3px solid var(--accent-purple) !important;
+    border-radius: 0 !important;
+    padding: 4px 0 4px 12px !important;
+    margin-bottom: 15px !important;
+}
+.client-recipe-card-header {
+    border-bottom: none !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 4px !important;
+}
+
+/* Redesign recipes in the trainer diet planner */
+.recipe-group-container {
+    background: transparent !important;
+    border: none !important;
+    border-left: 3px solid var(--accent-purple) !important;
+    border-radius: 0 !important;
+    padding: 4px 0 4px 12px !important;
+    margin-bottom: 15px !important;
+    transition: all 0.25s ease;
+}
+.recipe-group-container:hover {
+    border-left-color: var(--accent-cyan) !important;
+}
+.recipe-group-header {
+    border-bottom: none !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 4px !important;
+}
+
+
