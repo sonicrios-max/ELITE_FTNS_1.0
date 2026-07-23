@@ -5954,7 +5954,17 @@ function makeElementDraggable(el, header) {
         el.style.top = constrainedTop + "px";
         el.style.left = constrainedLeft + "px";
     }
-
+    function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+        document.ontouchend = null;
+        document.ontouchmove = null;
+        
+        if (hasDragged) {
+            setTimeout(() => {
+                el.removeAttribute('data-dragged');
+            }, 100);
+        }
     }
 }
 
