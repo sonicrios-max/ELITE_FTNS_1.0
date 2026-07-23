@@ -2507,7 +2507,6 @@ closeExerciseModal = function() {
 }
 
 // Block Edit & Integration with Unified Wizard
-let editingBlockId = null;
 
 function editBlock(id) {
     const block = globalBlocksCache.find(b => b.id === id);
