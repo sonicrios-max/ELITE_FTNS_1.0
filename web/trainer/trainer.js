@@ -66,6 +66,9 @@ async function initTrainerDashboard() {
     await loadClientsList();
     connectTrainerWebSocket();
     
+    // Initialize muscle map listeners
+    initInteractiveMuscleMaps();
+    
     // Make chat drawer draggable
     const drawer = document.getElementById("expandedFloatingChatDrawer");
     const header = document.getElementById("expandedFloatingChatHeader");
@@ -1176,31 +1179,206 @@ function showGlobalView(viewName) {
 }
 
 // --- Exercises ---
+let exercisesTableCollapsed = true;
+let activeExerciseCategoryFilter = 'Todos';
+let visibleExercisesCount = 30;
+
+function toggleExercisesTable() {
+    exercisesTableCollapsed = !exercisesTableCollapsed;
+    const btn = document.getElementById('btnToggleExercisesTable');
+    if (btn) {
+        btn.innerHTML = exercisesTableCollapsed ? '<i class="fa-solid fa-chevron-down"></i> Mostrar Catálogo' : '<i class="fa-solid fa-chevron-up"></i> Ocultar Catálogo';
+    }
+    renderExercisesTable();
+}
+
+function selectExerciseCategoryFilter(category) {
+    activeExerciseCategoryFilter = category;
+    visibleExercisesCount = 30;
+    
+    const pills = document.querySelectorAll('.ex-filter-pill');
+    pills.forEach(pill => {
+        if (pill.dataset.category === category) {
+            pill.classList.add('active');
+        } else {
+            pill.classList.remove('active');
+        }
+    });
+    
+    if (category !== 'Todos') {
+        exercisesTableCollapsed = false;
+        const btn = document.getElementById('btnToggleExercisesTable');
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Ocultar Catálogo';
+        }
+    }
+    renderExercisesTable();
+}
+
+function renderExerciseCategoryFilters() {
+    const container = document.getElementById('exerciseCategoryFilters');
+    if (!container) return;
+    
+    const categories = [
+        'Todos',
+        'Abdominales',
+        'Pecho',
+        'Espalda',
+        'Cuádriceps',
+        'Isquiotibiales',
+        'Glúteos',
+        'Hombros',
+        'Bíceps',
+        'Tríceps',
+        'Gemelos',
+        'Antebrazos',
+        'Trapecios',
+        'Espalda Baja',
+        'Espalda Media',
+        'Abductores',
+        'Aductores'
+    ];
+    
+    container.innerHTML = categories.map(cat => {
+        const isActive = cat === activeExerciseCategoryFilter;
+        return `<span class="filter-pill ex-filter-pill ${isActive ? 'active' : ''}" data-category="${cat}" onclick="selectExerciseCategoryFilter('${cat}')">${cat}</span>`;
+    }).join('');
+}
+
+function showMoreExercises() {
+    visibleExercisesCount += 30;
+    renderExercisesTable();
+}
+
+function showLessExercises() {
+    visibleExercisesCount = 30;
+    renderExercisesTable();
+    const container = document.getElementById('globalExercisesTableContainer');
+    if (container) {
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+function filterExercisesList() {
+    const queryInput = document.getElementById('exerciseSearchInput');
+    const levelSelect = document.getElementById('exerciseLevelFilter');
+    const equipSelect = document.getElementById('exerciseEquipmentFilter');
+    
+    const query = queryInput ? queryInput.value.trim() : '';
+    const level = levelSelect ? levelSelect.value.trim() : '';
+    const equip = equipSelect ? equipSelect.value.trim() : '';
+
+    if (query.length > 0 || level !== '' || equip !== '') {
+        exercisesTableCollapsed = false;
+        const btn = document.getElementById('btnToggleExercisesTable');
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Ocultar Catálogo';
+        }
+    }
+    visibleExercisesCount = 30;
+    renderExercisesTable();
+}
+
 async function fetchGlobalExercises() {
     try {
         const res = await fetch('/api/exercises');
         globalExercisesCache = await res.json();
-        const exercises = globalExercisesCache;
-        const tbody = document.getElementById('globalExercisesList');
-        tbody.innerHTML = '';
-        
-        exercises.forEach(ex => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${ex.id}</td>
-                    <td style="font-weight: bold; color: var(--accent-cyan);">${ex.name}</td>
-                    <td>${ex.primary_muscle}</td>
-                    <td>${ex.secondary_muscles || '-'}</td>
-                    <td>${ex.equipment || 'Peso corporal'}</td>
-                    <td style="display: flex; gap: 5px;">
-                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="editExercise(${ex.id})"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteExercise(${ex.id})"><i class="fa-solid fa-trash"></i></button>
-                    </td>
-                </tr>
-            `;
-        });
+        renderExerciseCategoryFilters();
+        renderExercisesTable();
     } catch (e) {
         console.error(e);
+    }
+}
+
+function renderExercisesTable() {
+    const tbody = document.getElementById('globalExercisesList');
+    const container = document.getElementById('globalExercisesTableContainer');
+    const placeholder = document.getElementById('globalExercisesTablePlaceholder');
+    const moreContainer = document.getElementById('globalExercisesTableMoreContainer');
+    if (!tbody) return;
+    
+    const searchInput = document.getElementById('exerciseSearchInput');
+    const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    
+    const levelSelect = document.getElementById('exerciseLevelFilter');
+    const selectedLevel = levelSelect ? levelSelect.value.trim().toLowerCase() : '';
+    
+    const equipSelect = document.getElementById('exerciseEquipmentFilter');
+    const selectedEquip = equipSelect ? equipSelect.value.trim().toLowerCase() : '';
+    
+    const hasActiveFilters = query.length > 0 || activeExerciseCategoryFilter !== 'Todos' || selectedLevel !== '' || selectedEquip !== '';
+    
+    if (exercisesTableCollapsed && !hasActiveFilters) {
+        if (container) container.style.display = 'none';
+        if (placeholder) placeholder.style.display = 'block';
+        return;
+    } else {
+        if (container) container.style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
+    }
+    
+    let filtered = globalExercisesCache.filter(ex => {
+        const nameMatch = !query || 
+            (ex.name && ex.name.toLowerCase().includes(query)) ||
+            (ex.name_en && ex.name_en.toLowerCase().includes(query)) ||
+            (ex.primary_muscle && ex.primary_muscle.toLowerCase().includes(query)) ||
+            (ex.equipment && ex.equipment.toLowerCase().includes(query));
+            
+        const catMatch = activeExerciseCategoryFilter === 'Todos' || 
+            (ex.primary_muscle && ex.primary_muscle.toLowerCase().includes(activeExerciseCategoryFilter.toLowerCase()));
+            
+        const levelMatch = !selectedLevel ||
+            (ex.difficulty_level && ex.difficulty_level.toLowerCase() === selectedLevel) ||
+            (ex.level && ex.level.toLowerCase() === selectedLevel);
+            
+        const equipMatch = !selectedEquip ||
+            (ex.equipment && ex.equipment.toLowerCase().includes(selectedEquip));
+            
+        return nameMatch && catMatch && levelMatch && equipMatch;
+    });
+    
+    const totalCount = filtered.length;
+    const slice = filtered.slice(0, visibleExercisesCount);
+    
+    tbody.innerHTML = slice.map(ex => `
+        <tr>
+            <td>${ex.id}</td>
+            <td style="font-weight: bold; color: var(--accent-cyan);">${ex.name}</td>
+            <td style="color: var(--color-text-secondary);">${ex.name_en || '-'}</td>
+            <td><span class="compliance-badge" style="background: rgba(14, 165, 233, 0.15); color: var(--accent-cyan);">${ex.primary_muscle}</span></td>
+            <td>${ex.secondary_muscles || '-'}</td>
+            <td>${ex.equipment || 'Peso corporal'}</td>
+            <td>${ex.difficulty_level || ex.level || 'Intermedio'}</td>
+            <td style="display: flex; gap: 5px;">
+                <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-cyan);" onclick="editExercise(${ex.id})"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn-nav" style="padding: 4px 8px; font-size: 12px; color: var(--accent-red);" onclick="deleteExercise(${ex.id})"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+    
+    if (moreContainer) {
+        const btnMore = document.getElementById('btnShowMoreExercises');
+        const btnLess = document.getElementById('btnShowLessExercises');
+        
+        if (totalCount > 0) {
+            moreContainer.style.display = 'flex';
+            if (visibleExercisesCount < totalCount) {
+                if (btnMore) {
+                    btnMore.style.display = 'inline-block';
+                    btnMore.innerText = `Mostrar más ejercicios... (${visibleExercisesCount} de ${totalCount})`;
+                }
+            } else {
+                if (btnMore) btnMore.style.display = 'none';
+            }
+            
+            if (visibleExercisesCount > 30) {
+                if (btnLess) btnLess.style.display = 'inline-block';
+            } else {
+                if (btnLess) btnLess.style.display = 'none';
+            }
+        } else {
+            moreContainer.style.display = 'none';
+        }
     }
 }
 
@@ -1265,119 +1443,312 @@ async function fetchGlobalBlocks() {
     }
 }
 
+let unifiedBlockExercises = [];
+
 function openBlockModal() { 
     document.getElementById('addBlockModal').style.display = 'flex'; 
-    document.getElementById('blockExercisesContainer').innerHTML = '';
-    populateMuscleFilter();
-    document.getElementById('exerciseMuscleFilter').value = '';
-    addExerciseToBlockBuilder();
-}
-function closeBlockModal() { document.getElementById('addBlockModal').style.display = 'none'; }
-
-// Pobla el filtro de músculo con todos los músculos únicos (principal + secundarios)
-function populateMuscleFilter() {
-    const filter = document.getElementById('exerciseMuscleFilter');
-    if (!filter) return;
-    const primaryMuscles = globalExercisesCache.map(ex => ex.primary_muscle).filter(Boolean);
-    const secondaryMuscles = globalExercisesCache
-        .flatMap(ex => ex.secondary_muscles
-            ? ex.secondary_muscles.split(',').map(s => s.trim()).filter(Boolean)
-            : []);
-    const allMuscles = [...new Set([...primaryMuscles, ...secondaryMuscles])].sort();
-    filter.innerHTML = '<option value="">Todos los músculos</option>';
-    allMuscles.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m;
-        filter.appendChild(opt);
-    });
+    document.getElementById('newBlockName').value = '';
+    unifiedBlockExercises = [];
+    goToUnifiedStep1();
+    populateUnifiedMuscleFilter();
+    renderUnifiedCatalog();
 }
 
-// Filtra los selects de ejercicio según el músculo elegido (principal O secundario)
-function filterExercisesByMuscle() {
-    const muscle = document.getElementById('exerciseMuscleFilter')?.value || '';
-    const selects = document.querySelectorAll('.block-ex-id');
-    const filtered = muscle
-        ? globalExercisesCache.filter(ex => {
-            const isPrimary = ex.primary_muscle === muscle;
-            const isSecondary = ex.secondary_muscles &&
-                ex.secondary_muscles.split(',').map(s => s.trim()).includes(muscle);
-            return isPrimary || isSecondary;
-          })
-        : globalExercisesCache;
-    selects.forEach(sel => {
-        const cur = sel.value;
-        sel.innerHTML = filtered.map(ex =>
-            `<option value="${ex.id}">${ex.name} (${ex.primary_muscle})</option>`
-        ).join('');
-        if (filtered.find(e => e.id == cur)) sel.value = cur;
-    });
+function closeBlockModal() { 
+    document.getElementById('addBlockModal').style.display = 'none'; 
 }
 
-function addExerciseToBlockBuilder() {
-    const container = document.getElementById('blockExercisesContainer');
-    const exDiv = document.createElement('div');
-    exDiv.className = 'block-exercise-row';
+function populateUnifiedMuscleFilter() {
+    const sel = document.getElementById('unifiedCatalogMuscleFilter');
+    if (!sel) return;
+    const muscles = [...new Set(globalExercisesCache.map(ex => ex.primary_muscle).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">Todos</option>' + muscles.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+function renderUnifiedCatalog() {
+    const list = document.getElementById('unifiedCatalogList');
+    if (!list) return;
+    const search = document.getElementById('unifiedCatalogSearch')?.value.toLowerCase().trim() || '';
+    const muscle = document.getElementById('unifiedCatalogMuscleFilter')?.value || '';
     
-    const muscle = document.getElementById('exerciseMuscleFilter')?.value || '';
-    const filtered = muscle
-        ? globalExercisesCache.filter(ex => {
-            const isPrimary = ex.primary_muscle === muscle;
-            const isSecondary = ex.secondary_muscles &&
-                ex.secondary_muscles.split(',').map(s => s.trim()).includes(muscle);
-            return isPrimary || isSecondary;
-          })
-        : globalExercisesCache;
-
-    let optionsHTML = filtered.map(ex =>
-        `<option value="${ex.id}">${ex.name} (${ex.primary_muscle})</option>`
-    ).join('');
+    let filtered = globalExercisesCache;
+    if (search) {
+        filtered = filtered.filter(ex => ex.name.toLowerCase().includes(search) || (ex.name_en && ex.name_en.toLowerCase().includes(search)));
+    }
+    if (muscle) {
+        filtered = filtered.filter(ex => ex.primary_muscle === muscle);
+    }
     
-    exDiv.innerHTML = `
-        <select class="block-ex-id" required>${optionsHTML}</select>
-        <input type="number" class="ex-sets" placeholder="Series" value="3" required>
-        <input type="text" class="ex-reps" placeholder="Reps" value="10-12" required>
-        <input type="number" class="ex-rpe" placeholder="RPE" value="8">
-        <input type="number" class="ex-rest" placeholder="Descanso (s)" value="90" required>
-        <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
-    `;
-    container.appendChild(exDiv);
+    list.innerHTML = filtered.slice(0, 45).map(ex => {
+        const isAdded = unifiedBlockExercises.some(item => item.id === ex.id);
+        return `
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0;">
+                <div style="min-width: 0; flex: 1;">
+                    <strong style="font-size: 11px; color: white; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ex.name}</strong>
+                    <span style="font-size: 9px; color: var(--color-text-secondary); display: block;">${ex.primary_muscle} | ${ex.equipment || 'Peso corporal'}</span>
+                </div>
+                <button type="button" class="btn-nav" style="padding: 4px 8px; font-size: 10px; flex-shrink: 0; min-width: 32px; ${isAdded ? 'background: rgba(16,185,129,0.15); color: #10b981; border-color: #10b981;' : 'color: var(--accent-cyan); border-color: var(--glass-border);'}" onclick="toggleUnifiedExercise(${ex.id})">
+                    ${isAdded ? '<i class="fa-solid fa-check"></i>' : '<i class="fa-solid fa-plus"></i>'}
+                </button>
+            </div>
+        `;
+    }).join('');
 }
 
-async function submitNewBlock(e) {
-    e.preventDefault();
-    
-    const exercises = [];
-    const exRows = document.querySelectorAll('.block-exercise-row');
-    exRows.forEach((row, exIdx) => {
-        exercises.push({
-            exercise_id: parseInt(row.querySelector('.block-ex-id').value),
-            sets_count: parseInt(row.querySelector('.ex-sets').value),
-            reps_range: row.querySelector('.ex-reps').value,
-            rpe_target: parseInt(row.querySelector('.ex-rpe').value) || 0,
-            rest_seconds: parseInt(row.querySelector('.ex-rest').value) || 90,
-            order_index: exIdx + 1
-        });
-    });
+function toggleUnifiedExercise(id) {
+    const idx = unifiedBlockExercises.findIndex(item => item.id === id);
+    if (idx >= 0) {
+        unifiedBlockExercises.splice(idx, 1);
+    } else {
+        const ex = globalExercisesCache.find(e => e.id === id);
+        if (ex) {
+            unifiedBlockExercises.push({
+                id: ex.id,
+                name: ex.name,
+                primary_muscle: ex.primary_muscle,
+                equipment: ex.equipment,
+                sets: 4,
+                reps: '10-12',
+                rpe: 8,
+                rest_seconds: 90
+            });
+        }
+    }
+    renderUnifiedCatalog();
+    renderUnifiedSelected();
+}
 
+function renderUnifiedSelected() {
+    const list = document.getElementById('unifiedSelectedList');
+    const badge = document.getElementById('unifiedSelectedCountBadge');
+    const balance = document.getElementById('unifiedMuscleBalancePill');
+    if (!list) return;
+    
+    badge.innerText = `${unifiedBlockExercises.length} Ejercicios`;
+    
+    if (unifiedBlockExercises.length === 0) {
+        list.innerHTML = `<div style="text-align: center; padding: 40px 10px; color: var(--color-text-secondary); font-size: 11px;">Pizarra vacía. Agrega ejercicios del catálogo de la izquierda.</div>`;
+        balance.innerText = "Ningún ejercicio seleccionado aún.";
+        return;
+    }
+    
+    const muscleCount = {};
+    let totalSets = 0;
+    unifiedBlockExercises.forEach(item => {
+        const m = item.primary_muscle || 'General';
+        muscleCount[m] = (muscleCount[m] || 0) + item.sets;
+        totalSets += item.sets;
+    });
+    
+    const summary = Object.keys(muscleCount).map(m => {
+        const pct = Math.round((muscleCount[m] / totalSets) * 100);
+        return `<span style="color: var(--accent-cyan); font-weight: 600;">${m}</span>: ${pct}%`;
+    }).join(' | ');
+    
+    balance.innerHTML = `<i class="fa-solid fa-chart-pie" style="color: var(--accent-cyan); margin-right: 5px;"></i> Distribución: ${summary}`;
+    
+    list.innerHTML = unifiedBlockExercises.map((item, idx) => `
+        <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0;">
+            <div style="min-width: 0; flex: 1;">
+                <span style="font-size: 11px; font-weight: 600; color: white; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${idx + 1}. ${item.name}</span>
+                <span style="font-size: 9px; color: var(--color-text-secondary); display: block;">${item.sets}x${item.reps} | RPE ${item.rpe} | ${item.rest_seconds}s</span>
+            </div>
+            <button type="button" class="btn-nav" style="padding: 4px 6px; color: var(--accent-red); border: none; background: transparent; cursor: pointer; flex-shrink: 0;" onclick="toggleUnifiedExercise(${item.id})">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+function applyUnifiedPreset(type) {
+    if (unifiedBlockExercises.length === 0) {
+        alert("Agrega ejercicios a la pizarra primero.");
+        return;
+    }
+    unifiedBlockExercises.forEach(item => {
+        if (type === 'Hypertrophy') {
+            item.sets = 4;
+            item.reps = '10-12';
+            item.rpe = 8;
+            item.rest_seconds = 90;
+        } else if (type === 'Strength') {
+            item.sets = 5;
+            item.reps = '5';
+            item.rpe = 9;
+            item.rest_seconds = 180;
+        } else if (type === 'Endurance') {
+            item.sets = 3;
+            item.reps = '15-20';
+            item.rpe = 7;
+            item.rest_seconds = 45;
+        }
+    });
+    renderUnifiedSelected();
+}
+
+function goToUnifiedStep1() {
+    document.getElementById('unifiedBlockStep1').style.display = 'block';
+    document.getElementById('unifiedBlockStep2').style.display = 'none';
+    document.getElementById('unifiedBlockWizardProgress').innerText = "Paso 1 de 2: Selección y Pizarra";
+    renderUnifiedCatalog();
+    renderUnifiedSelected();
+}
+
+function goToUnifiedStep2() {
+    const name = document.getElementById('newBlockName').value.trim();
+    if (!name) {
+        alert("Por favor ingresa un nombre para el bloque.");
+        return;
+    }
+    if (unifiedBlockExercises.length === 0) {
+        alert("Debes seleccionar al menos un ejercicio en la pizarra.");
+        return;
+    }
+    document.getElementById('unifiedBlockStep1').style.display = 'none';
+    document.getElementById('unifiedBlockStep2').style.display = 'block';
+    document.getElementById('unifiedBlockWizardProgress').innerText = "Paso 2 de 2: Ajuste y Posición";
+    renderUnifiedStep2List();
+}
+
+function renderUnifiedStep2List() {
+    const list = document.getElementById('unifiedAjusteList');
+    if (!list) return;
+    
+    list.innerHTML = unifiedBlockExercises.map((item, idx) => `
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 15px; display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
+            <!-- Left Side: Order & Exercise Info -->
+            <div style="display: flex; align-items: center; gap: 15px; min-width: 220px; flex: 1;">
+                <div style="display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; align-items: center;">
+                    <button type="button" class="btn-nav" style="padding: 2px 6px; font-size: 11px;" onclick="moveUnifiedBlockItem(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity: 0.3;"' : ''}>▲</button>
+                    <span style="font-size: 12px; font-weight: 700; color: var(--accent-cyan);">${idx + 1}</span>
+                    <button type="button" class="btn-nav" style="padding: 2px 6px; font-size: 11px;" onclick="moveUnifiedBlockItem(${idx}, 1)" ${idx === unifiedBlockExercises.length - 1 ? 'disabled style="opacity: 0.3;"' : ''}>▼</button>
+                </div>
+                <div style="min-width: 0; word-break: break-word; flex: 1;">
+                    <strong style="font-size: 13px; color: white; display: block; line-height: 1.2;">${item.name}</strong>
+                    <span style="font-size: 10px; color: var(--color-text-secondary); display: block; margin-top: 3px;">${item.primary_muscle} | ${item.equipment || 'Peso corporal'}</span>
+                </div>
+            </div>
+
+            <!-- Right Side: Param Adjustments -->
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; justify-content: flex-end; flex: 1.5; min-width: 320px;">
+                <!-- Series -->
+                <div>
+                    <span style="font-size: 10px; color: var(--color-text-muted); display: block; margin-bottom: 4px;"><i class="fa-solid fa-layer-group" style="color: var(--accent-cyan);"></i> Series</span>
+                    <div style="display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 2px 6px;">
+                        <button type="button" style="background: transparent; border: none; color: white; cursor: pointer; width: 22px; font-weight: bold;" onclick="adjustUnifiedParam(${idx}, 'sets', -1)">-</button>
+                        <span style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); min-width: 25px; text-align: center;">${item.sets}</span>
+                        <button type="button" style="background: transparent; border: none; color: white; cursor: pointer; width: 22px; font-weight: bold;" onclick="adjustUnifiedParam(${idx}, 'sets', 1)">+</button>
+                    </div>
+                </div>
+
+                <!-- Reps -->
+                <div>
+                    <span style="font-size: 10px; color: var(--color-text-muted); display: block; margin-bottom: 4px;"><i class="fa-solid fa-repeat"></i> Reps</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" class="btn-nav ${item.reps === '5' ? 'active' : ''}" style="padding: 3px 6px; font-size: 9px;" onclick="setUnifiedReps(${idx}, '5')">5</button>
+                        <button type="button" class="btn-nav ${item.reps === '10-12' ? 'active' : ''}" style="padding: 3px 6px; font-size: 9px;" onclick="setUnifiedReps(${idx}, '10-12')">10-12</button>
+                        <button type="button" class="btn-nav ${item.reps === '12-15' ? 'active' : ''}" style="padding: 3px 6px; font-size: 9px;" onclick="setUnifiedReps(${idx}, '12-15')">12-15</button>
+                        <button type="button" class="btn-nav ${item.reps === 'Al Fallo' ? 'active' : ''}" style="padding: 3px 6px; font-size: 9px; color: var(--accent-orange);" onclick="setUnifiedReps(${idx}, 'Al Fallo')">Fallo</button>
+                    </div>
+                </div>
+
+                <!-- RPE -->
+                <div>
+                    <span style="font-size: 10px; color: var(--color-text-muted); display: block; margin-bottom: 4px;"><i class="fa-solid fa-fire" style="color: var(--accent-orange);"></i> RPE</span>
+                    <div style="display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 2px 6px;">
+                        <button type="button" style="background: transparent; border: none; color: white; cursor: pointer; width: 22px; font-weight: bold;" onclick="adjustUnifiedParam(${idx}, 'rpe', -1)">-</button>
+                        <span style="font-size: 11px; font-weight: 700; color: var(--accent-orange); min-width: 25px; text-align: center;">${item.rpe}</span>
+                        <button type="button" style="background: transparent; border: none; color: white; cursor: pointer; width: 22px; font-weight: bold;" onclick="adjustUnifiedParam(${idx}, 'rpe', 1)">+</button>
+                    </div>
+                </div>
+
+                <!-- Rest -->
+                <div>
+                    <span style="font-size: 10px; color: var(--color-text-muted); display: block; margin-bottom: 4px;"><i class="fa-solid fa-stopwatch" style="color: #10b981;"></i> Descanso</span>
+                    <div style="display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 2px 6px;">
+                        <button type="button" style="background: transparent; border: none; color: white; cursor: pointer; width: 22px; font-weight: bold;" onclick="adjustUnifiedParam(${idx}, 'rest_seconds', -15)">-</button>
+                        <span style="font-size: 11px; font-weight: 700; color: #10b981; min-width: 45px; text-align: center;">${item.rest_seconds}s</span>
+                        <button type="button" style="background: transparent; border: none; color: white; cursor: pointer; width: 22px; font-weight: bold;" onclick="adjustUnifiedParam(${idx}, 'rest_seconds', 15)">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function moveUnifiedBlockItem(idx, direction) {
+    const target = idx + direction;
+    if (target < 0 || target >= unifiedBlockExercises.length) return;
+    const temp = unifiedBlockExercises[idx];
+    unifiedBlockExercises[idx] = unifiedBlockExercises[target];
+    unifiedBlockExercises[target] = temp;
+    renderUnifiedStep2List();
+}
+
+function adjustUnifiedParam(idx, param, delta) {
+    if (param === 'sets') {
+        unifiedBlockExercises[idx].sets = Math.max(1, unifiedBlockExercises[idx].sets + delta);
+    } else if (param === 'rpe') {
+        unifiedBlockExercises[idx].rpe = Math.min(10, Math.max(1, unifiedBlockExercises[idx].rpe + delta));
+    } else if (param === 'rest_seconds') {
+        unifiedBlockExercises[idx].rest_seconds = Math.max(0, unifiedBlockExercises[idx].rest_seconds + delta);
+    }
+    renderUnifiedStep2List();
+}
+
+function setUnifiedReps(idx, repsVal) {
+    unifiedBlockExercises[idx].reps = repsVal;
+    renderUnifiedStep2List();
+}
+
+async function saveUnifiedBlock() {
+    const name = document.getElementById('newBlockName').value.trim();
+    if (!name) {
+        alert("Ingresa un nombre para el bloque.");
+        return;
+    }
+    if (unifiedBlockExercises.length === 0) {
+        alert("Selecciona al menos un ejercicio.");
+        return;
+    }
+    
+    const exercises = unifiedBlockExercises.map((item, exIdx) => ({
+        exercise_id: item.id,
+        sets_count: item.sets,
+        reps_range: item.reps,
+        rpe_target: item.rpe,
+        rest_seconds: item.rest_seconds,
+        order_index: exIdx + 1
+    }));
+    
     const payload = {
-        name: document.getElementById('newBlockName').value,
-        description: document.getElementById('newBlockDesc').value,
+        name: name,
+        description: `Bloque Muscular Unificado (${unifiedBlockExercises.length} ejercicios)`,
         exercises: exercises
     };
     
-    const res = await fetch('/api/workout_blocks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.success) {
-        closeBlockModal();
-        e.target.reset();
-        fetchGlobalBlocks();
-    } else {
-        alert("Error: " + result.error);
+    if (editingBlockId) {
+        payload.id = editingBlockId;
+    }
+    
+    try {
+        const url = '/api/workout_blocks';
+        const method = editingBlockId ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+            closeBlockModal();
+            fetchGlobalBlocks();
+            alert(editingBlockId ? "¡Bloque muscular modificado exitosamente!" : "¡Bloque muscular guardado exitosamente!");
+        } else {
+            alert("Error: " + result.error);
+        }
+    } catch (e) {
+        console.error(e);
     }
 }
 
@@ -2135,88 +2506,46 @@ closeExerciseModal = function() {
     originalCloseEx();
 }
 
-// Block Edit
-const originalSubmitBlock = submitNewBlock;
-submitNewBlock = async function(e) {
-    if(!editingBlockId) return originalSubmitBlock(e);
-    
-    e.preventDefault();
-    const exercises = [];
-    document.querySelectorAll('.block-exercise-row').forEach((row, exIdx) => {
-        exercises.push({
-            exercise_id: parseInt(row.querySelector('.block-ex-id').value),
-            sets_count: parseInt(row.querySelector('.ex-sets').value),
-            reps_range: row.querySelector('.ex-reps').value,
-            rpe_target: parseInt(row.querySelector('.ex-rpe').value) || 0,
-            rest_seconds: parseInt(row.querySelector('.ex-rest').value) || 90,
-            order_index: exIdx + 1
-        });
-    });
-    const payload = {
-        id: editingBlockId,
-        name: document.getElementById('newBlockName').value,
-        description: document.getElementById('newBlockDesc').value,
-        exercises: exercises
-    };
-    const res = await fetch('/api/workout_blocks', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.success) {
-        closeBlockModal();
-        e.target.reset();
-        fetchGlobalBlocks();
-    } else alert("Error: " + result.error);
-}
+// Block Edit & Integration with Unified Wizard
+let editingBlockId = null;
 
 function editBlock(id) {
     const block = globalBlocksCache.find(b => b.id === id);
-    if(!block) return;
+    if (!block) return;
     editingBlockId = id;
     
     document.getElementById('newBlockName').value = block.name;
-    document.getElementById('newBlockDesc').value = block.description || '';
-    
     const formTitle = document.querySelector('#addBlockModal h3');
-    if(formTitle) formTitle.textContent = "Editar Bloque de Grupo Muscular";
+    if (formTitle) formTitle.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> Editar Bloque Muscular`;
+    
+    // Pre-populate unified draft exercises from block's current exercises
+    unifiedBlockExercises = block.exercises.map(ex => {
+        const fullEx = globalExercisesCache.find(e => e.id === ex.exercise_id) || {};
+        return {
+            id: ex.exercise_id,
+            name: fullEx.name || ex.exercise_name || `Ejercicio #${ex.exercise_id}`,
+            primary_muscle: fullEx.primary_muscle || 'General',
+            equipment: fullEx.equipment || 'Peso corporal',
+            sets: ex.sets_count,
+            reps: ex.reps_range,
+            rpe: ex.rpe_target || 8,
+            rest_seconds: ex.rest_seconds || 90
+        };
+    });
     
     document.getElementById('addBlockModal').style.display = 'flex'; 
-    document.getElementById('blockExercisesContainer').innerHTML = '';
-    
-    // Resetear y poblar el filtro de músculo
-    populateMuscleFilter();
-    document.getElementById('exerciseMuscleFilter').value = '';
-    
-    // Cargar ejercicios existentes — TODOS los ejercicios disponibles sin filtro de clase
-    block.exercises.forEach(ex => {
-        const container = document.getElementById('blockExercisesContainer');
-        const exDiv = document.createElement('div');
-        exDiv.className = 'block-exercise-row';
-        
-        let optionsHTML = globalExercisesCache.map(e =>
-            `<option value="${e.id}" ${e.id == ex.exercise_id ? 'selected' : ''}>${e.name} (${e.primary_muscle})</option>`
-        ).join('');
-        
-        exDiv.innerHTML = `
-            <select class="block-ex-id" required>${optionsHTML}</select>
-            <input type="number" class="ex-sets" placeholder="Series" value="${ex.sets_count}" required>
-            <input type="text" class="ex-reps" placeholder="Reps" value="${ex.reps_range}" required>
-            <input type="number" class="ex-rpe" placeholder="RPE" value="${ex.rpe_target || 8}">
-            <input type="number" class="ex-rest" placeholder="Descanso (s)" value="${ex.rest_seconds !== undefined && ex.rest_seconds !== null ? ex.rest_seconds : 90}" required>
-            <button type="button" class="btn-nav" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
-        `;
-        container.appendChild(exDiv);
-    });
+    goToUnifiedStep1();
+    populateUnifiedMuscleFilter();
+    renderUnifiedCatalog();
 }
 
-const originalCloseBlock = closeBlockModal;
+// Override closeBlockModal to reset edit ID and titles
+const originalCloseBlockModal = closeBlockModal;
 closeBlockModal = function() {
     editingBlockId = null;
     const formTitle = document.querySelector('#addBlockModal h3');
-    if(formTitle) formTitle.textContent = "Nuevo Bloque de Grupo Muscular";
-    originalCloseBlock();
+    if (formTitle) formTitle.innerHTML = `<i class="fa-solid fa-layer-group"></i> Creador de Bloques Musculares`;
+    originalCloseBlockModal();
 }
 
 // Routine Edit
@@ -4020,6 +4349,15 @@ function showMoreFoods() {
     renderFoodsTable();
 }
 
+function showLessFoods() {
+    visibleFoodsCount = 30;
+    renderFoodsTable();
+    const container = document.getElementById('globalFoodsTableContainer');
+    if (container) {
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
 function filterFoodsList() {
     const queryInput = document.getElementById('foodSearchInput');
     const query = queryInput ? queryInput.value.trim() : '';
@@ -4089,7 +4427,29 @@ function renderFoodsTable() {
     const foodsToRender = filteredFoods.slice(0, visibleFoodsCount);
     
     if (moreContainer) {
-        moreContainer.style.display = filteredFoods.length > visibleFoodsCount ? 'block' : 'none';
+        const btnMore = document.getElementById('btnShowMoreFoods');
+        const btnLess = document.getElementById('btnShowLessFoods');
+        const totalCount = filteredFoods.length;
+        
+        if (totalCount > 0) {
+            moreContainer.style.display = 'flex';
+            if (visibleFoodsCount < totalCount) {
+                if (btnMore) {
+                    btnMore.style.display = 'inline-block';
+                    btnMore.innerText = `Mostrar más alimentos... (${visibleFoodsCount} de ${totalCount})`;
+                }
+            } else {
+                if (btnMore) btnMore.style.display = 'none';
+            }
+            
+            if (visibleFoodsCount > 30) {
+                if (btnLess) btnLess.style.display = 'inline-block';
+            } else {
+                if (btnLess) btnLess.style.display = 'none';
+            }
+        } else {
+            moreContainer.style.display = 'none';
+        }
     }
     
     tbody.innerHTML = '';
@@ -5596,16 +5956,219 @@ function makeElementDraggable(el, header) {
         el.style.left = constrainedLeft + "px";
     }
 
-    function closeDragElement() {
-        document.onmouseup = null;
-        document.onmousemove = null;
-        document.ontouchend = null;
-        document.ontouchmove = null;
-        
-        if (hasDragged) {
-            setTimeout(() => {
-                el.removeAttribute('data-dragged');
-            }, 100);
+    }
+}
+
+/* ==========================================================================
+   INTERACTIVE MUSCLE MAP FILTER LOGIC
+   ========================================================================== */
+
+let muscleMapVisible = false;
+let unifiedMuscleViewFront = true;
+
+function initInteractiveMuscleMaps() {
+    // 1. Initialize global exercise library muscle map click listeners
+    const globalPaths = document.querySelectorAll('#globalMuscleMapContainer .muscle-group-path');
+    globalPaths.forEach(path => {
+        path.addEventListener('click', () => {
+            const muscle = path.getAttribute('data-muscle');
+            selectMuscleFromMap(muscle);
+        });
+    });
+
+    // 2. Initialize block creator wizard muscle map click listeners
+    const unifiedPaths = document.querySelectorAll('#unifiedFrontView .muscle-group-path, #unifiedBackView .muscle-group-path');
+    unifiedPaths.forEach(path => {
+        path.addEventListener('click', () => {
+            const muscle = path.getAttribute('data-muscle');
+            selectUnifiedMuscleFromMap(muscle);
+        });
+    });
+
+    // 3. Hover sync logic for Zona Core (Front and Back)
+    const allPaths = document.querySelectorAll('.muscle-group-path');
+    allPaths.forEach(path => {
+        path.addEventListener('mouseenter', () => {
+            const muscle = path.getAttribute('data-muscle');
+            if (muscle === 'Zona Core') {
+                allPaths.forEach(p => {
+                    const m = p.getAttribute('data-muscle');
+                    if (m === 'Zona Core' || m === 'Abdominales' || m === 'Oblicuos' || m === 'Espalda Baja') {
+                        p.classList.add('map-hover-sync');
+                    }
+                });
+            }
+        });
+        path.addEventListener('mouseleave', () => {
+            allPaths.forEach(p => p.classList.remove('map-hover-sync'));
+        });
+    });
+}
+
+function toggleMuscleMap() {
+    muscleMapVisible = !muscleMapVisible;
+    const container = document.getElementById('globalMuscleMapContainer');
+    const btn = document.getElementById('btnToggleMuscleMap');
+    if (container) {
+        container.style.display = muscleMapVisible ? 'flex' : 'none';
+    }
+    if (btn) {
+        btn.innerHTML = muscleMapVisible ? '<i class="fa-solid fa-person"></i> Ocultar Mapa' : '<i class="fa-solid fa-person"></i> Mapa de Músculos';
+        if (muscleMapVisible) {
+            btn.style.background = 'rgba(14, 165, 233, 0.15)';
+            btn.style.borderColor = 'var(--accent-cyan)';
+        } else {
+            btn.style.background = 'rgba(14, 165, 233, 0.05)';
+            btn.style.borderColor = 'rgba(14, 165, 233, 0.25)';
+        }
+    }
+}
+
+function selectMuscleFromMap(muscle) {
+    if (activeExerciseCategoryFilter === muscle) {
+        clearMuscleMapSelection();
+        return;
+    }
+    
+    const paths = document.querySelectorAll('#globalMuscleMapContainer .muscle-group-path');
+    paths.forEach(p => {
+        const m = p.getAttribute('data-muscle');
+        if (m === muscle || (muscle === 'Zona Core' && (m === 'Abdominales' || m === 'Oblicuos' || m === 'Espalda Baja'))) {
+            p.classList.add('active');
+        } else {
+            p.classList.remove('active');
+        }
+    });
+    
+    const label = document.getElementById('activeMuscleLabel');
+    if (label) {
+        label.textContent = `Músculo: ${muscle}`;
+        label.style.borderColor = 'var(--accent-cyan)';
+        label.style.color = 'var(--accent-cyan)';
+    }
+    
+    activeExerciseCategoryFilter = muscle;
+    visibleExercisesCount = 30;
+    
+    const pills = document.querySelectorAll('.ex-filter-pill');
+    pills.forEach(pill => {
+        if (pill.dataset.category === muscle) {
+            pill.classList.add('active');
+        } else {
+            pill.classList.remove('active');
+        }
+    });
+    
+    exercisesTableCollapsed = false;
+    const btn = document.getElementById('btnToggleExercisesTable');
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Ocultar Catálogo';
+    }
+    
+    renderExercisesTable();
+}
+
+function clearMuscleMapSelection() {
+    const paths = document.querySelectorAll('#globalMuscleMapContainer .muscle-group-path');
+    paths.forEach(p => p.classList.remove('active'));
+    
+    const label = document.getElementById('activeMuscleLabel');
+    if (label) {
+        label.textContent = 'Músculo: Todos';
+        label.style.borderColor = 'rgba(255, 255, 255, 0.04)';
+        label.style.color = 'var(--color-text-secondary)';
+    }
+    
+    selectExerciseCategoryFilter('Todos');
+}
+
+function toggleUnifiedMuscleView() {
+    unifiedMuscleViewFront = !unifiedMuscleViewFront;
+    const front = document.getElementById('unifiedFrontView');
+    const back = document.getElementById('unifiedBackView');
+    const btn = document.getElementById('btnToggleUnifiedView');
+    if (front && back) {
+        front.style.display = unifiedMuscleViewFront ? 'flex' : 'none';
+        back.style.display = unifiedMuscleViewFront ? 'none' : 'flex';
+    }
+    if (btn) {
+        btn.innerHTML = unifiedMuscleViewFront ? '<i class="fa-solid fa-arrows-rotate"></i> Frente / Espalda' : '<i class="fa-solid fa-arrows-rotate"></i> Frente / Espalda';
+    }
+}
+
+function selectUnifiedMuscleFromMap(muscle) {
+    const select = document.getElementById('unifiedCatalogMuscleFilter');
+    if (!select) return;
+    
+    if (select.value === muscle) {
+        clearUnifiedMuscleSelection();
+        return;
+    }
+    
+    const paths = document.querySelectorAll('#unifiedFrontView .muscle-group-path, #unifiedBackView .muscle-group-path');
+    paths.forEach(p => {
+        const m = p.getAttribute('data-muscle');
+        if (m === muscle || (muscle === 'Zona Core' && (m === 'Abdominales' || m === 'Oblicuos' || m === 'Espalda Baja'))) {
+            p.classList.add('active');
+        } else {
+            p.classList.remove('active');
+        }
+    });
+    
+    const label = document.getElementById('unifiedActiveMuscleLabel');
+    if (label) {
+        label.textContent = `Músculo: ${muscle}`;
+        label.style.borderColor = 'var(--accent-cyan)';
+        label.style.color = 'var(--accent-cyan)';
+    }
+    
+    select.value = muscle;
+    renderUnifiedCatalog();
+}
+
+function clearUnifiedMuscleSelection() {
+    const paths = document.querySelectorAll('#unifiedFrontView .muscle-group-path, #unifiedBackView .muscle-group-path');
+    paths.forEach(p => p.classList.remove('active'));
+    
+    const label = document.getElementById('unifiedActiveMuscleLabel');
+    if (label) {
+        label.textContent = 'Músculo: Todos';
+        label.style.borderColor = 'rgba(0, 0, 0, 0.15)';
+        label.style.color = 'var(--color-text-secondary)';
+    }
+    
+    const select = document.getElementById('unifiedCatalogMuscleFilter');
+    if (select) {
+        select.value = '';
+    }
+    renderUnifiedCatalog();
+}
+
+function syncUnifiedMuscleDropdownToMap() {
+    const select = document.getElementById('unifiedCatalogMuscleFilter');
+    if (!select) return;
+    const muscle = select.value;
+    
+    const paths = document.querySelectorAll('#unifiedFrontView .muscle-group-path, #unifiedBackView .muscle-group-path');
+    paths.forEach(p => {
+        const m = p.getAttribute('data-muscle');
+        if (muscle && (m === muscle || (muscle === 'Zona Core' && (m === 'Abdominales' || m === 'Oblicuos' || m === 'Espalda Baja')))) {
+            p.classList.add('active');
+        } else {
+            p.classList.remove('active');
+        }
+    });
+    
+    const label = document.getElementById('unifiedActiveMuscleLabel');
+    if (label) {
+        if (muscle) {
+            label.textContent = `Músculo: ${muscle}`;
+            label.style.borderColor = 'var(--accent-cyan)';
+            label.style.color = 'var(--accent-cyan)';
+        } else {
+            label.textContent = 'Músculo: Todos';
+            label.style.borderColor = 'rgba(0, 0, 0, 0.15)';
+            label.style.color = 'var(--color-text-secondary)';
         }
     }
 }

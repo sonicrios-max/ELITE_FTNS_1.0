@@ -3343,7 +3343,13 @@ TEST_PORTS = [8081, 8082, 8083, 8084, 8085]
 @app.api_route("/trainer", methods=["GET", "HEAD"])
 @app.api_route("/trainer/", methods=["GET", "HEAD"])
 async def read_trainer():
-    if PORT in TEST_PORTS:
+    if PORT == 8082:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "option1_trainer.html"), media_type="text/html")
+    elif PORT == 8083:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "option2_trainer.html"), media_type="text/html")
+    elif PORT == 8084:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "option3_trainer.html"), media_type="text/html")
+    elif PORT in TEST_PORTS:
         return FileResponse(os.path.join(BASE_DIR, "test_ux", "trainer_blue.html"), media_type="text/html")
     return FileResponse(os.path.join(BASE_DIR, "web", "trainer", "index.html"), media_type="text/html")
 
@@ -3380,7 +3386,13 @@ async def get_themed_style():
 
 @app.get("/trainer/trainer.js")
 async def get_trainer_js():
-    if PORT in TEST_PORTS:
+    if PORT == 8082:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "option1_trainer.js"), media_type="application/javascript")
+    elif PORT == 8083:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "option2_trainer.js"), media_type="application/javascript")
+    elif PORT == 8084:
+        return FileResponse(os.path.join(BASE_DIR, "test_ux", "option3_trainer.js"), media_type="application/javascript")
+    elif PORT in TEST_PORTS:
         return FileResponse(os.path.join(BASE_DIR, "test_ux", "trainer_blue.js"), media_type="application/javascript")
     return FileResponse(os.path.join(BASE_DIR, "web", "trainer", "trainer.js"), media_type="application/javascript")
 

@@ -2247,3 +2247,128 @@ header {
 }
 
 
+/* ==========================================================================
+   INTERACTIVE MUSCLE MAP FILTER STYLING
+   ========================================================================== */
+
+.interactive-muscle-container {
+    background: rgba(8, 9, 22, 0.4);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.muscle-map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 10px;
+}
+
+.muscle-map-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.muscle-map-views-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    justify-items: center;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .muscle-map-views-container {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+}
+
+.muscle-svg-card {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 10px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.muscle-svg-card h5 {
+    margin: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.5px;
+}
+
+.muscle-body-svg {
+    width: 100%;
+    max-height: 280px;
+    height: auto;
+}
+
+/* SVGs Styling */
+.muscle-group-path {
+    fill: rgba(14, 165, 233, 0.05);
+    stroke: rgba(14, 165, 233, 0.25);
+    stroke-width: 1.2;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.muscle-group-path:hover,
+.muscle-group-path:hover *,
+.muscle-group-path.map-hover-sync,
+.muscle-group-path.map-hover-sync * {
+    fill: rgba(6, 182, 212, 0.25) !important;
+    stroke: var(--accent-cyan) !important;
+    filter: drop-shadow(0 0 5px var(--accent-cyan)) !important;
+}
+
+.muscle-group-path.active,
+.muscle-group-path.active * {
+    fill: rgba(6, 182, 212, 0.55) !important;
+    stroke: #ffffff !important;
+    stroke-width: 1.8 !important;
+    filter: drop-shadow(0 0 8px var(--accent-cyan)) !important;
+}
+
+/* Background outline for human silhouette */
+.body-outline {
+    fill: rgba(255, 255, 255, 0.015);
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 1;
+    pointer-events: none;
+}
+
+/* Active indicator label */
+.muscle-clear-btn {
+    font-size: 10px;
+    color: var(--accent-cyan);
+    background: rgba(14, 165, 233, 0.08);
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.muscle-clear-btn:hover {
+    background: rgba(14, 165, 233, 0.18);
+    color: white;
+}

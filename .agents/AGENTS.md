@@ -95,3 +95,5 @@ The client profile header was redesigned from a flat text block into a premium i
 * The `test_ux/` folder is the active UX prototype — do NOT modify production files (`web/trainer/`, `web/client/`) unless the user explicitly approves migration.
 * Port `8081` = UX Prototype. Port `8080` = Production. Both share the same SQLite database.
 * Password hashes must NEVER appear in API responses unless the caller sends a valid `X-Admin-Passcode` header.
+* Do NOT launch automated browser subagents (`browser_subagent`) to test or verify web page behaviors. Always delegate all browser-based functional verification directly to the user to optimize token usage.
+
