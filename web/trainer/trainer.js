@@ -1473,21 +1473,37 @@ function populateUnifiedMuscleFilter() {
     sel.innerHTML = '<option value="">Todos los músculos</option>' + allMuscles.map(m => `<option value="${m}">${m}</option>`).join('');
 }
 
-function getExerciseAnatomicalSummary(ex) {
+function calculateExerciseMuscleDistribution(ex) {
     const prim = ex.primary_muscle || 'General';
     const secRaw = ex.secondary_muscles || '';
     const secs = secRaw ? secRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    
+    const dist = {};
+    if (secs.length === 0) {
+        dist[prim] = 1.0;
+    } else if (secs.length === 1) {
+        dist[prim] = 0.75;
+        dist[secs[0]] = 0.25;
+    } else if (secs.length === 2) {
+        dist[prim] = 0.60;
+        dist[secs[0]] = 0.20;
+        dist[secs[1]] = 0.20;
+    } else {
+        dist[prim] = 0.50;
+        const secWeight = 0.50 / secs.length;
+        secs.forEach(s => dist[s] = secWeight);
+    }
+    return dist;
+}
+
+function getExerciseAnatomicalSummary(ex) {
+    const dist = calculateExerciseMuscleDistribution(ex);
     const level = ex.difficulty_level || ex.level || 'Intermedio';
     const equip = ex.equipment || 'Peso corporal';
     
-    if (secs.length === 0) {
-        return `${prim} 100% · ${equip} · ${level}`;
-    }
-    
-    const secPct = Math.round(30 / secs.length);
-    const primPct = 100 - (secPct * secs.length);
-    const secText = secs.slice(0, 2).map(s => `${s} ${secPct}%`).join(' | ');
-    return `${prim} ${primPct}% | ${secText} · ${equip} · ${level}`;
+    const parts = Object.keys(dist).map(m => `${m} ${Math.round(dist[m] * 100)}%`);
+    const breakdown = parts.slice(0, 3).join(' | ');
+    return `${breakdown} · ${equip} · ${level}`;
 }
 
 function renderUnifiedCatalog() {
@@ -1616,26 +1632,14 @@ function renderUnifiedMusclePieChart() {
     let totalWeight = 0;
 
     unifiedBlockExercises.forEach(item => {
-        const prim = item.primary_muscle || 'General';
         const sets = item.sets || 4;
-        const secRaw = item.secondary_muscles || '';
-        const secs = secRaw ? secRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const dist = calculateExerciseMuscleDistribution(item);
         
-        if (secs.length === 0) {
-            muscleWeights[prim] = (muscleWeights[prim] || 0) + (sets * 1.0);
-            totalWeight += (sets * 1.0);
-        } else {
-            const secWeightPerMuscle = (sets * 0.30) / secs.length;
-            const primWeight = (sets * 0.70);
-            
-            muscleWeights[prim] = (muscleWeights[prim] || 0) + primWeight;
-            totalWeight += primWeight;
-            
-            secs.forEach(sec => {
-                muscleWeights[sec] = (muscleWeights[sec] || 0) + secWeightPerMuscle;
-                totalWeight += secWeightPerMuscle;
-            });
-        }
+        Object.keys(dist).forEach(m => {
+            const w = sets * dist[m];
+            muscleWeights[m] = (muscleWeights[m] || 0) + w;
+            totalWeight += w;
+        });
     });
 
     const palette = [
