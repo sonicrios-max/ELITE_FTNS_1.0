@@ -2389,23 +2389,90 @@ header {
     color: white;
 }
 
-/* Preset Badge buttons (Option 2 style) */
-.preset-badge-btn {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid var(--glass-border);
-    color: white;
-    padding: 5px 10px;
-    border-radius: 20px;
-    font-size: 10px;
+/* Emerald Neon Theme & Pie Chart Styling */
+.theme-emerald-border {
+    border: 1px solid #10b981 !important;
+    box-shadow: 0 0 35px rgba(16, 185, 129, 0.25) !important;
+}
+
+.text-emerald {
+    color: #10b981 !important;
+}
+
+.btn-emerald {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-emerald:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.45) !important;
+}
+
+/* Pie Chart Layout */
+.muscle-pie-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.pie-slice {
+    transition: all 0.3s ease;
     cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: var(--font-sans);
 }
-.preset-badge-btn:hover {
-    background: #10b981;
-    border-color: #10b981;
-    color: black;
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+
+.pie-slice:hover {
+    filter: brightness(1.25) drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+    transform: scale(1.03);
+    transform-origin: center;
 }
+
+.pie-legend-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 110px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.pie-legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--color-text-secondary);
+}
+
+.pie-legend-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pie-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.pie-pct-badge {
+    font-weight: 700;
+    font-size: 9.5px;
+    color: white;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
 
 

@@ -906,169 +906,181 @@
 
     <!-- Add Block Modal (Wizard Premium Unificado) -->
     <div id="addBlockModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(10px);">
-        <div class="glass-card" style="width: min(1350px, 98vw); height: 94vh; max-height: 94vh; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #10b981; padding: 15px 22px; box-shadow: 0 0 45px rgba(16, 185, 129, 0.2);">
+        <div class="glass-card" style="width: min(1340px, 96vw); height: 92vh; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #10b981; padding: 22px; box-shadow: 0 0 45px rgba(16, 185, 129, 0.25);">
             
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; flex-shrink: 0;">
-                <h3 style="color: #10b981; margin: 0; font-size: 16px;"><i class="fa-solid fa-layer-group"></i> Creador de Bloques Musculares</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; flex-shrink: 0;">
+                <h3 style="color: #10b981; margin: 0; font-size: 18px;"><i class="fa-solid fa-layer-group"></i> Creador de Bloques Musculares</h3>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <div id="unifiedBlockWizardProgress" style="font-size: 11px; font-weight: 600; color: #10b981; background: rgba(16, 185, 129, 0.05); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.15);">
+                    <div id="unifiedBlockWizardProgress" style="font-size: 12px; font-weight: 600; color: #10b981; background: rgba(16,185,129,0.08); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(16,185,129,0.25);">
                         Paso 1 de 2: Selección y Pizarra
                     </div>
                     <button type="button" class="btn-nav" onclick="closeBlockModal()" style="padding: 4px 8px;"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>
 
-            <!-- PASO 1: SELECCIÓN Y PIZARRA (PANTALLA DIVIDIDA) -->
+            <!-- PASO 1: SELECCIÓN Y PIZARRA (MAQUETACIÓN EN 2 COLUMNAS) -->
             <div id="unifiedBlockStep1" style="display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0;">
-                <div class="form-group" style="margin-bottom: 10px; flex-shrink: 0;">
-                    <label style="font-weight: 600; font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">Nombre del Bloque</label>
-                    <input type="text" id="newBlockName" required placeholder="Ej. Empuje Torso Pesado (Pecho/Tríceps)" style="width: 100%; padding: 6px 10px; font-size: 12px; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: white;">
+                <div class="form-group" style="margin-bottom: 12px; flex-shrink: 0;">
+                    <label style="font-weight: 600; font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Nombre del Bloque Muscular</label>
+                    <input type="text" id="newBlockName" required placeholder="Ej. Torso Empuje Pesado (Pecho / Tríceps)" style="width: 100%; padding: 8px 12px; font-size: 13px; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(16,185,129,0.2); color: white;">
                     <input type="hidden" id="newBlockDesc" value="">
                 </div>
 
-                <div style="display: grid; grid-template-columns: 330px 1fr; gap: 15px; flex: 1; overflow: hidden; min-height: 0; margin-bottom: 5px;">
-                    <!-- Columna Izquierda: Gráfico y Mapa Muscular -->
-                    <div style="background: rgba(0,0,0,0.18); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; height: 100%; overflow: hidden; min-height: 0;">
-                        <h4 style="margin: 0; font-size: 11px; color: #10b981; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 6px; flex-shrink: 0;"><i class="fa-solid fa-chart-pie"></i> Distribución y Mapa</h4>
+                <div style="display: grid; grid-template-columns: 420px 1fr; gap: 18px; flex: 1; overflow: hidden; min-height: 0; margin-bottom: 5px;">
+                    <!-- COLUMNA 1: MAPA MUSCULAR 2D AMPLIADO + GRÁFICO DE TORTA -->
+                    <div style="display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: hidden; min-height: 0;">
                         
-                        <div style="display: flex; gap: 8px; flex-shrink: 0;">
-                            <button type="button" id="btnToggleUnifiedView" class="btn-nav" style="flex: 1; padding: 5px 8px; font-size: 10px; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; gap: 4px; color: white !important;" onclick="toggleUnifiedMuscleView()"><i class="fa-solid fa-arrows-rotate"></i> Frente / Espalda</button>
-                            <button type="button" class="muscle-clear-btn" style="flex: 1; padding: 5px 8px; font-size: 10px; border: 1px solid rgba(16, 185, 129, 0.25); background: rgba(16, 185, 129, 0.08); color: #10b981;" onclick="clearUnifiedMuscleSelection()">Limpiar</button>
+                        <!-- Tarjeta 1: Mapa Muscular Ampliado -->
+                        <div style="flex: 1; background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; min-height: 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 6px; flex-shrink: 0;">
+                                <h4 style="margin: 0; font-size: 11px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-person"></i> Mapa Muscular 2D</h4>
+                                <button type="button" class="muscle-clear-btn" style="padding: 2px 6px; font-size: 8px;" onclick="clearUnifiedMuscleSelection()">Limpiar</button>
+                            </div>
+                            <div style="display: flex; justify-content: center; margin-top: 4px; margin-bottom: 4px; flex-shrink: 0;">
+                                <button type="button" id="btnToggleUnifiedView" class="btn-nav" style="padding: 4px 10px; font-size: 10px; background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.2); display: flex; align-items: center; gap: 4px; color: white !important;" onclick="toggleUnifiedMuscleView()"><i class="fa-solid fa-arrows-rotate"></i> Frente / Espalda</button>
+                            </div>
+                            
+                            <!-- Maniquí SVG Ampliado -->
+                            <div style="position: relative; flex: 1; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 8px; overflow: hidden; min-height: 0;">
+                                <!-- Frente -->
+                                <div id="unifiedFrontView" style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                                    <svg viewBox="0 0 200 350" class="muscle-body-svg" style="height: 100%; max-height: 310px; width: auto;" id="unified-front-svg">
+                                        <!-- Body Outline Background -->
+                                        <path class="body-outline" d="M100,20 C110,20 116,26 116,36 C116,46 112,50 108,54 L110,66 C124,68 136,70 144,80 C146,84 148,90 148,96 C148,110 152,122 154,134 C156,140 158,160 158,180 C158,184 152,184 150,184 C148,180 146,150 144,142 L138,136 L134,172 C134,185 130,225 126,245 C124,250 125,255 125,260 C125,275 126,290 124,310 C123,315 123,322 120,328 C118,332 110,332 110,326 L112,310 C114,290 114,275 112,260 L100,250 L88,260 C86,275 86,290 88,310 L90,326 C90,332 82,332 80,328 C77,322 77,315 76,310 C74,290 75,275 75,260 C75,255 76,250 74,245 C70,225 66,185 66,172 L62,136 L58,142 C56,150 52,180 50,184 C48,184 44,184 44,180 C44,160 46,140 48,134 C50,122 54,110 54,96 C54,90 56,84 58,80 C66,70 78,68 92,66 L94,54 C90,50 86,46 86,36 C86,26 92,20 100,20 Z" />
+                                        <!-- Cuello -->
+                                        <polygon points="92,56 108,56 106,66 94,66" class="muscle-group-path" data-muscle="Cuello" />
+                                        <!-- Hombros -->
+                                        <g class="muscle-group-path" data-muscle="Hombros">
+                                            <path d="M72,70 C62,72 58,80 56,90 L66,105 L80,82 Z" />
+                                            <path d="M128,70 C138,72 142,80 144,90 L134,105 L120,82 Z" />
+                                        </g>
+                                        <!-- Pecho -->
+                                        <g class="muscle-group-path" data-muscle="Pecho">
+                                            <path d="M78,82 L98,82 L98,110 L75,115 Z" />
+                                            <path d="M122,82 L102,82 L102,110 L125,115 Z" />
+                                        </g>
+                                        <!-- Abdominales -->
+                                        <rect x="88" y="114" width="24" height="52" rx="4" class="muscle-group-path" data-muscle="Abdominales" />
+                                        <!-- Oblicuos -->
+                                        <g class="muscle-group-path" data-muscle="Oblicuos">
+                                            <path d="M75,117 L86,114 L86,166 L78,155 Z" />
+                                            <path d="M125,117 L114,114 L114,166 L122,155 Z" />
+                                        </g>
+                                        <!-- Zona Core -->
+                                        <g class="muscle-group-path" data-muscle="Zona Core">
+                                            <rect x="78" y="148" width="44" height="14" rx="2" />
+                                            <rect x="97" y="148" width="6" height="14" fill="rgba(255,255,255,0.15)" stroke="none" pointer-events="none" />
+                                        </g>
+                                        <!-- Flexores de Cadera -->
+                                        <g class="muscle-group-path" data-muscle="Flexores de Cadera">
+                                            <polygon points="75,166 94,166 90,174 76,174" />
+                                            <polygon points="125,166 106,166 110,174 124,174" />
+                                        </g>
+                                        <!-- Bíceps -->
+                                        <g class="muscle-group-path" data-muscle="Bíceps">
+                                            <path d="M54,92 C50,105 50,120 54,132 L64,124 C66,115 66,105 64,96 Z" />
+                                            <path d="M146,92 C150,105 150,120 146,132 L136,124 C134,115 134,105 136,96 Z" />
+                                        </g>
+                                        <!-- Antebrazos -->
+                                        <g class="muscle-group-path" data-muscle="Antebrazos">
+                                            <path d="M53,134 L46,180 L54,180 L62,136 Z" />
+                                            <path d="M147,134 L154,180 L146,180 L138,136 Z" />
+                                        </g>
+                                        <!-- Cuádriceps -->
+                                        <g class="muscle-group-path" data-muscle="Cuádriceps">
+                                            <path d="M76,174 C75,195 78,225 82,245 L94,245 C92,225 90,195 90,174 Z" />
+                                            <path d="M124,174 C125,195 122,225 118,245 L106,245 C108,225 110,195 110,174 Z" />
+                                        </g>
+                                        <!-- Aductores -->
+                                        <g class="muscle-group-path" data-muscle="Aductores">
+                                            <path d="M91,174 L94,242 L98,230 C96,210 93,190 93,174 Z" />
+                                            <path d="M109,174 L106,242 L102,230 C104,210 107,190 107,174 Z" />
+                                        </g>
+                                        <!-- Abductores -->
+                                        <g class="muscle-group-path" data-muscle="Abductores">
+                                            <path d="M68,172 L75,174 L78,220 L72,210 Z" />
+                                            <path d="M132,172 L125,174 L122,220 L128,210 Z" />
+                                        </g>
+                                    </svg>
+                                </div>
+                                <!-- Espalda -->
+                                <div id="unifiedBackView" style="width: 100%; height: 100%; display: none; justify-content: center; align-items: center;">
+                                    <svg viewBox="0 0 200 350" class="muscle-body-svg" style="height: 100%; max-height: 310px; width: auto;" id="unified-back-svg">
+                                        <!-- Body Outline Background -->
+                                        <path class="body-outline" d="M100,20 C110,20 116,26 116,36 C116,46 112,50 108,54 L110,66 C124,68 136,70 144,80 C146,84 148,90 148,96 C148,110 152,122 154,134 C156,140 158,160 158,180 C158,184 152,184 150,184 C148,180 146,150 144,142 L138,136 L134,172 C134,185 130,225 126,245 C124,250 125,255 125,260 C125,275 126,290 124,310 C123,315 123,322 120,328 C118,332 110,332 110,326 L112,310 C114,290 114,275 112,260 L100,250 L88,260 C86,275 86,290 88,310 L90,326 C90,332 82,332 80,328 C77,322 77,315 76,310 C74,290 75,275 75,260 C75,255 76,250 74,245 C70,225 66,185 66,172 L62,136 L58,142 C56,150 52,180 50,184 C48,184 44,184 44,180 C44,160 46,140 48,134" />
+                                        <!-- Trapecios -->
+                                        <polygon points="90,66 110,66 120,90 80,90" class="muscle-group-path" data-muscle="Trapecios" />
+                                        <!-- Espalda Alta -->
+                                        <polygon points="84,90 116,90 118,102 82,102" class="muscle-group-path" data-muscle="Espalda Alta" />
+                                        <!-- Hombros Posterior -->
+                                        <g class="muscle-group-path" data-muscle="Hombros">
+                                            <path d="M72,70 C62,72 58,80 56,90 L66,105 L80,82 Z" />
+                                            <path d="M128,70 C138,72 142,80 144,90 L134,105 L120,82 Z" />
+                                        </g>
+                                        <!-- Dorsales -->
+                                        <g class="muscle-group-path" data-muscle="Dorsales">
+                                            <path d="M76,102 L98,102 L98,125 L78,120 Z" />
+                                            <path d="M124,102 L102,102 L102,125 L122,120 Z" />
+                                        </g>
+                                        <!-- Espalda Media -->
+                                        <rect x="94" y="102" width="12" height="30" rx="2" class="muscle-group-path" data-muscle="Espalda Media" />
+                                        <!-- Espalda Baja -->
+                                        <rect x="84" y="136" width="32" height="24" rx="3" class="muscle-group-path" data-muscle="Espalda Baja" />
+                                        <!-- Zona Core -->
+                                        <g class="muscle-group-path" data-muscle="Zona Core">
+                                            <rect x="78" y="148" width="44" height="14" rx="2" />
+                                            <rect x="97" y="148" width="6" height="14" fill="rgba(255,255,255,0.15)" stroke="none" pointer-events="none" />
+                                        </g>
+                                        <!-- Tríceps -->
+                                        <g class="muscle-group-path" data-muscle="Tríceps">
+                                            <path d="M54,92 C50,105 50,120 54,132 L64,124 C66,115 66,105 64,96 Z" />
+                                            <path d="M146,92 C150,105 150,120 146,132 L136,124 C134,115 134,105 136,96 Z" />
+                                        </g>
+                                        <!-- Glúteos -->
+                                        <g class="muscle-group-path" data-muscle="Glúteos">
+                                            <path d="M74,164 C74,184 86,192 98,192 L98,164 Z" />
+                                            <path d="M126,164 C126,184 114,192 102,192 L102,164 Z" />
+                                        </g>
+                                        <!-- Isquiotibiales -->
+                                        <g class="muscle-group-path" data-muscle="Isquiotibiales">
+                                            <path d="M76,194 C76,215 80,240 84,250 L94,250 C92,235 90,215 90,194 Z" />
+                                            <path d="M124,194 C124,215 120,240 116,250 L106,250 C108,235 110,215 110,194 Z" />
+                                        </g>
+                                        <!-- Gemelos -->
+                                        <g class="muscle-group-path" data-muscle="Gemelos">
+                                            <path d="M78,260 C75,275 75,295 78,310 L88,310 C90,295 90,275 88,260 Z" />
+                                            <path d="M122,260 C125,275 125,295 122,310 L112,310 C110,295 110,275 112,260 Z" />
+                                        </g>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div id="unifiedActiveMuscleLabel" style="font-size: 11px; text-align: center; color: #10b981; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); padding: 5px; border-radius: 6px; flex-shrink: 0; margin-top: 5px;">Músculo: Todos</div>
                         </div>
 
-                        <!-- Panel del Gráfico tipo Tarta (Canvas) -->
-                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 8px; min-height: 165px; border: 1px solid rgba(255,255,255,0.03); flex-shrink: 0;">
-                            <canvas id="unifiedMusclePieChart" width="180" height="180" style="max-width: 100%; max-height: 110px;"></canvas>
-                            <div id="unifiedMusclePieChartLegend" style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 100%; margin-top: 6px; font-size: 9px; color: var(--color-text-secondary); max-height: 40px; overflow-y: auto;"></div>
+                        <!-- Tarjeta 2: Gráfico de Torta (Pie Chart Prominente de Distribución Muscular) -->
+                        <div style="background: rgba(0,0,0,0.22); border: 1px solid rgba(16,185,129,0.2); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h4 style="margin: 0; font-size: 11px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-chart-pie"></i> Distribución Muscular (% Estímulo)</h4>
+                            </div>
+                            <div id="unifiedMusclePieChartContainer" class="muscle-pie-container">
+                                <!-- Gráfico SVG Donut generado dinámicamente -->
+                                <div style="font-size: 10px; color: var(--color-text-muted); text-align: center; width: 100%; padding: 10px 0;">Selecciona ejercicios para ver el gráfico.</div>
+                            </div>
                         </div>
 
-                        <!-- Panel de Silueta Humana (SVG Ampliado y Centrado) -->
-                        <div style="position: relative; flex: 1; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px; overflow: hidden; min-height: 220px;">
-                            <!-- Frente -->
-                            <div id="unifiedFrontView" style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
-                                <svg viewBox="40 18 120 312" class="muscle-body-svg" style="width: 100%; height: 100%; max-height: 100%; filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.05));" id="unified-front-svg">
-                                    <!-- Body Outline Background -->
-                                    <path class="body-outline" d="M100,20 C110,20 116,26 116,36 C116,46 112,50 108,54 L110,66 C124,68 136,70 144,80 C146,84 148,90 148,96 C148,110 152,122 154,134 C156,140 158,160 158,180 C158,184 152,184 150,184 C148,180 146,150 144,142 L138,136 L134,172 C134,185 130,225 126,245 C124,250 125,255 125,260 C125,275 126,290 124,310 C123,315 123,322 120,328 C118,332 110,332 110,326 L112,310 C114,290 114,275 112,260 L100,250 L88,260 C86,275 86,290 88,310 L90,326 C90,332 82,332 80,328 C77,322 77,315 76,310 C74,290 75,275 75,260 C75,255 76,250 74,245 C70,225 66,185 66,172 L62,136 L58,142 C56,150 52,180 50,184 C48,184 44,184 44,180 C44,160 46,140 48,134 C50,122 54,110 54,96 C54,90 56,84 58,80 C66,70 78,68 92,66 L94,54 C90,50 86,46 86,36 C86,26 92,20 100,20 Z" />
-                                    <!-- Cuello -->
-                                    <polygon points="92,56 108,56 106,66 94,66" class="muscle-group-path" data-muscle="Cuello" />
-                                    <!-- Hombros -->
-                                    <g class="muscle-group-path" data-muscle="Hombros">
-                                        <path d="M72,70 C62,72 58,80 56,90 L66,105 L80,82 Z" />
-                                        <path d="M128,70 C138,72 142,80 144,90 L134,105 L120,82 Z" />
-                                    </g>
-                                    <!-- Pecho -->
-                                    <g class="muscle-group-path" data-muscle="Pecho">
-                                        <path d="M78,82 L98,82 L98,110 L75,115 Z" />
-                                        <path d="M122,82 L102,82 L102,110 L125,115 Z" />
-                                    </g>
-                                    <!-- Abdominales -->
-                                    <rect x="88" y="114" width="24" height="52" rx="4" class="muscle-group-path" data-muscle="Abdominales" />
-                                    <!-- Oblicuos -->
-                                    <g class="muscle-group-path" data-muscle="Oblicuos">
-                                        <path d="M75,117 L86,114 L86,166 L78,155 Z" />
-                                        <path d="M125,117 L114,114 L114,166 L122,155 Z" />
-                                    </g>
-                                    <!-- Zona Core -->
-                                    <g class="muscle-group-path" data-muscle="Zona Core">
-                                        <rect x="78" y="148" width="44" height="14" rx="2" />
-                                        <rect x="97" y="148" width="6" height="14" fill="rgba(255,255,255,0.15)" stroke="none" pointer-events="none" />
-                                    </g>
-                                    <!-- Flexores de Cadera -->
-                                    <g class="muscle-group-path" data-muscle="Flexores de Cadera">
-                                        <polygon points="75,166 94,166 90,174 76,174" />
-                                        <polygon points="125,166 106,166 110,174 124,174" />
-                                    </g>
-                                    <!-- Bíceps -->
-                                    <g class="muscle-group-path" data-muscle="Bíceps">
-                                        <path d="M54,92 C50,105 50,120 54,132 L64,124 C66,115 66,105 64,96 Z" />
-                                        <path d="M146,92 C150,105 150,120 146,132 L136,124 C134,115 134,105 136,96 Z" />
-                                    </g>
-                                    <!-- Antebrazos -->
-                                    <g class="muscle-group-path" data-muscle="Antebrazos">
-                                        <path d="M53,134 L46,180 L54,180 L62,136 Z" />
-                                        <path d="M147,134 L154,180 L146,180 L138,136 Z" />
-                                    </g>
-                                    <!-- Cuádriceps -->
-                                    <g class="muscle-group-path" data-muscle="Cuádriceps">
-                                        <path d="M76,174 C75,195 78,225 82,245 L94,245 C92,225 90,195 90,174 Z" />
-                                        <path d="M124,174 C125,195 122,225 118,245 L106,245 C108,225 110,195 110,174 Z" />
-                                    </g>
-                                    <!-- Aductores -->
-                                    <g class="muscle-group-path" data-muscle="Aductores">
-                                        <path d="M91,174 L94,242 L98,230 C96,210 93,190 93,174 Z" />
-                                        <path d="M109,174 L106,242 L102,230 C104,210 107,190 107,174 Z" />
-                                    </g>
-                                    <!-- Abductores -->
-                                    <g class="muscle-group-path" data-muscle="Abductores">
-                                        <path d="M68,172 L75,174 L78,220 L72,210 Z" />
-                                        <path d="M132,172 L125,174 L122,220 L128,210 Z" />
-                                    </g>
-                                </svg>
-                            </div>
-                            <!-- Espalda -->
-                            <div id="unifiedBackView" style="width: 100%; height: 100%; display: none; justify-content: center; align-items: center;">
-                                <svg viewBox="40 18 120 312" class="muscle-body-svg" style="width: 100%; height: 100%; max-height: 100%; filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.05));" id="unified-back-svg">
-                                    <!-- Body Outline Background -->
-                                    <path class="body-outline" d="M100,20 C110,20 116,26 116,36 C116,46 112,50 108,54 L110,66 C124,68 136,70 144,80 C146,84 148,90 148,96 C148,110 152,122 154,134 C156,140 158,160 158,180 C158,184 152,184 150,184 C148,180 146,150 144,142 L138,136 L134,172 C134,185 130,225 126,245 C124,250 125,255 125,260 C125,275 126,290 124,310 C123,315 123,322 120,328 C118,332 110,332 110,326 L112,310 C114,290 114,275 112,260 L100,250 L88,260 C86,275 86,290 88,310 L90,326 C90,332 82,332 80,328 C77,322 77,315 76,310 C74,290 75,275 75,260 C75,255 76,250 74,245 C70,225 66,185 66,172 L62,136 L58,142 C56,150 52,180 50,184 C48,184 44,184 44,180 C44,160 46,140 48,134" />
-                                    <!-- Trapecios -->
-                                    <polygon points="90,66 110,66 120,90 80,90" class="muscle-group-path" data-muscle="Trapecios" />
-                                    <!-- Espalda Alta -->
-                                    <polygon points="84,90 116,90 118,102 82,102" class="muscle-group-path" data-muscle="Espalda Alta" />
-                                    <!-- Hombros Posterior -->
-                                    <g class="muscle-group-path" data-muscle="Hombros">
-                                        <path d="M72,70 C62,72 58,80 56,90 L66,105 L80,82 Z" />
-                                        <path d="M128,70 C138,72 142,80 144,90 L134,105 L120,82 Z" />
-                                    </g>
-                                    <!-- Dorsales -->
-                                    <g class="muscle-group-path" data-muscle="Dorsales">
-                                        <path d="M76,102 L98,102 L98,125 L78,120 Z" />
-                                        <path d="M124,102 L102,102 L102,125 L122,120 Z" />
-                                    </g>
-                                    <!-- Espalda Media -->
-                                    <rect x="94" y="102" width="12" height="30" rx="2" class="muscle-group-path" data-muscle="Espalda Media" />
-                                    <!-- Espalda Baja -->
-                                    <rect x="84" y="136" width="32" height="24" rx="3" class="muscle-group-path" data-muscle="Espalda Baja" />
-                                    <!-- Zona Core -->
-                                    <g class="muscle-group-path" data-muscle="Zona Core">
-                                        <rect x="78" y="148" width="44" height="14" rx="2" />
-                                        <rect x="97" y="148" width="6" height="14" fill="rgba(255,255,255,0.15)" stroke="none" pointer-events="none" />
-                                    </g>
-                                    <!-- Tríceps -->
-                                    <g class="muscle-group-path" data-muscle="Tríceps">
-                                        <path d="M54,92 C50,105 50,120 54,132 L64,124 C66,115 66,105 64,96 Z" />
-                                        <path d="M146,92 C150,105 150,120 146,132 L136,124 C134,115 134,105 136,96 Z" />
-                                    </g>
-                                    <!-- Glúteos -->
-                                    <g class="muscle-group-path" data-muscle="Glúteos">
-                                        <path d="M74,164 C74,184 86,192 98,192 L98,164 Z" />
-                                        <path d="M126,164 C126,184 114,192 102,192 L102,164 Z" />
-                                    </g>
-                                    <!-- Isquiotibiales -->
-                                    <g class="muscle-group-path" data-muscle="Isquiotibiales">
-                                        <path d="M76,194 C76,215 80,240 84,250 L94,250 C92,235 90,215 90,194 Z" />
-                                        <path d="M124,194 C124,215 120,240 116,250 L106,250 C108,235 110,215 110,194 Z" />
-                                    </g>
-                                    <!-- Gemelos -->
-                                    <g class="muscle-group-path" data-muscle="Gemelos">
-                                        <path d="M78,260 C75,275 75,295 78,310 L88,310 C90,295 90,275 88,260 Z" />
-                                        <path d="M122,260 C125,275 125,295 122,310 L112,310 C110,295 110,275 112,260 Z" />
-                                    </g>
-                                </svg>
-                            </div>
-                        </div>
-                        <div id="unifiedActiveMuscleLabel" style="font-size: 11px; text-align: center; color: #10b981; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); padding: 5px; border-radius: 6px; flex-shrink: 0; margin-top: 5px;">Músculo: Todos</div>
                     </div>
 
-                    <!-- Columna Derecha: Catálogo y Pizarra Apilados Verticalmente -->
-                    <div style="display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: hidden; min-height: 0;">
-                        <!-- Catálogo de Ejercicios (Caja Superior) -->
-                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; height: 45%; overflow: hidden; min-height: 0;">
-                            <h4 style="margin: 0; font-size: 13px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Catálogo Rápido</h4>
+                    <!-- COLUMNA 2: FILA 1 (CATÁLOGO RÁPIDO) + FILA 2 (PIZARRA SELECCIONADOS) -->
+                    <div style="display: flex; flex-direction: column; gap: 15px; height: 100%; overflow: hidden; min-height: 0;">
+                        
+                        <!-- Fila 1: Catálogo Rápido de Ejercicios -->
+                        <div style="flex: 1; background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; min-height: 0;">
+                            <h4 style="margin: 0; font-size: 13px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Catálogo Rápido de Ejercicios</h4>
                             
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0;">
-                                <input type="text" id="unifiedCatalogSearch" oninput="renderUnifiedCatalog()" placeholder="Buscar por nombre..." style="flex: 1; min-width: 150px; padding: 6px 10px; font-size: 11px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); color: white;">
-                                <select id="unifiedCatalogMuscleFilter" onchange="syncUnifiedMuscleDropdownToMap(); renderUnifiedCatalog();" style="width: 130px; padding: 6px; font-size: 11px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid rgba(16, 185, 129, 0.15); color: white;">
-                                    <option value="">Todos</option>
+                                <input type="text" id="unifiedCatalogSearch" oninput="renderUnifiedCatalog()" placeholder="Buscar por nombre..." style="flex: 1; min-width: 150px; padding: 6px 10px; font-size: 11px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid rgba(16,185,129,0.2); color: white;">
+                                <select id="unifiedCatalogMuscleFilter" onchange="syncUnifiedMuscleDropdownToMap(); renderUnifiedCatalog();" style="width: 140px; padding: 6px; font-size: 11px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid rgba(16,185,129,0.2); color: white;">
+                                    <option value="">Todos los músculos</option>
                                 </select>
                             </div>
 
@@ -1077,48 +1089,43 @@
                             </div>
                         </div>
 
-                        <!-- Ejercicios Seleccionados / Pizarra (Caja Inferior) -->
-                        <div style="background: rgba(16, 185, 129, 0.015); border: 1px dashed rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; height: 55%; overflow: hidden; min-height: 0;">
+                        <!-- Fila 2: Pizarra de Ejercicios Seleccionados -->
+                        <div style="flex: 1; background: rgba(16,185,129,0.02); border: 1px dashed rgba(16,185,129,0.35); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; min-height: 0;">
                             <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 5px; flex-shrink: 0;">
-                                    <h4 style="margin: 0; font-size: 13px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-list-check"></i> Ejercicios en la Pizarra</h4>
-                                    <span id="unifiedSelectedCountBadge" class="compliance-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 10px;">0 Ejercicios</span>
-                                </div>
-
-                                <!-- Live Balance Muscular -->
-                                <div id="unifiedMuscleBalancePill" style="font-size: 10px; color: var(--color-text-secondary); background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04); margin-bottom: 8px; min-height: 26px; line-height: 14px; flex-shrink: 0;">
-                                    Ningún ejercicio seleccionado aún.
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 5px; flex-shrink: 0;">
+                                    <h4 style="margin: 0; font-size: 13px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-layer-group"></i> Ejercicios en la Pizarra</h4>
+                                    <span id="unifiedSelectedCountBadge" class="compliance-badge" style="background: rgba(16,185,129,0.15); color: #10b981; font-size: 10px;">0 Ejercicios</span>
                                 </div>
 
                                 <!-- Presets Rápidos -->
                                 <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; flex-shrink: 0;">
-                                    <span style="font-size: 10px; color: var(--color-text-muted);">Preset:</span>
-                                    <button type="button" class="preset-badge-btn" onclick="applyUnifiedPreset('Hypertrophy')">Hipertrofia (4x10-12)</button>
-                                    <button type="button" class="preset-badge-btn" onclick="applyUnifiedPreset('Strength')">Fuerza (5x5)</button>
-                                    <button type="button" class="preset-badge-btn" onclick="applyUnifiedPreset('Endurance')">Resistencia (3x15)</button>
+                                    <span style="font-size: 10px; color: var(--color-text-muted);">Preset rápido:</span>
+                                    <button type="button" class="btn-nav" style="padding: 4px 10px; font-size: 9.5px; border-radius: 12px; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);" onclick="applyUnifiedPreset('Hypertrophy')">Hipertrofia (4x10-12)</button>
+                                    <button type="button" class="btn-nav" style="padding: 4px 10px; font-size: 9.5px; border-radius: 12px; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);" onclick="applyUnifiedPreset('Strength')">Fuerza (5x5)</button>
+                                    <button type="button" class="btn-nav" style="padding: 4px 10px; font-size: 9.5px; border-radius: 12px; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);" onclick="applyUnifiedPreset('Endurance')">Resistencia (3x15)</button>
                                 </div>
 
-                                <div id="unifiedSelectedList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; margin-bottom: 5px;">
+                                <div id="unifiedSelectedList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; margin-bottom: 8px;">
                                     <!-- Llenado dinámico -->
                                 </div>
                             </div>
 
-                            <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; flex-shrink: 0;">
+                            <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; flex-shrink: 0;">
                                 <button type="button" class="btn-nav" onclick="closeBlockModal()" style="border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--color-text-secondary);">Cancelar</button>
-                                <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border: none; box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);" onclick="goToUnifiedStep2()">Siguiente: Ajustes y Orden <i class="fa-solid fa-arrow-right"></i></button>
+                                <button type="button" class="btn-primary btn-emerald" style="padding: 8px 20px; font-weight: 600; border-radius: 8px;" onclick="goToUnifiedStep2()"><i class="fa-solid fa-check"></i> Siguiente: Ajustes y Orden <i class="fa-solid fa-arrow-right"></i></button>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
 
             <!-- PASO 2: AJUSTE FINO Y ORDENACIÓN -->
             <div id="unifiedBlockStep2" style="display: none; flex-direction: column; flex: 1; overflow: hidden; min-height: 0;">
-                <div style="background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 15px; margin-bottom: 15px; flex-shrink: 0;">
+                <div style="background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(16,185,129,0.15); padding: 15px; margin-bottom: 15px; flex-shrink: 0;">
                     <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-sliders"></i> Ajustar Secuencia, Repeticiones y Descansos</h4>
                     <p style="margin: 0; font-size: 11px; color: var(--color-text-secondary);">Ordena tu rutina con las flechas de posición y define los parámetros con botones de un solo toque sin escribir.</p>
                 </div>
-
 
                 <div id="unifiedAjusteList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 8px; margin-bottom: 15px; min-height: 0;">
                     <!-- Llenado dinámico -->
@@ -1126,7 +1133,7 @@
 
                 <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 15px; flex-shrink: 0;">
                     <button type="button" class="btn-nav" onclick="goToUnifiedStep1()" style="border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--color-text-secondary);"><i class="fa-solid fa-arrow-left"></i> Atrás: Editar Selección</button>
-                    <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); padding: 10px 24px; font-weight: 600; border: none; box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);" onclick="saveUnifiedBlock()"><i class="fa-solid fa-check"></i> Finalizar y Guardar Bloque</button>
+                    <button type="button" class="btn-primary btn-emerald" style="padding: 10px 24px; font-weight: 600; border-radius: 8px;" onclick="saveUnifiedBlock()"><i class="fa-solid fa-check"></i> GUARDAR BLOQUE EN LA PIZARRA</button>
                 </div>
             </div>
 
