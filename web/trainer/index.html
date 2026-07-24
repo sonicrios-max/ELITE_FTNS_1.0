@@ -1062,10 +1062,13 @@
                             <div id="unifiedActiveMuscleLabel" style="font-size: 10.5px; text-align: center; color: #10b981; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); padding: 4px; border-radius: 6px; flex-shrink: 0; margin-top: 4px;">Músculo: Todos</div>
                         </div>
 
-                        <!-- Tarjeta 2: Gráfico de Torta (Pie Chart Prominente) -->
+                        <!-- Tarjeta 2: Gráfico de Torta (Pie Chart Prominente) + Medidor LCD de Dificultad -->
                         <div style="background: rgba(0,0,0,0.22); border: 1px solid rgba(16,185,129,0.2); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
                                 <h4 style="margin: 0; font-size: 11px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-chart-pie"></i> Distribución Muscular (% Estímulo)</h4>
+                                <div id="unifiedBlockDifficultyLcd" class="lcd-digital-display" style="font-size: 9px; padding: 2px 6px;">
+                                    <i class="fa-solid fa-gauge-high" style="color: #10b981;"></i> <span class="lcd-digital-value">NIVEL: --</span>
+                                </div>
                             </div>
                             <div id="unifiedMusclePieChartContainer" class="muscle-pie-container">
                                 <!-- Gráfico SVG Donut generado dinámicamente -->

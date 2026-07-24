@@ -1473,6 +1473,23 @@ function populateUnifiedMuscleFilter() {
     sel.innerHTML = '<option value="">Todos los músculos</option>' + allMuscles.map(m => `<option value="${m}">${m}</option>`).join('');
 }
 
+function getExerciseAnatomicalSummary(ex) {
+    const prim = ex.primary_muscle || 'General';
+    const secRaw = ex.secondary_muscles || '';
+    const secs = secRaw ? secRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const level = ex.difficulty_level || ex.level || 'Intermedio';
+    const equip = ex.equipment || 'Peso corporal';
+    
+    if (secs.length === 0) {
+        return `${prim} 100% · ${equip} · ${level}`;
+    }
+    
+    const secPct = Math.round(30 / secs.length);
+    const primPct = 100 - (secPct * secs.length);
+    const secText = secs.slice(0, 2).map(s => `${s} ${secPct}%`).join(' | ');
+    return `${prim} ${primPct}% | ${secText} · ${equip} · ${level}`;
+}
+
 function renderUnifiedCatalog() {
     const list = document.getElementById('unifiedCatalogList');
     if (!list) return;
@@ -1516,7 +1533,7 @@ function renderUnifiedCatalog() {
             <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0;">
                 <div style="min-width: 0; flex: 1;">
                     <strong style="font-size: 11px; color: white; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ex.name}</strong>
-                    <span style="font-size: 9px; color: var(--color-text-secondary); display: block;">${ex.primary_muscle} | ${ex.equipment || 'Peso corporal'}</span>
+                    <span style="font-size: 9px; color: var(--color-text-secondary); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${getExerciseAnatomicalSummary(ex)}</span>
                 </div>
                 <button type="button" class="btn-nav" style="padding: 4px 8px; font-size: 10px; flex-shrink: 0; min-width: 32px; ${isAdded ? 'background: rgba(16,185,129,0.15); color: #10b981; border-color: #10b981;' : 'color: var(--accent-cyan); border-color: var(--glass-border);'}" onclick="toggleUnifiedExercise(${ex.id})">
                     ${isAdded ? '<i class="fa-solid fa-check"></i>' : '<i class="fa-solid fa-plus"></i>'}
@@ -1537,6 +1554,8 @@ function toggleUnifiedExercise(id) {
                 id: ex.id,
                 name: ex.name,
                 primary_muscle: ex.primary_muscle,
+                secondary_muscles: ex.secondary_muscles || '',
+                difficulty_level: ex.difficulty_level || ex.level || 'Intermedio',
                 equipment: ex.equipment,
                 sets: 4,
                 reps: '10-12',
@@ -1547,6 +1566,41 @@ function toggleUnifiedExercise(id) {
     }
     renderUnifiedCatalog();
     renderUnifiedSelected();
+}
+
+function renderBlockDifficultyGauge() {
+    const lcd = document.getElementById('unifiedBlockDifficultyLcd');
+    if (!lcd) return;
+    
+    if (!unifiedBlockExercises || unifiedBlockExercises.length === 0) {
+        lcd.innerHTML = `<i class="fa-solid fa-gauge-high" style="color: #10b981;"></i> <span class="lcd-digital-value">NIVEL: --</span>`;
+        return;
+    }
+    
+    let totalScore = 0;
+    unifiedBlockExercises.forEach(item => {
+        const lvl = (item.difficulty_level || '').toLowerCase();
+        if (lvl.includes('avanzad') || lvl.includes('expert')) {
+            totalScore += 95;
+        } else if (lvl.includes('princip') || lvl.includes('beginn')) {
+            totalScore += 40;
+        } else {
+            totalScore += 70;
+        }
+    });
+    
+    const avgPct = Math.round(totalScore / unifiedBlockExercises.length);
+    let label = "INTERMEDIO";
+    let color = "#10b981";
+    if (avgPct >= 85) {
+        label = "AVANZADO";
+        color = "#f43f5e";
+    } else if (avgPct < 55) {
+        label = "PRINCIPIANTE";
+        color = "#38bdf8";
+    }
+    
+    lcd.innerHTML = `<i class="fa-solid fa-gauge-high" style="color: ${color};"></i> <span class="lcd-digital-value" style="color: ${color};">${avgPct}% | ${label}</span>`;
 }
 
 function renderUnifiedMusclePieChart() {
@@ -1564,16 +1618,22 @@ function renderUnifiedMusclePieChart() {
     unifiedBlockExercises.forEach(item => {
         const prim = item.primary_muscle || 'General';
         const sets = item.sets || 4;
-        muscleWeights[prim] = (muscleWeights[prim] || 0) + (sets * 2.0);
-        totalWeight += (sets * 2.0);
-
-        if (item.secondary_muscles) {
-            const secs = item.secondary_muscles.split(',').map(s => s.trim());
+        const secRaw = item.secondary_muscles || '';
+        const secs = secRaw ? secRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+        
+        if (secs.length === 0) {
+            muscleWeights[prim] = (muscleWeights[prim] || 0) + (sets * 1.0);
+            totalWeight += (sets * 1.0);
+        } else {
+            const secWeightPerMuscle = (sets * 0.30) / secs.length;
+            const primWeight = (sets * 0.70);
+            
+            muscleWeights[prim] = (muscleWeights[prim] || 0) + primWeight;
+            totalWeight += primWeight;
+            
             secs.forEach(sec => {
-                if (sec) {
-                    muscleWeights[sec] = (muscleWeights[sec] || 0) + (sets * 1.0);
-                    totalWeight += (sets * 1.0);
-                }
+                muscleWeights[sec] = (muscleWeights[sec] || 0) + secWeightPerMuscle;
+                totalWeight += secWeightPerMuscle;
             });
         }
     });
@@ -1641,8 +1701,9 @@ function renderUnifiedSelected() {
     
     badge.innerText = `${unifiedBlockExercises.length} Ejercicios`;
     
-    // Recalcular gráfico de torta de estímulo muscular
+    // Recalcular gráfico de torta de estímulo muscular y medidor LCD de dificultad
     renderUnifiedMusclePieChart();
+    renderBlockDifficultyGauge();
 
     if (unifiedBlockExercises.length === 0) {
         list.innerHTML = `<div style="text-align: center; padding: 40px 10px; color: var(--color-text-secondary); font-size: 11px;">← Selecciona ejercicios del catálogo de la izquierda para colocarlos en esta pizarra.</div>`;
