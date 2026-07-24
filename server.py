@@ -127,7 +127,89 @@ def initialize_tenant_db(trainer_nickname):
         cursor.execute("SELECT id FROM exercises")
         if not cursor.fetchone():
             copied = False
-            if trainer_nickname != 'admin':
+            # Try to load from json first to have a clean, full library
+            json_path = os.path.join(BASE_DIR, "database", "ejercicios_procesados.json")
+            if os.path.exists(json_path):
+                try:
+                    import json
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        exercises_data = json.load(f)
+                    
+                    # 9 Base exercises
+                    base_exs = [
+                        (1, "Flexiones de Pecho (Push-Ups)", "Apoya las manos a la altura de los hombros, baja con el cuerpo alineado apretando el abdomen y empuja hacia arriba.", "Fullbody", "Pecho", "Tríceps, Hombros", "Peso corporal", "https://assets.mixkit.co/videos/preview/mixkit-man-doing-pushups-in-a-park-23233-large.mp4", ""),
+                        (2, "Sentadillas Libres (Squats)", "Coloca los pies al ancho de los hombros, baja la cadera manteniendo la espalda recta e intentando romper el paralelo.", "Fullbody", "Cuádriceps", "Glúteos, Isquiotibiales", "Peso corporal", "https://assets.mixkit.co/videos/preview/mixkit-young-woman-doing-squats-in-front-of-a-mirror-42792-large.mp4", ""),
+                        (3, "Fondos en Paralelas (Dips)", "Sujétate de las barras paralelas, baja de forma controlada flexionando los codos hasta 90 grados y vuelve a subir.", "Fullbody", "Tríceps", "Pecho, Hombros", "Barras paralelas", "https://assets.mixkit.co/videos/preview/mixkit-man-doing-tricep-dips-on-gym-bars-33423-large.mp4", ""),
+                        (4, "Dominadas Pronas (Pull-Ups)", "Cuélgate de la barra fija con agarre prono (palmas al frente) y sube hasta que tu barbilla pase la barra.", "Fullbody", "Dorsales", "Bíceps, Trapecios", "Barra fija", "https://assets.mixkit.co/videos/preview/mixkit-athletic-man-doing-pull-ups-at-the-gym-40292-large.mp4", ""),
+                        (5, "Plancha Abdominal Isometrica (Plank)", "Apoya los antebrazos y puntas de pie, mantén la cadera neutra alineando hombros, espalda y piernas sin arquear la zona lumbar.", "Fullbody", "Abdominales", "Zona Core", "Peso corporal", "https://assets.mixkit.co/videos/preview/mixkit-woman-doing-plank-exercise-on-mat-34241-large.mp4", ""),
+                        (6, "Elevación de Piernas Colgado (Leg Raises)", "Cuélgate de la barra y eleva las piernas rectas hasta formar un ángulo de 90 grados con el torso.", "Fullbody", "Abdominales", "Flexores de Cadera", "Barra fija", "https://assets.mixkit.co/videos/preview/mixkit-man-doing-leg-raises-on-pull-up-bar-40293-large.mp4", ""),
+                        (7, "Peso Muerto (Deadlift)", "Levantamiento básico con barra manteniendo la espalda neutra y activando cadena posterior.", "Fullbody", "Isquiotibiales", "Glúteos, Espalda Baja", "Barra", "", ""),
+                        (8, "Press de Hombros (Shoulder Press)", "Empuje vertical de hombros por encima de la cabeza.", "Fullbody", "Hombros", "Tríceps", "Mancuernas", "", ""),
+                        (9, "Curl de Bíceps (Biceps Curl)", "Flexión de codos para aislar el bíceps.", "Fullbody", "Bíceps", "Antebrazos", "Mancuernas", "", "")
+                    ]
+                    
+                    for ex in base_exs:
+                        cursor.execute("""
+                            INSERT INTO exercises (id, name, description, routine_class, primary_muscle, secondary_muscles, equipment, video_url, image_url)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, ex)
+                        
+                    # Helper muscle normalization matching script
+                    def norm_m(m):
+                        if not m: return "General"
+                        m = m.strip().lower()
+                        if "bicep" in m or "bceps" in m: return "Bíceps"
+                        if "tricep" in m or "trceps" in m: return "Tríceps"
+                        if "glute" in m or "glteos" in m: return "Glúteos"
+                        if "quadricep" in m or "cudriceps" in m or "cuadriceps" in m: return "Cuádriceps"
+                        if "isquio" in m or "femorales" in m or "hamstring" in m: return "Isquiotibiales"
+                        if "gemelo" in m or "pantorrilla" in m or "calves" in m: return "Gemelos"
+                        if "antebrazo" in m or "forearm" in m: return "Antebrazos"
+                        if "pecho" in m or "chest" in m or "pectoral" in m: return "Pecho"
+                        if "abdomen" in m or "abdominal" in m: return "Abdominales"
+                        if "dorsal" in m or "lat" in m: return "Dorsales"
+                        if "trapecio" in m or "trap" in m: return "Trapecios"
+                        if "espalda baja" in m or "lower back" in m: return "Espalda Baja"
+                        if "espalda media" in m or "middle back" in m: return "Espalda Media"
+                        if "espalda alta" in m or "upper back" in m: return "Espalda Alta"
+                        if "core" in m: return "Zona Core"
+                        if "oblicuo" in m or "oblique" in m: return "Oblicuos"
+                        if "cuello" in m or "neck" in m: return "Cuello"
+                        if "hombro" in m or "shoulder" in m: return "Hombros"
+                        if "adductor" in m or "aductor" in m: return "Aductores"
+                        if "abductor" in m or "abductor" in m: return "Abductores"
+                        return m.capitalize()
+                        
+                    def norm_sec(m_str):
+                        if not m_str: return ""
+                        return ", ".join(norm_m(x) for x in m_str.split(",") if x.strip())
+                    
+                    next_id = 10
+                    insert_ex_data = []
+                    for item in exercises_data:
+                        name = item.get("nombre_es", "").strip()
+                        desc = f"Nombre en inglés: {item.get('nombre_en')}. Nivel: {item.get('nivel_dificultad', 'Intermedio')}."
+                        r_class = "Fullbody"
+                        primary = norm_m(item.get("musculo_principal"))
+                        secondaries = norm_sec(item.get("musculos_secundarios"))
+                        equip = item.get("equipo", "Peso corporal")
+                        
+                        insert_ex_data.append((
+                            next_id, name, desc, r_class, primary, secondaries, equip, "", ""
+                        ))
+                        next_id += 1
+                        
+                    cursor.executemany("""
+                        INSERT INTO exercises (id, name, description, routine_class, primary_muscle, secondary_muscles, equipment, video_url, image_url)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, insert_ex_data)
+                    conn.commit()
+                    copied = True
+                    print(f"Seeded {len(insert_ex_data) + 9} default exercises from JSON for tenant '{trainer_nickname}'.")
+                except Exception as ex_json:
+                    print(f"Error seeding exercises from JSON for '{trainer_nickname}': {ex_json}")
+            
+            if not copied and trainer_nickname != 'admin':
                 admin_db_path = os.path.join(TENANTS_DIR, "trainer_admin.db")
                 if os.path.exists(admin_db_path):
                     try:
@@ -152,8 +234,8 @@ def initialize_tenant_db(trainer_nickname):
                 cursor.execute("""
                     INSERT INTO exercises (id, name, description, routine_class, primary_muscle, equipment)
                     VALUES 
-                    (1, 'Flexiones de Pecho (Pushups)', 'Ejercicio de empuje básico para pectoral y tríceps.', 'Fullbody', 'Pectoral', 'Ninguno'),
-                    (2, 'Sentadillas Libres (Squats)', 'Ejercicio básico de empuje de pierna enfocado en cuádriceps.', 'Fullbody', 'Cuádriceps', 'Ninguno')
+                    (1, 'Flexiones de Pecho (Push-Ups)', 'Ejercicio de empuje básico para pectoral y tríceps.', 'Fullbody', 'Pecho', 'Peso corporal'),
+                    (2, 'Sentadillas Libres (Squats)', 'Ejercicio básico de empuje de pierna enfocado en cuádriceps.', 'Fullbody', 'Cuádriceps', 'Peso corporal')
                 """)
                 conn.commit()
 
