@@ -2389,4 +2389,23 @@ header {
     color: white;
 }
 
+/* Preset Badge buttons (Option 2 style) */
+.preset-badge-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-border);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: var(--font-sans);
+}
+.preset-badge-btn:hover {
+    background: #10b981;
+    border-color: #10b981;
+    color: black;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+}
+
 

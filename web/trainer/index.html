@@ -906,12 +906,12 @@
 
     <!-- Add Block Modal (Wizard Premium Unificado) -->
     <div id="addBlockModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(10px);">
-        <div class="glass-card" style="width: min(1200px, 96vw); height: 90vh; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--accent-cyan); padding: 25px; box-shadow: 0 0 45px rgba(6, 182, 212, 0.2);">
+        <div class="glass-card" style="width: min(1200px, 96vw); height: 90vh; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #10b981; padding: 25px; box-shadow: 0 0 45px rgba(16, 185, 129, 0.2);">
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; flex-shrink: 0;">
-                <h3 style="color: var(--accent-cyan); margin: 0; font-size: 18px;"><i class="fa-solid fa-layer-group"></i> Creador de Bloques Musculares</h3>
+                <h3 style="color: #10b981; margin: 0; font-size: 18px;"><i class="fa-solid fa-layer-group"></i> Creador de Bloques Musculares</h3>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <div id="unifiedBlockWizardProgress" style="font-size: 12px; font-weight: 600; color: var(--color-text-secondary); background: rgba(255,255,255,0.04); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div id="unifiedBlockWizardProgress" style="font-size: 12px; font-weight: 600; color: #10b981; background: rgba(16, 185, 129, 0.05); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.15);">
                         Paso 1 de 2: Selección y Pizarra
                     </div>
                     <button type="button" class="btn-nav" onclick="closeBlockModal()" style="padding: 4px 8px;"><i class="fa-solid fa-xmark"></i></button>
@@ -926,20 +926,27 @@
                     <input type="hidden" id="newBlockDesc" value="">
                 </div>
 
-                <div style="display: grid; grid-template-columns: 280px 1.25fr 1fr; gap: 20px; flex: 1; overflow: hidden; min-height: 0; margin-bottom: 5px;">
-                    <!-- Columna Izquierda: Mapa Muscular Interactivo (Paso 1 del Wizard) -->
-                    <div style="background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; overflow: hidden; min-height: 0;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 6px; flex-shrink: 0;">
-                            <h4 style="margin: 0; font-size: 11px; color: var(--accent-cyan); font-weight: 600;"><i class="fa-solid fa-person"></i> Mapa Muscular</h4>
-                            <button type="button" class="muscle-clear-btn" style="padding: 2px 6px; font-size: 8px;" onclick="clearUnifiedMuscleSelection()">Limpiar</button>
+                <div style="display: grid; grid-template-columns: 320px 1fr; gap: 20px; flex: 1; overflow: hidden; min-height: 0; margin-bottom: 5px;">
+                    <!-- Columna Izquierda: Gráfico y Mapa Muscular -->
+                    <div style="background: rgba(0,0,0,0.18); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; height: 100%; overflow-y: auto; min-height: 0; scrollbar-width: thin;">
+                        <h4 style="margin: 0; font-size: 11px; color: #10b981; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 6px; flex-shrink: 0;"><i class="fa-solid fa-chart-pie"></i> Distribución y Mapa</h4>
+                        
+                        <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                            <button type="button" id="btnToggleUnifiedView" class="btn-nav" style="flex: 1; padding: 5px 8px; font-size: 10px; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; gap: 4px; color: white !important;" onclick="toggleUnifiedMuscleView()"><i class="fa-solid fa-arrows-rotate"></i> Frente / Espalda</button>
+                            <button type="button" class="muscle-clear-btn" style="flex: 1; padding: 5px 8px; font-size: 10px; border: 1px solid rgba(16, 185, 129, 0.25); background: rgba(16, 185, 129, 0.08); color: #10b981;" onclick="clearUnifiedMuscleSelection()">Limpiar</button>
                         </div>
-                        <div style="display: flex; justify-content: center; margin-top: 6px; margin-bottom: 6px; flex-shrink: 0;">
-                            <button type="button" id="btnToggleUnifiedView" class="btn-nav" style="padding: 4px 10px; font-size: 10px; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); display: flex; align-items: center; gap: 4px; color: white !important;" onclick="toggleUnifiedMuscleView()"><i class="fa-solid fa-arrows-rotate"></i> Frente / Espalda</button>
+
+                        <!-- Panel del Gráfico tipo Tarta (Canvas) -->
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 10px; min-height: 185px; border: 1px solid rgba(255,255,255,0.03); flex-shrink: 0;">
+                            <canvas id="unifiedMusclePieChart" width="180" height="180" style="max-width: 100%; max-height: 120px;"></canvas>
+                            <div id="unifiedMusclePieChartLegend" style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 100%; margin-top: 8px; font-size: 9px; color: var(--color-text-secondary); max-height: 48px; overflow-y: auto;"></div>
                         </div>
-                        <div style="position: relative; flex: 1; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px; overflow: hidden; min-height: 0;">
+
+                        <!-- Panel de Silueta Humana -->
+                        <div style="position: relative; flex: 1; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px; overflow: hidden; min-height: 220px;">
                             <!-- Frente -->
                             <div id="unifiedFrontView" style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
-                                <svg viewBox="0 0 200 350" class="muscle-body-svg" style="height: 100%; max-height: 260px; width: auto;" id="unified-front-svg">
+                                <svg viewBox="0 0 200 350" class="muscle-body-svg" style="height: 100%; max-height: 280px; width: auto;" id="unified-front-svg">
                                     <!-- Body Outline Background -->
                                     <path class="body-outline" d="M100,20 C110,20 116,26 116,36 C116,46 112,50 108,54 L110,66 C124,68 136,70 144,80 C146,84 148,90 148,96 C148,110 152,122 154,134 C156,140 158,160 158,180 C158,184 152,184 150,184 C148,180 146,150 144,142 L138,136 L134,172 C134,185 130,225 126,245 C124,250 125,255 125,260 C125,275 126,290 124,310 C123,315 123,322 120,328 C118,332 110,332 110,326 L112,310 C114,290 114,275 112,260 L100,250 L88,260 C86,275 86,290 88,310 L90,326 C90,332 82,332 80,328 C77,322 77,315 76,310 C74,290 75,275 75,260 C75,255 76,250 74,245 C70,225 66,185 66,172 L62,136 L58,142 C56,150 52,180 50,184 C48,184 44,184 44,180 C44,160 46,140 48,134 C50,122 54,110 54,96 C54,90 56,84 58,80 C66,70 78,68 92,66 L94,54 C90,50 86,46 86,36 C86,26 92,20 100,20 Z" />
                                     <!-- Cuello -->
@@ -1000,7 +1007,7 @@
                             </div>
                             <!-- Espalda -->
                             <div id="unifiedBackView" style="width: 100%; height: 100%; display: none; justify-content: center; align-items: center;">
-                                <svg viewBox="0 0 200 350" class="muscle-body-svg" style="height: 100%; max-height: 260px; width: auto;" id="unified-back-svg">
+                                <svg viewBox="0 0 200 350" class="muscle-body-svg" style="height: 100%; max-height: 280px; width: auto;" id="unified-back-svg">
                                     <!-- Body Outline Background -->
                                     <path class="body-outline" d="M100,20 C110,20 116,26 116,36 C116,46 112,50 108,54 L110,66 C124,68 136,70 144,80 C146,84 148,90 148,96 C148,110 152,122 154,134 C156,140 158,160 158,180 C158,184 152,184 150,184 C148,180 146,150 144,142 L138,136 L134,172 C134,185 130,225 126,245 C124,250 125,255 125,260 C125,275 126,290 124,310 C123,315 123,322 120,328 C118,332 110,332 110,326 L112,310 C114,290 114,275 112,260 L100,250 L88,260 C86,275 86,290 88,310 L90,326 C90,332 82,332 80,328 C77,322 77,315 76,310 C74,290 75,275 75,260 C75,255 76,250 74,245 C70,225 66,185 66,172 L62,136 L58,142 C56,150 52,180 50,184 C48,184 44,184 44,180 C44,160 46,140 48,134" />
                                     <!-- Trapecios -->
@@ -1049,54 +1056,57 @@
                                 </svg>
                             </div>
                         </div>
-                        <div id="unifiedActiveMuscleLabel" style="font-size: 11px; text-align: center; color: var(--accent-cyan); background: rgba(6,182,212,0.06); border: 1px solid rgba(6,182,212,0.15); padding: 5px; border-radius: 6px; flex-shrink: 0; margin-top: 5px;">Músculo: Todos</div>
+                        <div id="unifiedActiveMuscleLabel" style="font-size: 11px; text-align: center; color: #10b981; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); padding: 5px; border-radius: 6px; flex-shrink: 0; margin-top: 5px;">Músculo: Todos</div>
                     </div>
 
-                    <!-- Columna Central: Buscador & Catálogo -->
-                    <div style="background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: hidden; min-height: 0;">
-                        <h4 style="margin: 0; font-size: 13px; color: var(--accent-cyan); font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Catálogo de Ejercicios</h4>
-                        
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0;">
-                            <input type="text" id="unifiedCatalogSearch" oninput="renderUnifiedCatalog()" placeholder="Buscar por nombre..." style="flex: 1; min-width: 150px; padding: 6px 10px; font-size: 11px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); color: white;">
-                            <select id="unifiedCatalogMuscleFilter" onchange="syncUnifiedMuscleDropdownToMap(); renderUnifiedCatalog();" style="width: 130px; padding: 6px; font-size: 11px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); color: white;">
-                                <option value="">Todos</option>
-                            </select>
-                        </div>
-
-                        <div id="unifiedCatalogList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;">
-                            <!-- Llenado dinámico -->
-                        </div>
-                    </div>
-
-                    <!-- Columna Derecha: Pizarra (Lienzo) -->
-                    <div style="background: rgba(6,182,212,0.02); border: 1px dashed rgba(6,182,212,0.3); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; overflow: hidden; min-height: 0;">
-                        <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 5px; flex-shrink: 0;">
-                                <h4 style="margin: 0; font-size: 13px; color: var(--accent-cyan); font-weight: 600;"><i class="fa-solid fa-list-check"></i> Ejercicios Seleccionados</h4>
-                                <span id="unifiedSelectedCountBadge" class="compliance-badge" style="background: rgba(14,165,233,0.15); color: var(--accent-cyan); font-size: 10px;">0 Ejercicios</span>
+                    <!-- Columna Derecha: Catálogo y Pizarra Apilados Verticalmente -->
+                    <div style="display: flex; flex-direction: column; gap: 15px; height: 100%; overflow: hidden; min-height: 0;">
+                        <!-- Catálogo de Ejercicios (Caja Superior) -->
+                        <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; height: 48%; overflow: hidden; min-height: 0;">
+                            <h4 style="margin: 0; font-size: 13px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> Catálogo Rápido</h4>
+                            
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0;">
+                                <input type="text" id="unifiedCatalogSearch" oninput="renderUnifiedCatalog()" placeholder="Buscar por nombre..." style="flex: 1; min-width: 150px; padding: 6px 10px; font-size: 11px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); color: white;">
+                                <select id="unifiedCatalogMuscleFilter" onchange="syncUnifiedMuscleDropdownToMap(); renderUnifiedCatalog();" style="width: 130px; padding: 6px; font-size: 11px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid rgba(16, 185, 129, 0.15); color: white;">
+                                    <option value="">Todos</option>
+                                </select>
                             </div>
 
-                            <!-- Live Balance Muscular -->
-                            <div id="unifiedMuscleBalancePill" style="font-size: 10px; color: var(--color-text-secondary); background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04); margin-bottom: 8px; min-height: 26px; line-height: 14px; flex-shrink: 0;">
-                                Ningún ejercicio seleccionado aún.
-                            </div>
-
-                            <!-- Presets Rápidos -->
-                            <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; flex-shrink: 0;">
-                                <span style="font-size: 10px; color: var(--color-text-muted);">Preset:</span>
-                                <button type="button" class="btn-nav" style="padding: 4px 8px; font-size: 9px;" onclick="applyUnifiedPreset('Hypertrophy')">Hipertrofia (4x10-12)</button>
-                                <button type="button" class="btn-nav" style="padding: 4px 8px; font-size: 9px;" onclick="applyUnifiedPreset('Strength')">Fuerza (5x5)</button>
-                                <button type="button" class="btn-nav" style="padding: 4px 8px; font-size: 9px;" onclick="applyUnifiedPreset('Endurance')">Resistencia (3x15)</button>
-                            </div>
-
-                            <div id="unifiedSelectedList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; margin-bottom: 10px;">
+                            <div id="unifiedCatalogList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;">
                                 <!-- Llenado dinámico -->
                             </div>
                         </div>
 
-                        <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; flex-shrink: 0;">
-                            <button type="button" class="btn-nav" onclick="closeBlockModal()" style="border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--color-text-secondary);">Cancelar</button>
-                            <button type="button" class="btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), #0284c7); border: none; box-shadow: 0 0 15px rgba(56,189,248,0.25);" onclick="goToUnifiedStep2()">Siguiente: Ajustes y Orden <i class="fa-solid fa-arrow-right"></i></button>
+                        <!-- Ejercicios Seleccionados / Pizarra (Caja Inferior) -->
+                        <div style="background: rgba(16, 185, 129, 0.015); border: 1px dashed rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; height: 52%; overflow: hidden; min-height: 0;">
+                            <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 5px; flex-shrink: 0;">
+                                    <h4 style="margin: 0; font-size: 13px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-list-check"></i> Ejercicios en la Pizarra</h4>
+                                    <span id="unifiedSelectedCountBadge" class="compliance-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 10px;">0 Ejercicios</span>
+                                </div>
+
+                                <!-- Live Balance Muscular -->
+                                <div id="unifiedMuscleBalancePill" style="font-size: 10px; color: var(--color-text-secondary); background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04); margin-bottom: 8px; min-height: 26px; line-height: 14px; flex-shrink: 0;">
+                                    Ningún ejercicio seleccionado aún.
+                                </div>
+
+                                <!-- Presets Rápidos -->
+                                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; flex-shrink: 0;">
+                                    <span style="font-size: 10px; color: var(--color-text-muted);">Preset:</span>
+                                    <button type="button" class="preset-badge-btn" onclick="applyUnifiedPreset('Hypertrophy')">Hipertrofia (4x10-12)</button>
+                                    <button type="button" class="preset-badge-btn" onclick="applyUnifiedPreset('Strength')">Fuerza (5x5)</button>
+                                    <button type="button" class="preset-badge-btn" onclick="applyUnifiedPreset('Endurance')">Resistencia (3x15)</button>
+                                </div>
+
+                                <div id="unifiedSelectedList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; margin-bottom: 5px;">
+                                    <!-- Llenado dinámico -->
+                                </div>
+                            </div>
+
+                            <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; flex-shrink: 0;">
+                                <button type="button" class="btn-nav" onclick="closeBlockModal()" style="border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--color-text-secondary);">Cancelar</button>
+                                <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border: none; box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);" onclick="goToUnifiedStep2()">Siguiente: Ajustes y Orden <i class="fa-solid fa-arrow-right"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1105,7 +1115,7 @@
             <!-- PASO 2: AJUSTE FINO Y ORDENACIÓN -->
             <div id="unifiedBlockStep2" style="display: none; flex-direction: column; flex: 1; overflow: hidden; min-height: 0;">
                 <div style="background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 15px; margin-bottom: 15px; flex-shrink: 0;">
-                    <h4 style="margin: 0 0 10px 0; font-size: 13px; color: var(--accent-cyan); font-weight: 600;"><i class="fa-solid fa-sliders"></i> Ajustar Secuencia, Repeticiones y Descansos</h4>
+                    <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-sliders"></i> Ajustar Secuencia, Repeticiones y Descansos</h4>
                     <p style="margin: 0; font-size: 11px; color: var(--color-text-secondary);">Ordena tu rutina con las flechas de posición y define los parámetros con botones de un solo toque sin escribir.</p>
                 </div>
 
@@ -1115,7 +1125,7 @@
 
                 <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 15px; flex-shrink: 0;">
                     <button type="button" class="btn-nav" onclick="goToUnifiedStep1()" style="border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--color-text-secondary);"><i class="fa-solid fa-arrow-left"></i> Atrás: Editar Selección</button>
-                    <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); padding: 10px 24px; font-weight: 600; border: none; box-shadow: 0 0 15px rgba(16,185,129,0.25);" onclick="saveUnifiedBlock()"><i class="fa-solid fa-check"></i> Finalizar y Guardar Bloque</button>
+                    <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); padding: 10px 24px; font-weight: 600; border: none; box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);" onclick="saveUnifiedBlock()"><i class="fa-solid fa-check"></i> Finalizar y Guardar Bloque</button>
                 </div>
             </div>
 

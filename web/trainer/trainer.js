@@ -1518,6 +1518,97 @@ function toggleUnifiedExercise(id) {
     renderUnifiedSelected();
 }
 
+function drawUnifiedMusclePieChart() {
+    const canvas = document.getElementById('unifiedMusclePieChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Limpiar canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Obtener los pesos por músculo basados en las series seleccionadas
+    const weights = {};
+    let totalSets = 0;
+    
+    unifiedBlockExercises.forEach(item => {
+        const m = item.primary_muscle || 'General';
+        const setsVal = parseInt(item.sets) || 4;
+        weights[m] = (weights[m] || 0) + setsVal;
+        totalSets += setsVal;
+    });
+    
+    const legendContainer = document.getElementById('unifiedMusclePieChartLegend');
+    if (legendContainer) legendContainer.innerHTML = '';
+    
+    const data = Object.keys(weights).map(m => ({ muscle: m, value: weights[m] }));
+    
+    if (data.length === 0) {
+        // Círculo vacío
+        ctx.beginPath();
+        ctx.arc(90, 70, 50, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.stroke();
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.font = '10px Poppins, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Sin Ejercicios', 90, 70);
+        return;
+    }
+    
+    // Ordenar de mayor a menor
+    data.sort((a, b) => b.value - a.value);
+    
+    // Paleta de colores para los músculos
+    const colorPalette = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6', '#ef4444', '#10b981'];
+    
+    let startAngle = -Math.PI / 2;
+    data.forEach((item, index) => {
+        const sliceAngle = (item.value / totalSets) * 2 * Math.PI;
+        const color = colorPalette[index % colorPalette.length];
+        
+        // Dibujar rebanada
+        ctx.beginPath();
+        ctx.moveTo(90, 70);
+        ctx.arc(90, 70, 55, startAngle, startAngle + sliceAngle);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        
+        // Separador delgado
+        ctx.strokeStyle = '#080916';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        startAngle += sliceAngle;
+        
+        // Agregar ítem de la leyenda
+        if (legendContainer) {
+            const pct = Math.round((item.value / totalSets) * 100);
+            const legendItem = document.createElement('div');
+            legendItem.style.display = 'flex';
+            legendItem.style.alignItems = 'center';
+            legendItem.style.gap = '4px';
+            legendItem.style.overflow = 'hidden';
+            legendItem.innerHTML = `
+                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${color}; flex-shrink:0;"></span>
+                <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${item.muscle}: <strong>${pct}%</strong></span>
+            `;
+            legendContainer.appendChild(legendItem);
+        }
+    });
+    
+    // Círculo interno para diseño tipo donut
+    ctx.beginPath();
+    ctx.arc(90, 70, 32, 0, 2 * Math.PI);
+    ctx.fillStyle = '#080916';
+    ctx.fill();
+}
+
 function renderUnifiedSelected() {
     const list = document.getElementById('unifiedSelectedList');
     const badge = document.getElementById('unifiedSelectedCountBadge');
@@ -1527,8 +1618,9 @@ function renderUnifiedSelected() {
     badge.innerText = `${unifiedBlockExercises.length} Ejercicios`;
     
     if (unifiedBlockExercises.length === 0) {
-        list.innerHTML = `<div style="text-align: center; padding: 40px 10px; color: var(--color-text-secondary); font-size: 11px;">Pizarra vacía. Agrega ejercicios del catálogo de la izquierda.</div>`;
+        list.innerHTML = `<div style="text-align: center; padding: 40px 10px; color: var(--color-text-secondary); font-size: 11px;">Pizarra vacía. Agrega ejercicios del catálogo superior.</div>`;
         balance.innerText = "Ningún ejercicio seleccionado aún.";
+        drawUnifiedMusclePieChart();
         return;
     }
     
@@ -1536,16 +1628,17 @@ function renderUnifiedSelected() {
     let totalSets = 0;
     unifiedBlockExercises.forEach(item => {
         const m = item.primary_muscle || 'General';
-        muscleCount[m] = (muscleCount[m] || 0) + item.sets;
-        totalSets += item.sets;
+        const setsVal = parseInt(item.sets) || 4;
+        muscleCount[m] = (muscleCount[m] || 0) + setsVal;
+        totalSets += setsVal;
     });
     
     const summary = Object.keys(muscleCount).map(m => {
         const pct = Math.round((muscleCount[m] / totalSets) * 100);
-        return `<span style="color: var(--accent-cyan); font-weight: 600;">${m}</span>: ${pct}%`;
+        return `<span style="color: #10b981; font-weight: 600;">${m}</span>: ${pct}%`;
     }).join(' | ');
     
-    balance.innerHTML = `<i class="fa-solid fa-chart-pie" style="color: var(--accent-cyan); margin-right: 5px;"></i> Distribución: ${summary}`;
+    balance.innerHTML = `<i class="fa-solid fa-chart-pie" style="color: #10b981; margin-right: 5px;"></i> Distribución: ${summary}`;
     
     list.innerHTML = unifiedBlockExercises.map((item, idx) => `
         <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0;">
@@ -1558,6 +1651,9 @@ function renderUnifiedSelected() {
             </button>
         </div>
     `).join('');
+    
+    // Renderizar gráfico tarta
+    drawUnifiedMusclePieChart();
 }
 
 function applyUnifiedPreset(type) {
