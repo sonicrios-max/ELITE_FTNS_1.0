@@ -1461,8 +1461,16 @@ function closeBlockModal() {
 function populateUnifiedMuscleFilter() {
     const sel = document.getElementById('unifiedCatalogMuscleFilter');
     if (!sel) return;
-    const muscles = [...new Set(globalExercisesCache.map(ex => ex.primary_muscle).filter(Boolean))].sort();
-    sel.innerHTML = '<option value="">Todos</option>' + muscles.map(m => `<option value="${m}">${m}</option>`).join('');
+    const dbMuscles = globalExercisesCache.map(ex => ex.primary_muscle).filter(Boolean);
+    const mapMuscles = [
+        'Abdominales', 'Oblicuos', 'Zona Core', 'Flexores de Cadera',
+        'Pecho', 'Hombros', 'Bíceps', 'Tríceps', 'Antebrazos',
+        'Cuádriceps', 'Isquiotibiales', 'Glúteos', 'Gemelos',
+        'Dorsales', 'Espalda Alta', 'Espalda Media', 'Espalda Baja',
+        'Trapecios', 'Aductores', 'Abductores', 'Cuello'
+    ];
+    const allMuscles = [...new Set([...dbMuscles, ...mapMuscles])].sort();
+    sel.innerHTML = '<option value="">Todos los músculos</option>' + allMuscles.map(m => `<option value="${m}">${m}</option>`).join('');
 }
 
 function renderUnifiedCatalog() {
@@ -1476,9 +1484,32 @@ function renderUnifiedCatalog() {
         filtered = filtered.filter(ex => ex.name.toLowerCase().includes(search) || (ex.name_en && ex.name_en.toLowerCase().includes(search)));
     }
     if (muscle) {
-        filtered = filtered.filter(ex => ex.primary_muscle === muscle);
+        filtered = filtered.filter(ex => {
+            const p = ex.primary_muscle || '';
+            const s = ex.secondary_muscles || '';
+            
+            if (muscle === 'Zona Core') {
+                return p === 'Zona Core' || p === 'Abdominales' || p === 'Oblicuos' || p === 'Espalda Baja' || p.includes('Abdomen');
+            }
+            if (muscle === 'Oblicuos') {
+                return p === 'Oblicuos' || p === 'Abdominales' || p.includes('Abdomen') || s.includes('Oblicuos');
+            }
+            if (muscle === 'Flexores de Cadera') {
+                return p === 'Flexores de Cadera' || p === 'Cuádriceps' || s.includes('Flexores de cadera');
+            }
+            if (muscle === 'Abdominales') {
+                return p === 'Abdominales' || p === 'Zona Core' || p === 'Oblicuos' || p.includes('Abdomen');
+            }
+            
+            return p === muscle || s.includes(muscle);
+        });
     }
     
+    if (filtered.length === 0) {
+        list.innerHTML = `<div style="font-size: 11px; color: var(--color-text-muted); text-align: center; padding: 20px 10px;">No se encontraron ejercicios para "${muscle || search}".</div>`;
+        return;
+    }
+
     list.innerHTML = filtered.slice(0, 45).map(ex => {
         const isAdded = unifiedBlockExercises.some(item => item.id === ex.id);
         return `
